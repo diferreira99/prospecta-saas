@@ -1550,6 +1550,7 @@ function aplicarDadosUsuario(nome, email) {
     setTimeout(async () => {
         await carregarConfigDaNuvem(); // traz servidor WhatsApp/chaves salvos na nuvem (ex.: pelo painel do admin) para campos ainda vazios
         carregarConfigs();
+        aplicarHorarioRecomendadoUmaVez();
         renderCampanhas();
         sincronizarConfigNaNuvem(true); // garante que a config (antes só local) suba pra nuvem, sem apagar o que já está lá
         pkSincronizarDaNuvem();     // puxa o Pipeline/CRM da nuvem (fonte de verdade entre navegadores)
@@ -2007,8 +2008,8 @@ const PK_COLS = [
     { id:'contatado',   label:'Contatado',     color:'#f59e0b', bg:'#fef3c7', dot:'#f59e0b' },
     { id:'respondeu',   label:'Respondeu',     color:'#3b82f6', bg:'#dbeafe', dot:'#3b82f6' },
     { id:'negociando',  label:'Negociando',    color:'#8b5cf6', bg:'#ede9fe', dot:'#8b5cf6' },
-    { id:'fechado',     label:'Fechado',       color:'#22c55e', bg:'#dcfce7', dot:'#22c55e' },
-    { id:'descartado',  label:'Descartado',    color:'#94a3b8', bg:'#f1f5f9', dot:'#94a3b8' },
+    { id:'fechado',     label:'Ganho ✅',       color:'#22c55e', bg:'#dcfce7', dot:'#22c55e' },
+    { id:'descartado',  label:'Perdido',       color:'#94a3b8', bg:'#f1f5f9', dot:'#94a3b8' },
 ];
 
 const AVATAR_COLORS = ['#6366f1','#f59e0b','#22c55e','#ef4444','#3b82f6','#8b5cf6','#ec4899'];
@@ -2431,7 +2432,9 @@ async function pkSincronizarParaNuvem() {
             id: String(l.id), user_id: currentUser.id, name: l.name || '', cat: l.cat || '',
             phone: l.phone || '', website: l.website || '', rating: l.rating || null, reviews: l.reviews || null,
             col: l.col || 'novo', nota: l.nota || '', moved_at: l.movedAt ? new Date(l.movedAt).toISOString() : new Date().toISOString(),
-            reuniao_marcada: !!l.reuniaoMarcada
+            reuniao_marcada: !!l.reuniaoMarcada,
+            valor: (l.valor === 0 || l.valor) ? Number(l.valor) : null,
+            fechado_em: l.fechadoEm ? new Date(l.fechadoEm).toISOString() : null
         }));
         const idsAtuais = rows.map(r => r.id);
 
@@ -2466,7 +2469,9 @@ async function pkSincronizarDaNuvem() {
                 id: r.id, name: r.name || '', cat: r.cat || '', phone: r.phone || '', website: r.website || '',
                 rating: r.rating || 0, reviews: r.reviews || 0, col: r.col || 'novo', nota: r.nota || '',
                 dias: 0, movedAt: r.moved_at ? new Date(r.moved_at).getTime() : Date.now(),
-                reuniaoMarcada: !!r.reuniao_marcada, ultimaClassificacao: r.ultima_classificacao || null
+                reuniaoMarcada: !!r.reuniao_marcada, ultimaClassificacao: r.ultima_classificacao || null,
+                valor: r.valor === null || r.valor === undefined ? null : Number(r.valor),
+                fechadoEm: r.fechado_em ? new Date(r.fechado_em).getTime() : null
             }));
             userSet('pk_leads', pkLeads); // mantém o cache local coerente com a nuvem
             if (document.getElementById('tab-pipeline')?.classList.contains('active') && typeof pkRender === 'function') pkRender();
@@ -2505,26 +2510,53 @@ async function carregarFilaSugestoes() {
             .eq('status', 'pendente')
             .order('criado_em', { ascending: false });
         if (error) throw error;
-        _filaSugestoesCache = data || [];
+        // Pessoas interessadas primeiro; robô de atendimento e "pare" por último.
+        const ordem = { quente: 0, duvida: 1, morno: 2, frio: 3, indefinido: 4, menu: 5, pare: 6 };
+        _filaSugestoesCache = (data || []).slice().sort((a, b) =>
+            ((ordem[a.classificacao] ?? 4) - (ordem[b.classificacao] ?? 4)) || String(b.criado_em).localeCompare(String(a.criado_em)));
     } catch (e) {
         console.warn('Erro ao carregar fila de sugestões:', e.message);
         _filaSugestoesCache = [];
     }
     renderizarFilaSugestoes();
     atualizarBadgeRespostas();
+    avisarInteressadosNovos();
+}
+
+// Lead que fez pergunta ou mostrou interesse não pode esperar: som, vibração, notificação e título piscando
+// na primeira vez que ele aparece na fila (os já avisados ficam guardados no aparelho).
+function _interessado(i) { return i.classificacao === 'quente' || i.classificacao === 'duvida'; }
+function avisarInteressadosNovos() {
+    let vistos = [];
+    try { vistos = JSON.parse(localStorage.getItem('filaAvisados') || '[]'); } catch {}
+    const primeiraVez = !localStorage.getItem('filaAvisados');
+    const novos = _filaSugestoesCache.filter(i => _interessado(i) && !vistos.includes(i.id));
+    if (!novos.length) return;
+    try { localStorage.setItem('filaAvisados', JSON.stringify(vistos.concat(novos.map(i => i.id)).slice(-300))); } catch {}
+    if (primeiraVez) return;   // não dispara alarme por tudo o que já estava lá antes desta versão
+    const nome = novos[0].lead_nome || formatPhoneBR(novos[0].phone) || 'Um lead';
+    const titulo = novos.length === 1 ? `🔥 ${nome} respondeu e está esperando você` : `🔥 ${novos.length} leads interessados esperando você`;
+    showToast(titulo, 'ok');
+    try { prepararAvisoBusca(); _tocarAviso(true); } catch {}
+    try { if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]); } catch {}
+    try { _piscarTitulo(titulo); _notificarSistema(titulo, 'Abra a aba Respostas para responder agora.'); } catch {}
 }
 
 function atualizarBadgeRespostas() {
     const n = _filaSugestoesCache.length + _filaFollowupsCache.length;
+    const quentes = _filaSugestoesCache.filter(_interessado).length;
     const badge = document.getElementById('nav-respostas-badge');
     if (badge) {
         badge.style.display = n > 0 ? 'inline-block' : 'none';
         badge.textContent = n > 99 ? '99+' : String(n);
+        badge.style.background = quentes ? '#dc2626' : '';   // vermelho: tem interessado esperando
+        badge.title = quentes ? `${quentes} interessado(s) esperando resposta` : '';
     }
     const badgeMobile = document.getElementById('bn-respostas-badge');
     if (badgeMobile) {
         badgeMobile.style.display = n > 0 ? 'block' : 'none';
         badgeMobile.textContent = n > 9 ? '9+' : String(n);
+        badgeMobile.style.background = quentes ? '#dc2626' : '';
     }
 }
 
@@ -2730,7 +2762,7 @@ function pkRender() {
         colEl.className = 'pk-col';
         colEl.innerHTML = `
             <div class="pk-col-header" style="border-bottom-color:${col.color}">
-                <span class="pk-col-title">${col.label}</span>
+                <span class="pk-col-title">${col.label}${col.id === 'fechado' && colLeads.some(l => l.valor > 0) ? ` <span style="font-weight:800;color:#16a34a;">· ${_brl(colLeads.reduce((a, l) => a + (Number(l.valor) || 0), 0))}</span>` : ''}</span>
                 <div style="display:flex;align-items:center;gap:6px;">
                     <span class="pk-col-count">${colLeads.length}</span>
                     ${colLeads.length ? `<button onclick="pkLimparColuna('${col.id}')" title="Remover todos os leads dessa coluna" style="background:transparent;border:none;color:#dc2626;font-size:0.7rem;cursor:pointer;padding:2px;opacity:0.6;">🗑️</button>` : ''}
@@ -2883,6 +2915,16 @@ function pkAbrirDetail(id) {
             </button>
         </div>
         <div>
+            <div class="pk-detail-section">Valor do negócio</div>
+            <div style="display:flex;gap:6px;align-items:center;">
+                <span style="font-weight:700;color:var(--muted);">R$</span>
+                <input id="pk-valor-${id}" type="text" inputmode="decimal" placeholder="0,00" value="${(lead.valor === 0 || lead.valor) ? String(lead.valor).replace('.', ',') : ''}"
+                    style="flex:1;padding:8px 10px;border-radius:8px;border:1.5px solid var(--border);font-family:'Inter',sans-serif;font-size:0.8rem;background:var(--surface);color:var(--text);">
+                <button onclick="pkSalvarValor(${id})" id="pk-valor-btn-${id}" style="padding:8px 12px;border-radius:8px;border:none;background:#16a34a;color:#fff;font-weight:700;font-size:0.72rem;cursor:pointer;">Salvar</button>
+            </div>
+            <div style="font-size:0.62rem;color:var(--muted);margin-top:4px;">${lead.col === 'fechado' ? (lead.fechadoEm ? '✅ Ganho em ' + new Date(lead.fechadoEm).toLocaleDateString('pt-BR') : '✅ Ganho') : 'Quanto vale (ou valeria) esse cliente. Entra no relatório de receita quando o card for para Ganho.'}</div>
+        </div>
+        <div>
             <div class="pk-detail-section">Notas</div>
             <textarea class="pk-nota-area" id="pk-nota-${id}">${lead.nota||''}</textarea>
             <button class="pk-nota-save" onclick="pkSalvarNota(${id})">Salvar nota</button>
@@ -2895,7 +2937,36 @@ function pkAbrirDetail(id) {
 }
 
 function pkFecharDetail() { pkSelectedId=null; document.getElementById('pk-detail').classList.remove('open'); }
-function pkMoverEtapa(id,col) { pkLoad(); const l=pkLeads.find(x=>String(x.id)===String(id)); if(l){l.col=col;l.dias=0;l.movedAt=Date.now();} pkSave(); pkRender(); }
+function pkMoverEtapa(id,col) {
+    pkLoad();
+    const l = pkLeads.find(x => String(x.id) === String(id));
+    if (l) {
+        l.col = col; l.dias = 0; l.movedAt = Date.now();
+        if (col === 'fechado' && !l.fechadoEm) l.fechadoEm = Date.now();
+        if (col !== 'fechado') l.fechadoEm = null;
+    }
+    pkSave(); pkRender();
+    if (l && col === 'fechado' && !(l.valor > 0)) {   // ganho sem valor: abre o card para preencher
+        setTimeout(() => { pkAbrirDetail(id); document.getElementById('pk-valor-' + id)?.focus(); showToast('🎉 Negócio ganho! Informe o valor para entrar no relatório de receita.', 'ok'); }, 150);
+    }
+}
+function _pkParseValor(t) {
+    const s = String(t || '').replace(/[^\d,.-]/g, '');
+    if (!s) return null;
+    const n = Number(s.includes(',') ? s.replace(/\./g, '').replace(',', '.') : s);
+    return isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : null;
+}
+function pkSalvarValor(id) {
+    pkLoad();
+    const l = pkLeads.find(x => String(x.id) === String(id));
+    const el = document.getElementById('pk-valor-' + id);
+    if (!l || !el) return;
+    l.valor = _pkParseValor(el.value);
+    pkSave(); pkRender();
+    const btn = document.getElementById('pk-valor-btn-' + id);
+    if (btn) { const o = btn.textContent; btn.textContent = '✓'; setTimeout(() => btn.textContent = o, 1200); }
+}
+function _brl(v) { return (Number(v) || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }); }
 // Score de prioridade (0-100): combina em qual etapa está, se já teve reunião marcada,
 // e a classificação mais recente que a IA deu pra resposta desse lead.
 function pkCalcularScore(lead) {
@@ -3743,6 +3814,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     Se você <strong>não marcar nenhum dos dois</strong>, o envio roda sem restrição de horário (24h, todos os dias). Deixe desmarcado se preferir assim.
                 </p>
 
+                <div style="background:#ecfdf5;border:1px solid #bbf7d0;border-radius:10px;padding:10px 12px;margin:0 0 12px;font-family:'Inter',sans-serif;font-size:0.66rem;color:#166534;line-height:1.5;">
+                    📊 <strong>Pelos seus envios:</strong> de manhã (7h–12h) mais pessoas respondem; à tarde cai pela metade e no sábado quase ninguém responde.
+                    <button type="button" onclick="usarHorarioRecomendado()" style="margin-left:6px;background:#16a34a;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:0.64rem;font-weight:700;cursor:pointer;">Usar horário recomendado</button>
+                </div>
                 <div class="integ-actions">
                     <button class="integ-btn primary" onclick="salvarHorarioEnvio()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar Horário</button>
                 </div>
@@ -5174,12 +5249,18 @@ function calcScore(l) {
     const timing = calcTiming(l);
     if (timing >= 70) s += 10;
     else if (timing >= 40) s += 5;
+    // Celular costuma ser o dono; fixo com WhatsApp Business quase sempre cai num robô de atendimento
+    if (ehCelularBR(l.phone)) s += 8;
     // Sinais da API oficial: empresa ativa (avaliação recente) e dor visível (avaliações negativas)
     if (_diasDesdeUltimaAvaliacao(l) <= 120) s += 5;
     if ((Number(l.avaliacoes_negativas) || 0) > 0) s += 5;
     // Penalizar ausência de telefone (sem canal de contato direto)
     if (!l.phone) s = Math.max(s - 10, 0);
     return Math.min(s, 100);
+}
+function ehCelularBR(phone) {
+    const d = formatPhoneBR(phone);
+    return d.length === 13 && d.startsWith('55') && d[4] === '9';
 }
 function _diasDesdeUltimaAvaliacao(l) {
     const datas = (Array.isArray(l.ultimas_avaliacoes) ? l.ultimas_avaliacoes : [])
@@ -5189,6 +5270,8 @@ function _diasDesdeUltimaAvaliacao(l) {
 // Por que este lead é bom (ou não): aparece no detalhe do lead, em linguagem simples.
 function sinaisLead(l) {
     const out = [];
+    if (ehCelularBR(l.phone)) out.push(['📱', 'Celular: costuma ser o próprio dono (fixo quase sempre cai num robô)']);
+    else if (l.phone) out.push(['☎️', 'Telefone fixo: é comum cair num menu automático']);
     if (l.is_whatsapp === true) out.push(['✅', 'WhatsApp confirmado: a mensagem chega']);
     else if (l.is_whatsapp === false) out.push(['⛔', 'Sem WhatsApp neste número: a campanha não chega']);
     else if (l.phone) out.push(['❔', 'WhatsApp ainda não conferido']);
@@ -5813,6 +5896,12 @@ function exportarCSV() {
 campanhas = userGet('campanhas', []);
 
 function salvarCampanhas() { userSet('campanhas', campanhas); }
+
+// Toda campanha nasce com 1 follow-up (dia 3). Antes nenhuma tinha sequência e quem não respondia ficava sem 2º contato.
+const SEQUENCIA_FOLLOWUP_PADRAO = [{
+    id: 1, dia: 3, tipo: 'followup', status: 'pendente', modoIA: true, mensagem: 'Oi! Passando para retomar minha mensagem de alguns dias atrás. Faz sentido conversarmos rapidinho?',
+    contextoIA: 'Retome o contato em 1 ou 2 frases curtas, lembrando de leve a mensagem anterior, sem repetir a apresentação inteira e sem pressionar. Termine com uma pergunta simples de sim ou não.'
+}];
 
 // ── LEADS/CAMPANHAS EM TABELAS REAIS (Supabase) ──────────────
 // Escreve a campanha e os leads dela nas tabelas `campanhas` e `leads`
@@ -7240,7 +7329,9 @@ async function iniciarEnvioNoServidor({ min, max, typing, batchSize, batchPause 
 
     if (semWA.length > 0) addLog(`⚠️ ${semWA.length} lead(s) sem WhatsApp removidos da fila`);
 
-    const leads = indices.map(i => todosLeads[i]).filter(Boolean);
+    // Celulares primeiro (respondem 1,6x mais que fixos); a ordem entre eles se mantém.
+    const leads = indices.map(i => todosLeads[i]).filter(Boolean)
+        .map((l, pos) => ({ l, pos })).sort((a, b) => (ehCelularBR(b.l.phone) - ehCelularBR(a.l.phone)) || (a.pos - b.pos)).map(x => x.l);
 
     if (leads.length === 0) {
         showToast('⚠️ Nenhum lead válido para enviar', 'err');
@@ -7261,6 +7352,7 @@ async function iniciarEnvioNoServidor({ min, max, typing, batchSize, batchPause 
         leads,
         numerosJaEnviados,
         userEmail: currentUser?.email || '',
+        userId: currentUser?.id || '',   // o n8n usa para escolher a mensagem que mais traz resposta (A/B que aprende)
         config: {
             uazapiUrl:   config.uazapi?.url   || '',
             uazapiToken: config.uazapi?.token || '',
@@ -7306,7 +7398,10 @@ async function iniciarEnvioNoServidor({ min, max, typing, batchSize, batchPause 
                     user_id: currentUser.id,
                     nome: [_nichoAtual, _localAtual].filter(Boolean).join(' · '),
                     nicho: _nichoAtual || null,
-                    local: _localAtual || null
+                    local: _localAtual || null,
+                    // Follow-up automático: 3 dias depois, quem não respondeu entra na fila de
+                    // follow-ups com uma retomada curta escrita pela IA. Só sai com a sua aprovação.
+                    sequencia: SEQUENCIA_FOLLOWUP_PADRAO
                 }).then(({ error }) => { if (error) console.warn('[SALVAR NOME CAMPANHA NUVEM]', error); });
             }
         } catch(e) {}
@@ -8586,6 +8681,29 @@ function atualizarHorarioUI() {
             statusEl.textContent = '✅ ' + partes.join(' + ');
         }
     }
+}
+
+// Seg–sex das 7h às 12h, sem fim de semana: janela com mais respostas de pessoas nos envios reais.
+const HORARIO_RECOMENDADO = { semana: { ativo: true, inicio: '07:00', fim: '12:00' }, fds: { ativo: false, inicio: '09:00', fim: '14:00' } };
+function usarHorarioRecomendado() {
+    document.getElementById('horario-semana-ativo').checked = true;
+    document.getElementById('horario-semana-inicio').value = HORARIO_RECOMENDADO.semana.inicio;
+    document.getElementById('horario-semana-fim').value = HORARIO_RECOMENDADO.semana.fim;
+    document.getElementById('horario-fds-ativo').checked = false;
+    salvarHorarioEnvio();
+}
+// Aplica o horário recomendado uma vez (avisando), guardando o anterior para quem quiser voltar.
+function aplicarHorarioRecomendadoUmaVez() {
+    if (userGet('horarioRecomendadoV1', false)) return;
+    userSet('horarioRecomendadoV1', true);
+    const h = config.horario || {};
+    const jaRestrito = h.semana?.ativo && !h.fds?.ativo && (h.semana.fim || '23:59') <= '12:00';
+    if (jaRestrito) return;
+    userSet('horarioAnterior', h);
+    config.horario = JSON.parse(JSON.stringify(HORARIO_RECOMENDADO));
+    salvarConfigs();
+    try { carregarConfigs(); } catch {}
+    setTimeout(() => showToast('⏰ Horário de envio ajustado para seg–sex, 7h–12h: é quando mais gente responde. Dá para mudar em Integrações → Horário de Envio.', 'ok'), 4000);
 }
 
 function salvarHorarioEnvio() {
@@ -12422,9 +12540,10 @@ async function gerarRelatorioPDF(btn, opcoes) {
         const funilNicho = {};
         (typeof pkLeads !== 'undefined' ? pkLeads : []).forEach(card => {
             const nicho = (card.cat || '').trim() || 'Sem categoria';
-            if (!funilNicho[nicho]) funilNicho[nicho] = { novo: 0, contatado: 0, respondeu: 0, negociando: 0, fechado: 0, total: 0 };
+            if (!funilNicho[nicho]) funilNicho[nicho] = { novo: 0, contatado: 0, respondeu: 0, negociando: 0, fechado: 0, total: 0, receita: 0 };
             const col = PK_COLS.some(c => c.id === card.col) ? card.col : 'novo';
             funilNicho[nicho][col]++;
+            if (col === 'fechado') funilNicho[nicho].receita += Number(card.valor) || 0;
             funilNicho[nicho].total++;
         });
         const nichosFunil = Object.keys(funilNicho).sort((a,b) => funilNicho[b].total - funilNicho[a].total);
@@ -12440,7 +12559,7 @@ async function gerarRelatorioPDF(btn, opcoes) {
                     <td style="text-align:center;color:#f59e0b;">${f.contatado}</td>
                     <td style="text-align:center;color:#3b82f6;">${f.respondeu}</td>
                     <td style="text-align:center;color:#8b5cf6;">${f.negociando}</td>
-                    <td style="text-align:center;color:#16a34a;font-weight:700;">${f.fechado}</td>
+                    <td style="text-align:center;color:#16a34a;font-weight:700;">${f.fechado}${f.receita ? `<div style="font-size:0.6rem;">${_brl(f.receita)}</div>` : ''}</td>
                     <td style="text-align:center;color:#0D1330;font-weight:800;">${taxaFechamento}%</td>
                 </tr>`;
             }).join('')
