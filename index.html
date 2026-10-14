@@ -4996,6 +4996,7 @@ async function buscar() {
 
 function renderPagina(pagina) {
     paginaAtual = pagina;
+    try { atualizarBotaoWhats(); } catch {}
     // Fecha expand aberto ao trocar de página
     if (_expandAberto !== null) {
         const pr = document.getElementById(`expand-row-${_expandAberto}`);
@@ -6802,6 +6803,23 @@ function atualizarEstimativaModal() {
 
 // Atualizar estimativa em tempo real
 // ── HISTÓRICO ──
+// Botão "Verificar WhatsApp" mostra quantos números ainda faltam; sem nada a conferir, fica desativado.
+function _waPendente(l) {
+    if (formatPhoneBR(l.phone).length < 12) return false;
+    return !(l._waConferido || (l.fonte === 'oficial' && typeof l.is_whatsapp === 'boolean'));
+}
+function atualizarBotaoWhats() {
+    const btn = document.getElementById('btn-verificar-whats');
+    if (!btn || btn.textContent.includes('⏳')) return;   // verificando agora
+    const base = _leadsBase.length ? _leadsBase : todosLeads;
+    const faltam = base.filter(_waPendente).length;
+    btn.disabled = faltam === 0;
+    btn.style.opacity = faltam === 0 ? '.55' : '';
+    btn.style.cursor = faltam === 0 ? 'default' : 'pointer';
+    btn.textContent = !base.length ? '✅ Verificar WhatsApp' : faltam === 0 ? '✅ WhatsApp já conferido' : `✅ Verificar WhatsApp (${faltam})`;
+    btn.title = faltam === 0 ? 'Todos os números desta lista já foram conferidos' : `${faltam} números ainda sem conferir`;
+}
+
 // ── VERIFICAÇÃO WHATSAPP (com cache — não recheca número já verificado antes) ──
 async function verificarWhatsAppLote() {
     if (!todosLeads.length) { showToast('Nenhum lead carregado', 'err'); return; }
@@ -6851,6 +6869,7 @@ async function verificarWhatsAppLote() {
     leads_com_phone.forEach(item => {
         if (cache.hasOwnProperty(item.phone)) {
             todosLeads[item.idx].is_whatsapp = cache[item.phone];
+            todosLeads[item.idx]._waConferido = true;
             item.jaSabia = true;
             doCache++;
         }
@@ -6881,6 +6900,7 @@ async function verificarWhatsAppLote() {
                 const result = await res.json();
                 if (todosLeads[item.idx]) {
                     todosLeads[item.idx].is_whatsapp = result.exists === true;
+                    todosLeads[item.idx]._waConferido = true;
                     novosParaCache.push({ phone: item.phone, is_whatsapp: result.exists === true });
                 }
             } else {
@@ -6916,7 +6936,8 @@ async function verificarWhatsAppLote() {
     aplicarFiltroOrdem();
 
     btn.disabled = false;
-    btn.textContent = '✅ Verificar WhatsApp';
+    btn.textContent = '';   // sai do "⏳ x/y" para o botão poder mostrar o que falta
+    atualizarBotaoWhats();
     showToast(`✅ ${com_whats} têm WhatsApp de ${totalConsiderado} verificados — mostrando só quem tem WA`, 'ok');
 
     // Atualizar badge
