@@ -4580,7 +4580,11 @@ async function buscarRedesEmFundo(buscaId, leads) {
             if (u) userSet('ultimosLeads', { ...u, leads: _leadsBase });
             if (_expandAberto === null) renderPagina(paginaAtual || 1);
         }
-        if (d.enriquecimento !== 'andamento') return;
+        if (d.enriquecimento !== 'andamento') {
+            const u = userGet('ultimosLeads', null);
+            if (d.enriquecimento === 'pronto' && u && _leadsBase.includes(leads[0])) userSet('ultimosLeads', { ...u, leads: _leadsBase, redesOk: true });
+            return;
+        }
         await _esperar(8000);
     }
 }
@@ -4591,7 +4595,7 @@ async function buscarRedesEmFundo(buscaId, leads) {
 async function completarRedesDosRestaurados(u) {
     try {
         const leads = _leadsBase.slice();
-        if (!leads.some(l => l.fonte === 'oficial') || leads.some(l => l.instagram || l.facebook || l.linkedin)) return;
+        if (u.redesOk || !leads.some(l => l.fonte === 'oficial')) return;   // redesOk: o servidor já terminou
         let id = u.buscaId;
         if (!id) {
             const norm = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
