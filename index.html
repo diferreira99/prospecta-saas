@@ -298,6 +298,10 @@
         }
         .tag-wa { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
         .tag-site { background: var(--accent-light); color: var(--accent); border: 1px solid #C2D8FF; }
+        .tag-rede { padding: 4px 8px; font-weight: 800; }
+        .tag-ig { background: #fdf2f8; color: #c13584; border: 1px solid #f9c6e0; }
+        .tag-fb { background: #eff4ff; color: #1877f2; border: 1px solid #c7d9fb; }
+        .tag-in { background: #eef6fb; color: #0a66c2; border: 1px solid #c3dcf0; }
         .tag-kanban { background: rgba(22,93,255,0.10); color: #165DFF; border: 1px solid rgba(22,93,255,0.2); }
 
         .pagination-wrap { display: flex; align-items: center; justify-content: center; padding: 14px; border-top: 1px solid #EBF0FF; gap: 5px; flex-wrap: wrap; }
@@ -4543,6 +4547,43 @@ async function _apiOficial(path, opts) {
     return data;
 }
 
+// Botõezinhos de Instagram, Facebook e LinkedIn (a API oficial acha no Google Maps e no site da empresa).
+const _REDES = [['instagram', 'IG', 'tag-ig', 'Instagram'], ['facebook', 'FB', 'tag-fb', 'Facebook'], ['linkedin', 'in', 'tag-in', 'LinkedIn']];
+function botoesRedes(l) {
+    return _REDES.map(([k, rotulo, cls, nome]) => {
+        const url = String(l[k] || '');
+        if (!/^https:\/\//i.test(url)) return '';
+        return `<a href="${escapeHtml(url).replace(/"/g, '&quot;')}" target="_blank" rel="noopener" class="tag tag-rede ${cls}" title="${nome}">${rotulo}</a>`;
+    }).join('');
+}
+
+// Depois que os leads chegam, o servidor visita os sites das empresas em segundo plano atrás de
+// Instagram, Facebook e LinkedIn (leva de 1 a 2 minutos; fica guardado). Os botões aparecem quando terminar.
+async function buscarRedesEmFundo(buscaId, leads) {
+    if (!buscaId || !leads || !leads.length) return;
+    const chave = (nome, end) => (nome || '') + '|' + (end || '');
+    const porChave = new Map(leads.map(l => [l.place_id || chave(l.title, l.address), l]));
+    const ate = Date.now() + 4 * 60 * 1000;
+    while (Date.now() < ate) {
+        let d;
+        try { d = await _apiOficial('/leads/buscas/' + encodeURIComponent(buscaId) + '?enriquecer=fundo'); }
+        catch (e) { console.warn('[redes]', e); return; }   // é só um extra: os leads já estão na tela
+        let novos = 0;
+        for (const x of d.leads || []) {
+            const l = porChave.get(x.place_id || chave(x.nome, x.endereco));
+            if (!l) continue;
+            for (const k of ['instagram', 'facebook', 'linkedin']) if (x[k] && !l[k]) { l[k] = x[k]; novos++; }
+        }
+        if (novos && _leadsBase.includes(leads[0])) {   // ainda são estes leads na tela
+            const u = userGet('ultimosLeads', null);
+            if (u) userSet('ultimosLeads', { ...u, leads: _leadsBase });
+            if (_expandAberto === null) renderPagina(paginaAtual || 1);
+        }
+        if (d.enriquecimento !== 'andamento') return;
+        await _esperar(8000);
+    }
+}
+
 // Info da última busca oficial (reaproveitada do cache? quanto tempo levou?) para o aviso no fim.
 let _ultimaBuscaInfo = null;
 let _forcarNovaBusca = false;
@@ -4822,6 +4863,7 @@ async function retomarBuscaOficial() {
         filtrarClassificacao('all');
         renderPagina(1);
         avisarBuscaPronta(todosLeads.length, p.nicho, p.local);
+        buscarRedesEmFundo(p.id, _leadsBase.slice());
     } catch (e) {
         const status = document.getElementById('status');
         if (status) { status.className = 'status err'; status.innerText = `// erro: ${e.message}`; }
@@ -4905,6 +4947,7 @@ async function buscar() {
         document.querySelectorAll('[id^="sort-"]').forEach(el => el.textContent = '');
         filtrarClassificacao('all');
         renderPagina(1);
+        if (info) buscarRedesEmFundo(info.id, _leadsBase.slice());
     } catch (e) {
         status.className = 'status err';
         status.innerText = `// erro: ${e.message}`;
@@ -4984,6 +5027,7 @@ function renderPagina(pagina) {
             <td><div class="actions">
                 ${cleanPhone?`<a href="https://wa.me/${cleanPhone}" target="_blank" class="tag tag-wa">WhatsApp</a>`:''}
                 ${l.website?`<a href="${l.website}" target="_blank" class="tag tag-site">Site</a>`:''}
+                ${botoesRedes(l)}
                 <button onclick="adicionarLeadKanbanDireto(${realIdx})" title="Adicionar ao Kanban" ${jaNoKanban ? 'disabled' : ''} style="font-family:'Inter',sans-serif;font-size:0.62rem;padding:4px 9px;border-radius:6px;border:1px solid ${jaNoKanban ? 'rgba(22,163,74,0.2)' : 'rgba(22,93,255,0.2)'};background:${jaNoKanban ? 'rgba(22,163,74,0.1)' : 'rgba(22,93,255,0.08)'};color:${jaNoKanban ? '#16a34a' : '#165DFF'};cursor:${jaNoKanban ? 'default' : 'pointer'};font-weight:600;transition:all .15s;white-space:nowrap;" ${jaNoKanban ? '' : 'onmouseover="this.style.background=\'rgba(22,93,255,0.16)\'" onmouseout="this.style.background=\'rgba(22,93,255,0.08)\'"'}>${jaNoKanban ? '✅ CRM' : '+ CRM'}</button>
             </div></td>
         `;
