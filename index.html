@@ -350,6 +350,10 @@
         .ph-sem strong { font-size: 1rem; }
         .ph-linha { font-size: 0.76rem; color: var(--muted, #64748b); line-height: 1.55; margin: 2px 0; }
         .pr-bloco { margin-bottom: 22px; }
+        #modal-opcoes-relatorio input[type="radio"], #modal-opcoes-relatorio input[type="checkbox"] { width: auto; min-width: 0; flex: 0 0 auto; margin: 0; padding: 0; accent-color: #165DFF; }
+        #modal-opcoes-relatorio label { text-align: left; justify-content: flex-start; }
+        #modal-opcoes-relatorio label:has(input[name="escopo-relatorio"]:checked) { border-color: #165DFF !important; background: #EFF6FF; }
+        @media (max-width: 600px) { #btn-relatorio-topo .rel-txt { display: none; } }
         .pr-funil { display: flex; flex-direction: column; gap: 8px; }
         .pr-etapa { display: grid; grid-template-columns: minmax(110px, 160px) 1fr auto; align-items: center; gap: 10px; font-size: 0.8rem; color: var(--text, #0f172a); }
         .pr-barra { background: var(--surface2, #f1f5f9); border-radius: 99px; height: 14px; overflow: hidden; }
@@ -1712,6 +1716,7 @@ function iniciarAppPosLogin() {
             </div>
         </div>
         <div class="topbar-actions">
+            <button class="topbar-btn" id="btn-relatorio-topo" onclick="abrirModalOpcoesRelatorio(event)" title="Gerar relatório em PDF" aria-label="Gerar relatório em PDF" style="display:none;align-items:center;gap:6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="rel-txt">Relatório PDF</span></button>
             <button class="topbar-btn hide-mobile" onclick="exportarCSV()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar CSV</button>
             <button class="topbar-btn hide-mobile" onclick="gerarCampanha()" id="btn-campanha" style="background:transparent;color:#0D1330;border-color:#0D1330;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg> Gerar Campanha</button>
             <button class="topbar-btn" onclick="exportarCSV()" style="display:none;" id="export-mobile"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar CSV</button>
@@ -4190,14 +4195,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 </section>
             </div>
 
-            <!-- BOTÃO GERAR RELATÓRIO PDF -->
-            <div style="margin-bottom:22px;">
-                <button onclick="abrirModalOpcoesRelatorio(event)" style="width:100%; background:#165DFF; color:#fff; font-family:'Inter',sans-serif; font-weight:800; font-size:0.92rem; border:none; border-radius:12px; padding:16px; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; justify-content:center; gap:10px; box-shadow:0 4px 16px rgba(22,93,255,0.25);">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-                    GERAR RELATÓRIO EM PDF
-                </button>
-            </div>
-
             <!-- Linha 2: Hoje -->
             <div style="display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:22px;">
                 <!-- Hoje -->
@@ -4539,6 +4536,8 @@ function trocarAba(aba, el) {
     const [titulo, sub] = titulos[aba];
     document.getElementById('page-title').textContent  = titulo;
     document.getElementById('page-subtitle').textContent = sub;
+    const btRel = document.getElementById('btn-relatorio-topo');
+    if (btRel) btRel.style.display = aba === 'metricas' ? 'inline-flex' : 'none';
 
     const content = document.getElementById('main-content');
     content.style.padding  = '';
