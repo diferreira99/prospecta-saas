@@ -2535,6 +2535,7 @@ const CLASSIFICACAO_INFO = {
     duvida:     { emoji: '❓', label: 'Dúvida',   cor: '#7c3aed', bg: '#ede9fe' },
     pare:       { emoji: '🚫', label: 'Pare de mandar', cor: '#991b1b', bg: '#fee2e2' },
     indefinido: { emoji: '💬', label: 'Sem classificação', cor: '#64748b', bg: '#f1f5f9' },
+    menu:       { emoji: '🤖', label: 'Robô de atendimento', cor: '#0f766e', bg: '#ccfbf1' },
 };
 
 function renderizarFilaSugestoes() {
@@ -2569,10 +2570,10 @@ function renderizarFilaSugestoes() {
                 ${item.variante_ab ? `<span style="font-size:0.6rem;font-weight:700;padding:2px 8px;border-radius:20px;background:#EBF0FF;color:#165DFF;">Variante ${item.variante_ab.toUpperCase()}</span>` : ''}
                 ${item.gatilho_cta ? `<span style="font-size:0.6rem;font-weight:700;padding:2px 8px;border-radius:20px;background:#FFF3E0;color:#FF6A00;">Gatilho: ${item.gatilho_cta}</span>` : ''}
             </div>` : ''}
-            <div style="background:#f8fafc;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:0.85rem;color:#334155;">
-                <strong style="font-size:0.7rem;color:#64748b;display:block;margin-bottom:3px;">MENSAGEM DO LEAD</strong>
-                ${escapeHtml(item.mensagem_recebida || '')}
+            <div style="background:#f8fafc;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:0.85rem;color:#334155;white-space:pre-line;max-height:220px;overflow:auto;">
+                <strong style="font-size:0.7rem;color:#64748b;display:block;margin-bottom:3px;">${item.classificacao === 'menu' ? 'ROBÔ DE ATENDIMENTO DA EMPRESA' : 'MENSAGEM DO LEAD'}</strong>${escapeHtml(item.mensagem_recebida || '')}
             </div>
+            ${item.classificacao === 'menu' ? `<div style="font-size:0.72rem;color:#0f766e;margin:-4px 0 8px;">🤖 A empresa respondeu com um robô. A sugestão escolhe o caminho até o comercial ou o responsável; confira e envie para chegar numa pessoa.</div>` : ''}
             <textarea id="fila-texto-${item.id}" style="width:100%;min-height:70px;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:0.85rem;font-family:'Inter',sans-serif;resize:vertical;background:var(--surface);color:var(--text);" placeholder="Sugestão da IA...">${escapeHtml(item.sugestao_ia || '')}</textarea>
             <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end;">
                 <button onclick="descartarSugestao(${item.id})" style="padding:8px 14px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:#64748b;font-size:0.78rem;font-weight:600;cursor:pointer;">Descartar</button>
