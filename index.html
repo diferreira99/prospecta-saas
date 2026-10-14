@@ -298,10 +298,12 @@
         }
         .tag-wa { background: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
         .tag-site { background: var(--accent-light); color: var(--accent); border: 1px solid #C2D8FF; }
-        .tag-rede { padding: 4px 8px; font-weight: 800; }
-        .tag-ig { background: #fdf2f8; color: #c13584; border: 1px solid #f9c6e0; }
-        .tag-fb { background: #eff4ff; color: #1877f2; border: 1px solid #c7d9fb; }
-        .tag-in { background: #eef6fb; color: #0a66c2; border: 1px solid #c3dcf0; }
+        .tag-rede { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; text-decoration: none; flex: 0 0 auto; transition: transform .15s, opacity .15s; }
+        .tag-rede:hover { opacity: .85; transform: translateY(-1px); }
+        .tag-ig { background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%); }
+        .tag-fb { background: #1877F2; }
+        .tag-in { background: #0A66C2; }
+        @media (max-width: 900px) { .tag-rede { width: 34px; height: 34px; } .tag-rede svg { width: 19px; height: 19px; } }
         .tag-kanban { background: rgba(22,93,255,0.10); color: #165DFF; border: 1px solid rgba(22,93,255,0.2); }
 
         .pagination-wrap { display: flex; align-items: center; justify-content: center; padding: 14px; border-top: 1px solid #EBF0FF; gap: 5px; flex-wrap: wrap; }
@@ -4548,13 +4550,18 @@ async function _apiOficial(path, opts) {
     return data;
 }
 
-// Botõezinhos de Instagram, Facebook e LinkedIn (a API oficial acha no Google Maps e no site da empresa).
-const _REDES = [['instagram', 'IG', 'tag-ig', 'Instagram'], ['facebook', 'FB', 'tag-fb', 'Facebook'], ['linkedin', 'in', 'tag-in', 'LinkedIn']];
+// Botõezinhos com o logo do Instagram, Facebook e LinkedIn (a API oficial acha no Google Maps e no site da empresa).
+const _LOGO_REDE = {
+    instagram: `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5.2" fill="none" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="12" r="4.1" fill="none" stroke="#fff" stroke-width="2.2"/><circle cx="17.3" cy="6.7" r="1.35" fill="#fff"/></svg>`,
+    facebook:  `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="#fff" d="M13.6 21.5v-7.6h2.6l.4-3h-3V9c0-.9.3-1.5 1.6-1.5h1.6V4.8c-.3 0-1.2-.1-2.3-.1-2.3 0-3.9 1.4-3.9 4v2.2H8.4v3h2.6v7.6z"/></svg>`,
+    linkedin:  `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="6.6" cy="6.4" r="1.9" fill="#fff"/><rect x="4.9" y="9.4" width="3.4" height="10.4" rx=".4" fill="#fff"/><path fill="#fff" d="M10.6 9.4h3.2v1.5c.5-.9 1.6-1.8 3.4-1.8 3.2 0 3.8 2.1 3.8 4.8v5.9h-3.3v-5.2c0-1.3-.1-2.8-1.8-2.8s-2 1.3-2 2.7v5.3h-3.3z"/></svg>`
+};
+const _REDES = [['instagram', 'tag-ig', 'Instagram'], ['facebook', 'tag-fb', 'Facebook'], ['linkedin', 'tag-in', 'LinkedIn']];
 function botoesRedes(l) {
-    return _REDES.map(([k, rotulo, cls, nome]) => {
+    return _REDES.map(([k, cls, nome]) => {
         const url = String(l[k] || '');
         if (!/^https:\/\//i.test(url)) return '';
-        return `<a href="${escapeHtml(url).replace(/"/g, '&quot;')}" target="_blank" rel="noopener" class="tag tag-rede ${cls}" title="${nome}">${rotulo}</a>`;
+        return `<a href="${escapeHtml(url).replace(/"/g, '&quot;')}" target="_blank" rel="noopener" class="tag-rede ${cls}" title="${nome}" aria-label="${nome}">${_LOGO_REDE[k]}</a>`;
     }).join('');
 }
 
