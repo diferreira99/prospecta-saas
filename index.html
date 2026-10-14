@@ -6855,13 +6855,17 @@ async function verificarWhatsAppLote() {
             doCache++;
         }
     });
+    // Leads que já chegaram conferidos (a API oficial confirma no mesmo servidor de WhatsApp) também não rechecam.
+    leads_com_phone.forEach(item => {
+        const l = todosLeads[item.idx];
+        if (!item.jaSabia && l.fonte === 'oficial' && typeof l.is_whatsapp === 'boolean') { item.jaSabia = true; doCache++; }
+    });
     const paraChecar = leads_com_phone.filter(l => !l.jaSabia);
 
     if (doCache > 0) showToast(`⚡ ${doCache} já tinham sido verificados antes — pulando direto pra ${paraChecar.length} novos`, 'ok');
     else showToast(`🔍 Verificando ${paraChecar.length} números...`, 'ok');
 
     let verificados = 0;
-    let com_whats   = todosLeads.filter(l => l.is_whatsapp === true).length;
     const novosParaCache = [];
 
     // O servidor Baileys checa um número por vez (sem endpoint de lote como o UAZAPI tinha)
@@ -6877,7 +6881,6 @@ async function verificarWhatsAppLote() {
                 const result = await res.json();
                 if (todosLeads[item.idx]) {
                     todosLeads[item.idx].is_whatsapp = result.exists === true;
-                    if (result.exists === true) com_whats++;
                     novosParaCache.push({ phone: item.phone, is_whatsapp: result.exists === true });
                 }
             } else {
@@ -6903,6 +6906,10 @@ async function verificarWhatsAppLote() {
         } catch (e) { console.warn('Não foi possível salvar no cache de WhatsApp:', e.message); }
     }
 
+    // Conta antes do filtro (que troca a lista), olhando cada lead uma vez (antes somava de novo quem já tinha ✅ e passava do total).
+    const conferidos = leads_com_phone.filter(i => typeof todosLeads[i.idx]?.is_whatsapp === 'boolean');
+    const com_whats = conferidos.filter(i => todosLeads[i.idx].is_whatsapp === true).length;
+    const totalConsiderado = conferidos.length;
     // Liga o filtro automático: a partir daqui a tabela mostra só quem tem WhatsApp
     _soComWhats = true;
     _leadsBase = _leadsBase.length ? _leadsBase : todosLeads.slice();
@@ -6910,7 +6917,6 @@ async function verificarWhatsAppLote() {
 
     btn.disabled = false;
     btn.textContent = '✅ Verificar WhatsApp';
-    const totalConsiderado = doCache + verificados;
     showToast(`✅ ${com_whats} têm WhatsApp de ${totalConsiderado} verificados — mostrando só quem tem WA`, 'ok');
 
     // Atualizar badge
