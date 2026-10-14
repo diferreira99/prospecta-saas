@@ -306,6 +306,9 @@
         .tag-zap { background: #25D366; }
         .tag-mapa { background: #fff; border: 1px solid #e5e7eb; }
         .tag-www { background: #165DFF; }
+        .tag-crm { background: #8b5cf6; border: none; cursor: pointer; padding: 0; }
+        .tag-crm.no-crm { background: #16a34a; cursor: default; }
+        .tag-crm:focus-visible, .tag-rede:focus-visible { outline: 3px solid #FF6A00; outline-offset: 2px; }
         @media (max-width: 900px) { .tag-rede { width: 34px; height: 34px; } .tag-rede svg { width: 19px; height: 19px; } }
         .tag-kanban { background: rgba(22,93,255,0.10); color: #165DFF; border: 1px solid rgba(22,93,255,0.2); }
 
@@ -1172,8 +1175,9 @@
 .lead-bloqueado td { opacity:.5; }
 .lead-bloqueado .lead-name { text-decoration:line-through; }
 .lead-bloqueado td:last-child { opacity:1; }
-.tag-bloq { background:#fff; color:#6b7280; border:1px solid #e5e7eb; cursor:pointer; padding:3px 7px; }
+.tag-bloq { background:#fff; border:1px solid #e5e7eb; cursor:pointer; padding:0; }
 .tag-bloq:hover { border-color:#dc2626; }
+.tag-bloq.ativo { background:#6b7280; border-color:#6b7280; }
 .ps-selo { font-family:'Inter',sans-serif; font-size:0.52rem; font-weight:700; padding:2px 5px; border-radius:4px; white-space:nowrap; }
 .ps-selo.bloq { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; }
 .ps-selo.aberta { background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; }
@@ -4729,6 +4733,10 @@ const _LOGO_REDE = {
     instagram: `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5.2" fill="none" stroke="#fff" stroke-width="2.2"/><circle cx="12" cy="12" r="4.1" fill="none" stroke="#fff" stroke-width="2.2"/><circle cx="17.3" cy="6.7" r="1.35" fill="#fff"/></svg>`,
     facebook:  `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="#fff" d="M13.6 21.5v-7.6h2.6l.4-3h-3V9c0-.9.3-1.5 1.6-1.5h1.6V4.8c-.3 0-1.2-.1-2.3-.1-2.3 0-3.9 1.4-3.9 4v2.2H8.4v3h2.6v7.6z"/></svg>`,
     whatsapp:  `<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="#fff" d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.18.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.7.62.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2-1.41.25-.7.25-1.29.18-1.41-.08-.13-.28-.2-.57-.35M12.05 21.78h-.01a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.88 9.89-9.88 2.64 0 5.12 1.03 6.99 2.9a9.82 9.82 0 0 1 2.89 6.99c0 5.45-4.44 9.88-9.88 9.88m8.41-18.3A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89a11.82 11.82 0 0 0-3.48-8.41"/></svg>`,
+    crm:       `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="12" rx="1.2"/><rect x="10" y="4" width="5" height="8" rx="1.2"/><path d="M19.5 14v6M16.5 17h6"/></svg>`,
+    crmOk:     `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="5" height="12" rx="1.2"/><rect x="10" y="4" width="5" height="8" rx="1.2"/><path d="M16 17.5l2 2 4-4.5"/></svg>`,
+    bloq:      `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M6 6l12 12"/></svg>`,
+    desbloq:   `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>`,
     maps:      `<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="#EA4335" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle cx="12" cy="9" r="2.6" fill="#fff"/></svg>`,
     site:      `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.6 3.9 5.6 3.9 9s-1.3 6.4-3.9 9c-2.6-2.6-3.9-5.6-3.9-9S9.4 5.6 12 3z"/></svg>`,
     linkedin:  `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="6.6" cy="6.4" r="1.9" fill="#fff"/><rect x="4.9" y="9.4" width="3.4" height="10.4" rx=".4" fill="#fff"/><path fill="#fff" d="M10.6 9.4h3.2v1.5c.5-.9 1.6-1.8 3.4-1.8 3.2 0 3.8 2.1 3.8 4.8v5.9h-3.3v-5.2c0-1.3-.1-2.8-1.8-2.8s-2 1.3-2 2.7v5.3h-3.3z"/></svg>`
@@ -5293,8 +5301,8 @@ function renderPagina(pagina) {
                 <a href="${escapeHtml(linkGoogleMaps(l))}" target="_blank" rel="noopener" class="tag-rede tag-mapa" title="Ver fotos, fachada e avaliações no Google Maps" aria-label="Ver no Google Maps">${_LOGO_REDE.maps}</a>
                 ${/^https?:\/\//i.test(l.website || '') ? `<a href="${escapeHtml(l.website)}" target="_blank" rel="noopener" class="tag-rede tag-www" title="Site da empresa" aria-label="Abrir site da empresa">${_LOGO_REDE.site}</a>` : ''}
                 ${botoesRedes(l)}
-                <button type="button" class="tag tag-bloq" onclick="alternarNaoContatarLead(${realIdx})" title="${bloqueadoLead(l) ? 'Tirar da lista Não contatar' : 'Nunca mandar campanha para este lead'}" aria-label="${bloqueadoLead(l) ? 'Tirar da lista Não contatar' : 'Adicionar à lista Não contatar'}">${bloqueadoLead(l) ? '↩️' : '🚫'}</button>
-                <button onclick="adicionarLeadKanbanDireto(${realIdx})" title="Adicionar ao Kanban" ${jaNoKanban ? 'disabled' : ''} style="font-family:'Inter',sans-serif;font-size:0.62rem;padding:4px 9px;border-radius:6px;border:1px solid ${jaNoKanban ? 'rgba(22,163,74,0.2)' : 'rgba(22,93,255,0.2)'};background:${jaNoKanban ? 'rgba(22,163,74,0.1)' : 'rgba(22,93,255,0.08)'};color:${jaNoKanban ? '#16a34a' : '#165DFF'};cursor:${jaNoKanban ? 'default' : 'pointer'};font-weight:600;transition:all .15s;white-space:nowrap;" ${jaNoKanban ? '' : 'onmouseover="this.style.background=\'rgba(22,93,255,0.16)\'" onmouseout="this.style.background=\'rgba(22,93,255,0.08)\'"'}>${jaNoKanban ? '✅ CRM' : '+ CRM'}</button>
+                <button type="button" class="tag-rede tag-bloq${bloqueadoLead(l) ? ' ativo' : ''}" onclick="alternarNaoContatarLead(${realIdx})" title="${bloqueadoLead(l) ? 'Tirar da lista Não contatar' : 'Nunca mandar campanha para este lead'}" aria-label="${bloqueadoLead(l) ? 'Tirar da lista Não contatar' : 'Adicionar à lista Não contatar'}">${bloqueadoLead(l) ? _LOGO_REDE.desbloq : _LOGO_REDE.bloq}</button>
+                <button type="button" onclick="adicionarLeadKanbanDireto(${realIdx})" class="tag-rede tag-crm${jaNoKanban ? ' no-crm' : ''}" title="${jaNoKanban ? 'Já está no CRM' : 'Adicionar ao CRM (Pipeline)'}" aria-label="${jaNoKanban ? 'Já está no CRM' : 'Adicionar ao CRM'}" ${jaNoKanban ? 'disabled' : ''}>${jaNoKanban ? _LOGO_REDE.crmOk : _LOGO_REDE.crm}</button>
             </div></td>
         `;
         tabela.appendChild(row);
@@ -5540,12 +5548,11 @@ function adicionarLeadKanbanDireto(realIdx) {
     // Atualiza visual do botão na linha
     const btn = document.querySelector(`#lead-row-${realIdx} button[onclick="adicionarLeadKanbanDireto(${realIdx})"]`);
     if (btn) {
-        btn.textContent = '✅ CRM';
-        btn.style.background = 'rgba(22,163,74,0.1)';
-        btn.style.color = '#16a34a';
-        btn.style.borderColor = 'rgba(22,163,74,0.2)';
+        btn.innerHTML = _LOGO_REDE.crmOk;
+        btn.classList.add('no-crm');
+        btn.title = 'Já está no CRM';
+        btn.setAttribute('aria-label', 'Já está no CRM');
         btn.disabled = true;
-        btn.style.cursor = 'default';
     }
 }
 
