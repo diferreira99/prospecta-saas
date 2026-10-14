@@ -3734,6 +3734,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
 
 
+                <div class="ia-filtros">
+                    <input id="ia-filtro-txt" type="search" placeholder="Buscar nome, telefone ou categoria" oninput="iaMudarFiltro()" autocomplete="off">
+                    <div class="ia-filtros-linha">
+                        <select id="ia-filtro-tipo" onchange="iaMudarFiltro()" aria-label="Filtrar">
+                            <option value="todos">Todos</option>
+                            <option value="novos">Ainda não contatados</option>
+                            <option value="celular">Só celular</option>
+                            <option value="comsite">Com site</option>
+                            <option value="semsite">Sem site</option>
+                            <option value="nota">Nota 4,5 ou mais</option>
+                            <option value="enviados">Já enviados</option>
+                        </select>
+                        <select id="ia-filtro-ordem" onchange="iaMudarFiltro()" aria-label="Ordenar">
+                            <option value="score">Melhor score</option>
+                            <option value="busca">Ordem da busca</option>
+                            <option value="avaliacoes">Mais avaliações</option>
+                            <option value="nome">Nome (A–Z)</option>
+                        </select>
+                    </div>
+                </div>
                 <div id="ia-leads-list-dashboard" style="flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;">
                     <div style="text-align:center;padding:40px 16px;color:var(--muted);font-family:'Inter',sans-serif;font-size:0.65rem;">
                         Nenhum lead carregado<br><br>Faça uma busca em Prospecção ↗
@@ -3811,11 +3831,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
 
                 <div style="padding:12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px;">
+                    <div id="ia-cota" class="ia-cota" hidden>
+                        <div class="ia-cota-txt"></div>
+                        <div class="ia-cota-barra"><span></span></div>
+                        <div class="ia-cota-sub"></div>
+                    </div>
                     <button class="ia-btn" style="width:100%;padding:10px;font-size:0.8rem;" onclick="gerarMensagensLote()" id="ia-lote-btn">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 16c0-5 4-11 8-13 4 2 8 8 8 13v3a1 1 0 0 1-1 1h-5l-2 3-2-3H5a1 1 0 0 1-1-1v-3z"/><circle cx="12" cy="9" r="1.5"/></svg><span class="ia-btn-label"> Enviar Selecionados</span>
                         <div class="ia-loader"></div>
                     </button>
-                    <button onclick="limparLeadsEnviados()" style="width:100%;padding:6px;font-family:'Inter',sans-serif;font-size:0.6rem;border-radius:7px;border:1px solid #fca5a5;background:transparent;color:#dc2626;cursor:pointer;font-weight:600;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg> Limpar registro de enviados (<span id="cont-enviados">0</span>)</button>
+                    <button id="ia-btn-falhas" class="ia-btn-falhas" onclick="iaReenviarFalhas()" hidden><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><polyline points="3 3 3 9 9 9"/></svg> <span>Reenviar os que não saíram</span></button>
+                    <button onclick="abrirLiberarReenvio()" class="ia-btn-sutil"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 7.5-2"/></svg> Permitir reenviar para um número</button>
                     <button onclick="mostrarPanoramaAB()" style="width:100%;padding:6px;font-family:'Inter',sans-serif;font-size:0.6rem;border-radius:7px;border:1px solid #FFD6B0;background:transparent;color:#FF6A00;cursor:pointer;font-weight:600;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></svg> Ver panorama Teste A/B</button>
                     <a href="#" onclick="trocarAba('integracoes', document.querySelector('.nav-item')); return false;" style="display:block;text-align:center;font-family:'Inter',sans-serif;font-size:0.65rem;color:#FF6A00;text-decoration:underline;padding:8px;">Configurar Integrações ↗</a>
                 </div>
@@ -3875,6 +3901,36 @@ document.addEventListener('DOMContentLoaded', () => {
             .ia-lead-info-dash { flex: 1; min-width: 0; }
             .ia-lead-name-dash { font-weight: 700; font-size: 0.75rem; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
             .ia-lead-phone-dash { font-family: 'Inter', sans-serif; font-size: 0.6rem; color: var(--muted); }
+            .ia-lead-badge-bloq { font-size:0.55rem; background:#fee2e2; color:#b91c1c; padding:2px 6px; border-radius:4px; font-weight:700; white-space:nowrap; flex-shrink:0; }
+            .ia-score { flex-shrink:0; min-width:26px; text-align:center; font-family:'Inter',sans-serif; font-size:0.6rem; font-weight:800; border-radius:6px; padding:3px 4px; }
+            .ia-score.alto { background:#dcfce7; color:#15803d; } .ia-score.medio { background:#fef3c7; color:#b45309; } .ia-score.baixo { background:#f1f5f9; color:#64748b; }
+            .ia-filtros { padding:10px 12px 0; display:flex; flex-direction:column; gap:6px; }
+            .ia-filtros input, .ia-filtros select { width:100%; padding:7px 9px; border:1.5px solid var(--border); border-radius:8px; font-size:0.72rem; font-family:'Inter',sans-serif; background:var(--surface); color:var(--text); min-width:0; }
+            .ia-filtros-linha { display:flex; gap:6px; }
+            .ia-cota { font-family:'Inter',sans-serif; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:9px 10px; }
+            .ia-cota[hidden] { display:none !important; }
+            .ia-cota-txt { font-size:0.72rem; font-weight:700; color:var(--text); }
+            .ia-cota-sub { font-size:0.58rem; color:var(--muted); margin-top:4px; }
+            .ia-cota-barra { height:6px; background:#e5e7eb; border-radius:99px; overflow:hidden; margin-top:6px; }
+            .ia-cota-barra span { display:block; height:100%; width:0; border-radius:99px; transition:width .3s; }
+            .ia-btn-falhas { width:100%; padding:7px; font-family:'Inter',sans-serif; font-size:0.65rem; border-radius:7px; border:1.5px solid #165DFF; background:#EEF4FF; color:#1040CC; cursor:pointer; font-weight:700; display:flex; align-items:center; justify-content:center; gap:6px; }
+            .ia-btn-falhas[hidden] { display:none !important; }
+            .ia-btn-sutil { width:100%; padding:6px; font-family:'Inter',sans-serif; font-size:0.6rem; border-radius:7px; border:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; font-weight:600; display:flex; align-items:center; justify-content:center; gap:6px; }
+            .ia-selo { font-family:'Inter',sans-serif; font-size:0.62rem; color:#14532d; background:#dcfce7; border:1px solid #bbf7d0; border-radius:10px; padding:7px 10px; line-height:1.45; }
+            .ia-selo small { display:block; color:#166534; opacity:.8; font-size:0.56rem; margin-top:2px; }
+            .ia-resumo { font-family:'Inter',sans-serif; background:#F8FAFF; border:1.5px solid #C2D8FF; border-radius:10px; padding:12px 14px; margin-bottom:14px; color:var(--text); }
+            .ia-resumo:empty { display:none; }
+            .ia-res-tit { font-size:0.82rem; font-weight:800; margin-bottom:6px; color:#1040CC; }
+            .ia-res-linha { font-size:0.66rem; line-height:1.5; margin-top:4px; }
+            .ia-res-dias { margin:4px 0 0 18px; padding:0; font-size:0.66rem; line-height:1.55; }
+            .ia-modal { max-width:520px; }
+            .ia-modal .ia-input { width:100%; padding:9px 11px; border:1.5px solid var(--border); border-radius:8px; font-size:0.85rem; margin:6px 0; }
+            .ia-aviso { font-family:'Inter',sans-serif; font-size:0.64rem; color:#b91c1c; min-height:14px; margin-top:4px; }
+            .ia-lib-lista { margin-top:8px; font-family:'Inter',sans-serif; font-size:0.68rem; }
+            .ia-lib-tit { font-weight:700; color:var(--muted); font-size:0.58rem; text-transform:uppercase; letter-spacing:.5px; margin-bottom:4px; }
+            .ia-lib-item { display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-top:1px solid var(--border); }
+            .ia-link { background:none; border:none; color:#FF6A00; cursor:pointer; font-size:0.62rem; font-weight:600; text-decoration:underline; width:auto; padding:0; }
+            .ia-ab-box { max-height:60vh; overflow:auto; margin-bottom:6px; }
 
                 .ia-header-card {
                     background: var(--surface);
@@ -4787,10 +4843,11 @@ document.addEventListener('DOMContentLoaded', () => {
 </div>
 
 <!-- MODAL CONFIGURAÇÃO DE ENVIO (Timing) -->
-<div class="modal-backdrop" id="modal-timing" onclick="if(event.target.id === 'modal-timing') fecharModalTiming()">
+<div class="modal-backdrop" id="modal-timing" onclick="if(event.target.id === 'modal-timing') cancelarModalTiming()">
     <div class="modal" style="max-width: 500px;">
         <div class="modal-title">⏱️ Configurar Envio Automático</div>
         <div class="modal-sub">// ajuste os tempos para parecer natural</div>
+        <div id="modal-resumo-envio" class="ia-resumo"></div>
 
         <div style="background:#FFF3E0;border:1px solid #FFD6B0;border-radius:10px;padding:14px;margin-bottom:14px;">
             <div style="font-family:'Inter',sans-serif;font-size:0.58rem;color:#FF6A00;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:12px;font-weight:700;">Delay Entre Mensagens</div>
@@ -4864,8 +4921,8 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
 
         <div class="modal-actions">
-            <button class="modal-btn" onclick="fecharModalTiming()">Cancelar</button>
-            <button class="modal-btn primary" onclick="confirmarEnvioComTiming()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Enviar Agora →</button>
+            <button class="modal-btn" onclick="cancelarModalTiming()">Cancelar</button>
+            <button class="modal-btn primary" id="modal-btn-enviar" onclick="confirmarEnvioComTiming()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Enviar Agora →</button>
         </div>
     </div>
 </div>
@@ -4973,6 +5030,7 @@ let iaMensagensGeradas  = {};
 // (estrutura de 3 parágrafos — saudação / entrega de valor / CTA — é fixa pras duas)
 // A cada mensagem gerada, uma variante é sorteada 50/50 e fica marcada
 // junto do lead pra depois cruzar com quem respondeu/converteu.
+var ultimaEscolhaAB = null;  // tom + gatilho + motivo da última geração
 let ultimaVariantAB = null; // guarda a variante da ÚLTIMA geração (lida logo em seguida pelo chamador)
 let iaCurrentLeadIdx    = null;
 let iaLeadAtual         = null;
@@ -7020,6 +7078,441 @@ function sincronizarDashboardIA() {
     if (objetivoDash) objetivoDash.value = document.getElementById('ia-objetivo')?.value || 'reuniao';
 }
 
+// ══════════════════════════════════════════════════════
+// ── PROSPECÇÃO IA: fila, cota do dia, prévia fiel ao servidor, falhas, A/B ──
+// ══════════════════════════════════════════════════════
+
+// Lista que aparece na coluna da esquerda (Prospectados ou a campanha escolhida).
+// Os índices de iaLeadsSelecionados apontam para esta lista.
+function _iaFonteLista() {
+    if (iaFilaApagada) return [];
+    return iaLeadsFonte.length > 0 ? iaLeadsFonte : (iaFonteAtual === 'leads' ? todosLeads : []);
+}
+
+// ── Filtros e ordenação da lista ──
+var _iaFiltro = null;
+function _iaFiltroAtual() {
+    if (!_iaFiltro) _iaFiltro = Object.assign({ txt: '', tipo: 'todos', ordem: 'score' }, userGet('iaFiltro', {}) || {}, { txt: '' });
+    return _iaFiltro;
+}
+function iaMudarFiltro() {
+    const f = _iaFiltroAtual();
+    f.txt = (document.getElementById('ia-filtro-txt')?.value || '').trim();
+    f.tipo = document.getElementById('ia-filtro-tipo')?.value || 'todos';
+    f.ordem = document.getElementById('ia-filtro-ordem')?.value || 'score';
+    userSet('iaFiltro', { tipo: f.tipo, ordem: f.ordem });
+    renderLeadsIADashboard();
+}
+function _iaScore(l) { try { return calcScore(l); } catch (e) { return 0; } }
+function _iaPassaFiltro(l) {
+    const f = _iaFiltroAtual();
+    if (f.txt) {
+        const t = f.txt.toLowerCase();
+        const dig = t.replace(/\D/g, '');
+        const bate = (l.title || '').toLowerCase().includes(t) || (l.category || '').toLowerCase().includes(t)
+            || (dig.length >= 3 && String(l.phone || '').replace(/\D/g, '').includes(dig));
+        if (!bate) return false;
+    }
+    switch (f.tipo) {
+        case 'novos':    return !leadJaFoiEnviado(l.phone) && !bloqueadoLead(l) && l.is_whatsapp !== false;
+        case 'celular':  return ehCelularBR(l.phone);
+        case 'comsite':  return !!l.website;
+        case 'semsite':  return !l.website;
+        case 'nota':     return (parseFloat(l.rating) || 0) >= 4.5;
+        case 'enviados': return leadJaFoiEnviado(l.phone);
+    }
+    return true;
+}
+function _iaOrdenar(lista) {
+    const o = _iaFiltroAtual().ordem;
+    if (o === 'busca') return lista;
+    const c = lista.map((l, pos) => ({ l, pos, s: o === 'score' ? _iaScore(l) : 0 }));
+    c.sort((a, b) => {
+        if (o === 'score') return (b.s - a.s) || (a.pos - b.pos);
+        if (o === 'nome') return String(a.l.title || '').localeCompare(String(b.l.title || ''), 'pt-BR');
+        if (o === 'avaliacoes') return ((parseInt(b.l.reviews) || 0) - (parseInt(a.l.reviews) || 0)) || (a.pos - b.pos);
+        return a.pos - b.pos;
+    });
+    return c.map(x => x.l);
+}
+
+// ── Reenvio liberado para números específicos (substitui o "limpar registro de enviados") ──
+// Não apaga nada da nuvem: o número só deixa de ser barrado nos próximos 3 dias, aqui e no servidor.
+var _iaLibCache = null;
+function _iaLiberados() {
+    if (_iaLibCache) return _iaLibCache;
+    const bruto = userGet('reenvioLiberado', {}) || {};
+    const limite = Date.now() - 3 * 86400000;
+    _iaLibCache = {};
+    Object.keys(bruto).forEach(t => { if (bruto[t] > limite) _iaLibCache[t] = bruto[t]; });
+    return _iaLibCache;
+}
+function _iaSalvarLiberados(obj) { userSet('reenvioLiberado', obj); _iaLibCache = null; }
+function abrirLiberarReenvio() {
+    const fundo = prEl('div', 'modal-backdrop active');
+    fundo.id = 'modal-liberar-reenvio';
+    const m = prEl('div', 'modal ia-modal');
+    m.appendChild(prEl('div', 'modal-title', 'Permitir reenviar para um número'));
+    m.appendChild(prEl('div', 'modal-sub', 'Use quando alguém pediu para receber de novo ou quando a primeira mensagem não chegou. O histórico de envios continua guardado. Vale por 3 dias.'));
+    const inp = prEl('input');
+    inp.type = 'tel'; inp.placeholder = 'Ex.: 11 98765-4321'; inp.className = 'ia-input';
+    m.appendChild(inp);
+    const aviso = prEl('div', 'ia-aviso');
+    m.appendChild(aviso);
+    const lista = prEl('div', 'ia-lib-lista');
+    const pintar = () => {
+        lista.innerHTML = '';
+        const lib = _iaLiberados();
+        const tels = Object.keys(lib);
+        if (!tels.length) return;
+        lista.appendChild(prEl('div', 'ia-lib-tit', 'Liberados agora'));
+        tels.forEach(t => {
+            const li = prEl('div', 'ia-lib-item', '+' + t);
+            const x = prEl('button', 'ia-link', 'desfazer');
+            x.onclick = () => { const o = Object.assign({}, _iaLiberados()); delete o[t]; _iaSalvarLiberados(o); pintar(); renderLeadsIADashboard(); };
+            li.appendChild(x);
+            lista.appendChild(li);
+        });
+    };
+    pintar();
+    m.appendChild(lista);
+    const acoes = prEl('div', 'modal-actions');
+    const cancelar = prEl('button', 'modal-btn', 'Fechar');
+    const ok = prEl('button', 'modal-btn primary', 'Liberar este número');
+    cancelar.onclick = () => fundo.remove();
+    ok.onclick = async () => {
+        const tel = formatPhoneBR(inp.value);
+        aviso.textContent = '';
+        if (!tel || tel.length < 12) { aviso.textContent = 'Digite o número com DDD.'; return; }
+        await carregarNaoContatar();
+        if (bloqueadoLead({ phone: tel })) { aviso.textContent = 'Esse número está na lista Não contatar. Tire de lá primeiro, se for o caso.'; return; }
+        await carregarLeadsEnviadosDaNuvem();
+        if (!_telefonesEnviadosCache.has(tel)) { aviso.textContent = 'Esse número não está como enviado, então já pode receber normalmente.'; return; }
+        const o = Object.assign({}, _iaLiberados()); o[tel] = Date.now();
+        _iaSalvarLiberados(o);
+        inp.value = '';
+        pintar();
+        renderLeadsIADashboard();
+        showToast('✅ Liberado: pode selecionar e enviar de novo para +' + tel, 'ok');
+    };
+    acoes.append(cancelar, ok);
+    m.appendChild(acoes);
+    fundo.appendChild(m);
+    fundo.onclick = e => { if (e.target === fundo) fundo.remove(); };
+    document.body.appendChild(fundo);
+    inp.focus();
+}
+
+// ── Cota do dia e envios que não saíram ──
+var _iaStatusCache = null;
+async function iaStatusGeral(forcar) {
+    if (!forcar && _iaStatusCache && Date.now() - _iaStatusCache.t < 60000) return _iaStatusCache.d;
+    const r = await fetch('https://primary-production-c1c7c.up.railway.app/webhook/status-campanha?campanhaId=all&userEmail=' + encodeURIComponent(currentUser?.email || ''), { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json().catch(() => ({}));
+    _iaStatusCache = { t: Date.now(), d };
+    return d;
+}
+function _iaLimiteDiario() { return parseInt(config?.uazapi?.limiteDiario) || 30; }
+// Números que deram erro ou ficaram presos no limite antigo e nunca receberam a mensagem depois.
+var _iaFalhas = [];
+async function iaCalcularFalhas(d) {
+    const rows = Array.isArray(d.rows) ? d.rows : [];
+    const enviados = new Set(rows.filter(r => r.status === 'enviado').map(r => prTel(r.phone)));
+    _telefonesEnviadosCache.forEach(t => enviados.add(prTel(t)));
+    const porTel = {};
+    rows.forEach(r => {
+        if (r.status !== 'erro' && r.status !== 'limite_diario') return;
+        const k = prTel(r.phone);
+        if (!k || k.length < 10 || enviados.has(k)) return;
+        porTel[k] = r;                                   // fica a linha mais recente
+    });
+    await carregarNaoContatar();
+    const lista = Object.values(porTel).filter(r => !bloqueadoLead({ phone: r.phone, title: r.lead }));
+    // Nicho da campanha original, para a IA saber com quem está falando
+    const ids = Array.from(new Set(lista.map(r => r.campanhaId).filter(Boolean)));
+    const nichos = {};
+    if (ids.length && currentUser) {
+        try {
+            const { data } = await supabaseClient.from('campanhas').select('id,nicho').eq('user_id', currentUser.id).in('id', ids);
+            (data || []).forEach(c => { nichos[c.id] = c.nicho || ''; });
+        } catch (e) {}
+    }
+    const conhecidos = {};
+    (todosLeads || []).forEach(l => { const k = prTel(l.phone); if (k) conhecidos[k] = l; });
+    _iaFalhas = lista.map(r => {
+        const k = prTel(r.phone);
+        const base = conhecidos[k] || {};
+        return Object.assign({}, base, {
+            title: base.title || r.lead || 'Empresa',
+            phone: base.phone || r.phone,
+            category: base.category || nichos[r.campanhaId] || '',
+            _motivoFalha: r.status
+        });
+    });
+    return _iaFalhas;
+}
+async function iaAtualizarCota(forcar) {
+    const box = document.getElementById('ia-cota');
+    if (!box || !currentUser) return;
+    try {
+        const d = await iaStatusGeral(forcar);
+        const lim = _iaLimiteDiario();
+        const hoje = Math.max(0, parseInt(d.enviadosHoje) || 0);
+        const restam = Math.max(0, lim - hoje);
+        box.hidden = false;
+        box.querySelector('.ia-cota-txt').textContent = restam > 0 ? `Hoje restam ${restam} de ${lim} envios` : `A cota de hoje (${lim}) já foi usada`;
+        box.querySelector('.ia-cota-sub').textContent = restam > 0
+            ? 'O que passar disso sai sozinho no próximo dia útil.'
+            : 'Pode disparar mesmo assim: tudo sai sozinho no próximo dia útil.';
+        const fill = box.querySelector('.ia-cota-barra span');
+        const pct = Math.min(100, Math.round(hoje / lim * 100));
+        fill.style.width = pct + '%';
+        fill.style.background = pct >= 100 ? '#dc2626' : pct >= 70 ? '#d97706' : '#16a34a';
+        await carregarLeadsEnviadosDaNuvem();
+        const falhas = await iaCalcularFalhas(d);
+        const btn = document.getElementById('ia-btn-falhas');
+        if (btn) {
+            btn.hidden = !falhas.length;
+            const nErro = falhas.filter(f => f._motivoFalha === 'erro').length, nLim = falhas.length - nErro;
+            btn.querySelector('span').textContent = `Reenviar ${falhas.length} que não saíram`;
+            btn.title = [nErro ? nErro + ' com erro no envio' : '', nLim ? nLim + ' barrados pelo limite diário' : ''].filter(Boolean).join(' · ');
+        }
+    } catch (e) {
+        box.hidden = true;
+    }
+}
+var _iaEnvioExterno = null;      // lista enviada pelo botão "Reenviar os que não saíram"
+async function iaReenviarFalhas() {
+    if (!_iaFalhas.length) { showToast('Nenhum envio pendente de reenvio', 'ok'); return; }
+    _iaEnvioExterno = _iaFalhas.slice();
+    abrirModalTiming();
+}
+
+// ── Montagem da fila (mesma regra no resumo e no disparo) ──
+async function iaMontarFila() {
+    await Promise.all([carregarNaoContatar(), carregarLeadsEnviadosDaNuvem()]);
+    const fonte = _iaFonteLista();
+    const sel = _iaEnvioExterno ? _iaEnvioExterno.slice() : Array.from(iaLeadsSelecionados).sort((a, b) => a - b).map(i => fonte[i]).filter(Boolean);
+    const fora = { enviados: 0, semWA: 0, bloq: 0, semTel: 0, repetidos: 0 };
+    const vistos = new Set(), ok = [];
+    sel.forEach(l => {
+        const tel = formatPhoneBR(l.phone);
+        if (!tel || tel.length < 12) fora.semTel++;
+        else if (bloqueadoLead(l)) fora.bloq++;
+        else if (leadJaFoiEnviado(l.phone)) fora.enviados++;
+        else if (l.is_whatsapp === false) fora.semWA++;
+        else if (vistos.has(tel)) fora.repetidos++;
+        else { vistos.add(tel); ok.push(l); }
+    });
+    // Celulares primeiro (respondem 1,6x mais que fixos); a ordem entre eles se mantém.
+    const leads = ok.map((l, pos) => ({ l, pos })).sort((a, b) => (ehCelularBR(b.l.phone) - ehCelularBR(a.l.phone)) || (a.pos - b.pos)).map(x => x.l);
+    return { selecionados: sel.length, leads, fora, celulares: leads.filter(l => ehCelularBR(l.phone)).length };
+}
+
+// Próximos dias com janela de envio ativa (sem contar hoje), no horário de Brasília.
+function _iaProximosDiasJanela(n) {
+    const h = config?.horario || null;
+    const temJanela = !!(h && ((h.semana && h.semana.ativo) || (h.fds && h.fds.ativo)));
+    const agora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    const dias = [];
+    for (let i = 1; i <= 14 && dias.length < n; i++) {
+        const d = new Date(agora); d.setDate(d.getDate() + i);
+        let inicio = '08:00';
+        if (temJanela) {
+            const r = (d.getDay() === 0 || d.getDay() === 6) ? h.fds : h.semana;
+            if (!r || !r.ativo) continue;
+            inicio = r.inicio || '08:00';
+        }
+        dias.push({ d, inicio, nome: i === 1 ? 'amanhã' : d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' }) });
+    }
+    return dias;
+}
+function _iaFimJanelaHoje() {
+    const h = config?.horario || null;
+    if (!h) return null;
+    const agora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    const r = (agora.getDay() === 0 || agora.getDay() === 6) ? h.fds : h.semana;
+    if (!r || !r.ativo) return null;
+    const [hf, mf] = (r.fim || '23:59').split(':').map(Number);
+    const fim = new Date(agora); fim.setHours(hf, mf, 0, 0);
+    return { fim, agora, txt: r.fim };
+}
+
+// ── Resumo antes de disparar (vai no topo da janela de envio) ──
+async function iaResumoEnvio() {
+    const box = document.getElementById('modal-resumo-envio');
+    if (!box) return;
+    box.innerHTML = '';
+    box.appendChild(prEl('div', 'ia-res-linha', 'Conferindo a fila…'));
+    let fila, st = null;
+    try {
+        [fila, st] = await Promise.all([iaMontarFila(), iaStatusGeral(true).catch(() => null)]);
+    } catch (e) { box.innerHTML = ''; return; }
+    box.innerHTML = '';
+    const vao = fila.leads.length;
+    box.appendChild(prEl('div', 'ia-res-tit', _iaEnvioExterno
+        ? `${fila.selecionados} que não saíram → ${vao} vão ser reenviados`
+        : `${fila.selecionados} selecionados → ${vao} vão receber`));
+    const f = fila.fora, fora = [];
+    if (f.enviados) fora.push(`${f.enviados} já contatados`);
+    if (f.semWA) fora.push(`${f.semWA} sem WhatsApp`);
+    if (f.bloq) fora.push(`${f.bloq} na lista Não contatar`);
+    if (f.semTel) fora.push(`${f.semTel} sem telefone válido`);
+    if (f.repetidos) fora.push(`${f.repetidos} número repetido`);
+    if (fora.length) box.appendChild(prEl('div', 'ia-res-linha', 'Ficam de fora: ' + fora.join(', ') + '.'));
+    if (vao) box.appendChild(prEl('div', 'ia-res-linha', `Celulares primeiro: ${fila.celulares} celular${fila.celulares === 1 ? '' : 'es'}, ${vao - fila.celulares} fixo${vao - fila.celulares === 1 ? '' : 's'}.`));
+
+    // Cota do dia e quando cada parte sai
+    const lim = _iaLimiteDiario();
+    const enviadosHoje = st ? Math.max(0, parseInt(st.enviadosHoje) || 0) : null;
+    const restam = enviadosHoje == null ? lim : Math.max(0, lim - enviadosHoje);
+    const janela = _cpProximaJanela();
+    // A janela de hoje ainda vale (aberta agora ou abre mais tarde hoje)? Se não, a cota de hoje não tem uso:
+    // o primeiro lote sai no próximo dia com janela, já com a cota cheia.
+    const hojeValeJanela = !janela || janela.agora || /^hoje/.test(janela.quando || '');
+    const proximos = _iaProximosDiasJanela(Math.ceil(vao / lim) + 2);
+    if (vao) {
+        const partes = [];
+        let falta = vao, i = 0;
+        if (hojeValeJanela) {
+            const hojeN = Math.min(vao, restam);
+            if (hojeN) {
+                const quando = (!janela || janela.agora) ? 'começa agora' : 'começa ' + janela.quando;
+                // estimativa de término dos envios de hoje
+                const dmin = parseInt(document.getElementById('modal-delay-min')?.value) || config.uazapi?.delayMin || 60;
+                const dmax = parseInt(document.getElementById('modal-delay-max')?.value) || config.uazapi?.delayMax || 120;
+                const lote = parseInt(document.getElementById('modal-batch-size')?.value) || 10;
+                const pausa = parseInt(document.getElementById('modal-batch-pause')?.value) || 30;
+                const porLead = (dmin + dmax) / 2 + 3 + ((config.uazapi?.typingMin || 5) + (config.uazapi?.typingMax || 10)) / 2 * 3 + 4;
+                const seg = hojeN * porLead + Math.max(0, Math.ceil(hojeN / lote) - 1) * pausa * 60;
+                let fimTxt = '';
+                if (!janela || janela.agora) {
+                    fimTxt = ', termina por volta das ' + new Date(Date.now() + seg * 1000).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' });
+                    const fj = _iaFimJanelaHoje();
+                    if (fj && fj.agora.getTime() + seg * 1000 > fj.fim.getTime()) fimTxt += ` (a janela fecha às ${fj.txt}; o resto continua no próximo dia com janela)`;
+                }
+                partes.push(`${hojeN} hoje: ${quando}${fimTxt}`);
+                falta -= hojeN;
+            } else {
+                partes.push(`A cota de hoje (${lim}) já foi usada`);
+            }
+        } else {
+            partes.push(`A janela de envio de hoje já fechou`);
+        }
+        while (falta > 0 && i < proximos.length) {
+            const n = Math.min(lim, falta);
+            partes.push(`${n} ${proximos[i].nome} a partir das ${proximos[i].inicio}`);
+            falta -= n; i++;
+        }
+        const ul = prEl('ul', 'ia-res-dias');
+        partes.forEach(p => ul.appendChild(prEl('li', '', p)));
+        box.appendChild(prEl('div', 'ia-res-linha', `Limite diário: ${lim}${enviadosHoje != null ? ` (hoje já foram ${enviadosHoje})` : ''}. Ninguém é descartado: o que passar sai sozinho nos próximos dias úteis.`));
+        box.appendChild(ul);
+    }
+    // Cadência de follow-up
+    const dias = (cadenciaPadrao() || []).filter(e => e && e.tipo !== 'apresentacao' && parseInt(e.dia, 10) >= 1).map(e => parseInt(e.dia, 10)).sort((a, b) => a - b);
+    box.appendChild(prEl('div', 'ia-res-linha', dias.length
+        ? `Follow-up de quem não responder: dias ${dias.join(', ')} (cada um entra na fila para você aprovar). Muda em Campanhas → Cadência.`
+        : 'Sem follow-up programado. Dá para ligar em Campanhas → Cadência.'));
+    const btn = document.getElementById('modal-btn-enviar');
+    if (btn) btn.disabled = !vao;
+    if (!vao) box.appendChild(prEl('div', 'ia-aviso', 'Ninguém da seleção pode receber agora.'));
+}
+
+// ── A/B igual ao do servidor (prévia "assim vai sair") ──
+const IA_GATILHOS = [
+    { tipo: 'escassez', instrucao: 'No parágrafo do CTA, sugira que você só está mostrando essa amostra pra um número limitado de negócios da região (ex: "só pra alguns negócios esta semana", "estou selecionando poucos"). Varie a forma de dizer isso.' },
+    { tipo: 'urgencia', instrucao: 'No parágrafo do CTA, sugira um prazo curto ou uma janela de tempo (ex: "essa semana", "antes de eu passar pro próximo bairro"). Varie a forma de dizer isso.' },
+    { tipo: 'curiosidade', instrucao: 'No parágrafo do CTA, faça uma pergunta simples e direta que desperte curiosidade sobre o resultado, sem mencionar prazo ou quantidade (ex: "posso te mostrar?", "quer ver como ficou?"). Mantenha leve e natural.' }
+];
+var _iaAB = null;
+async function iaCarregarAB() {
+    if (_iaAB && Date.now() - _iaAB.t < 300000) return _iaAB;
+    const combos = [];
+    ['A', 'B'].forEach(v => IA_GATILHOS.forEach(g => combos.push({ variant: v, gatilho: g.tipo })));
+    let melhor = null, total = 0;
+    try {
+        if (currentUser) {
+            const linhas = await prBuscarTudo(() => supabaseClient.from('leads').select('variante_ab,gatilho_cta,respondeu,resposta_suspeita_bot')
+                .eq('user_id', currentUser.id).eq('status_envio', 'enviado').not('variante_ab', 'is', null).order('id'));
+            const cont = {};
+            linhas.forEach(l => { const k = l.variante_ab + '|' + l.gatilho_cta; const x = cont[k] || (cont[k] = { env: 0, hum: 0 }); x.env++; if (prHumana(l)) x.hum++; });
+            const taxa = c => { const x = cont[c.variant + '|' + c.gatilho] || { env: 0, hum: 0 }; return (x.hum + 1) / (x.env + 10); };
+            total = Object.values(cont).reduce((a, x) => a + x.env, 0);
+            if (total >= 60) melhor = combos.slice().sort((a, b) => taxa(b) - taxa(a))[0];
+        }
+    } catch (e) { /* sem estatística: sorteio, como no servidor */ }
+    _iaAB = { t: Date.now(), combos, melhor, total };
+    return _iaAB;
+}
+function iaEscolherAB(ab) {
+    if (ab.melhor && Math.random() < 0.8) return { ...ab.melhor, motivo: 'vencedora' };
+    const c = ab.combos[Math.floor(Math.random() * ab.combos.length)];
+    return { ...c, motivo: ab.melhor ? 'teste' : 'sorteio' };
+}
+// Mesmo texto do nó "Gerar Mensagem IA" do servidor.
+function iaPromptServidor(lead, promptLivre, variant, gatilhoTipo) {
+    const gatilho = IA_GATILHOS.find(g => g.tipo === gatilhoTipo) || IA_GATILHOS[2];
+    const tomVariante = variant === 'A'
+        ? 'Tom: direto e objetivo, sem enrolação, frases curtas.'
+        : 'Tom: mais consultivo e acolhedor, pode explicar um pouco melhor o valor entregue, mas sem perder a objetividade.';
+    const regrasFormato = 'Escreva SEMPRE exatamente 3 parágrafos, nessa ordem fixa:\n1º parágrafo (SAUDAÇÃO): cumprimento + o que você notou de específico no negócio do lead (categoria, avaliação, ou falta de site).\n2º parágrafo (ENTREGA DE VALOR): apresente de forma concreta o que você já preparou ou pode oferecer pra esse lead, destacando o benefício real pra ele.\n3º parágrafo (CTA): termine com UMA ÚNICA pergunta clara e direta (nunca duas perguntas na mesma mensagem). ' + gatilho.instrucao + '\nSepare CADA parágrafo com UMA linha em branco. Cada parágrafo deve ter entre 1 e 3 frases curtas — nunca deixe um parágrafo vazio de conteúdo só pra cumprir a estrutura. ' + tomVariante;
+    const revs = Array.isArray(lead.ultimas_avaliacoes) ? lead.ultimas_avaliacoes : [];
+    const elogio = revs.find(r => r && r.nota >= 4 && String(r.texto || '').length >= 25);
+    const neg = Number(lead.avaliacoes_negativas) || 0;
+    let ctx = '';
+    if (lead.reviews) ctx += '\n- Nº de avaliações no Google: ' + lead.reviews;
+    if (elogio) ctx += '\n- Um cliente escreveu no Google (nota ' + elogio.nota + '): "' + String(elogio.texto).replace(/\s+/g, ' ').slice(0, 240) + '"';
+    if (neg) ctx += '\n- Avaliações negativas (1 e 2 estrelas): ' + neg;
+    const regrasAval = ctx ? '\nSOBRE AS AVALIAÇÕES: se houver elogio de cliente, você pode citar o ponto elogiado de forma natural e curta (ex.: "vi que seus clientes elogiam o atendimento"), sem copiar o texto e sem dizer quem escreveu. Nunca mencione avaliações negativas nem critique a empresa; use-as só para entender o que pode ser uma dor dela.' : '';
+    return 'Você é especialista em prospecção B2B via WhatsApp.\n\nINSTRUÇÕES:\n' + (promptLivre || 'Apresente nossa empresa e peça uma reunião rápida.') + '\n\nLEAD:\n- Empresa: ' + (lead.title || 'Empresa') + '\n- Categoria: ' + (lead.category || 'Negócio local') + '\n- Endereço: ' + (lead.address || 'Não informado') + '\n- Avaliação: ' + (lead.rating ? lead.rating + ' estrelas' : 'Não informado') + ctx + '\n\nCrie UMA mensagem de primeiro contato para WhatsApp.\nREGRAS (variante ' + variant + ', gatilho ' + gatilho.tipo + '): ' + regrasFormato + '\nAdapte para este lead específico. Não copie os exemplos de frase ao pé da letra, apenas se inspire neles.' + regrasAval + '\nRetorne APENAS o texto, sem títulos, sem aspas.\nEscreva em Português do Brasil.';
+}
+// O servidor corta em 3 parágrafos; a prévia faz o mesmo.
+function iaComoServidorEnvia(msg) {
+    const p = String(msg || '').split('\n\n').map(x => x.trim()).filter(Boolean).slice(0, 3);
+    return p.length ? p.join('\n\n') : String(msg || '').trim();
+}
+function iaSeloPrevia(info) {
+    const selo = prEl('div', 'ia-selo');
+    selo.appendChild(prEl('b', '', '✓ Assim vai sair'));
+    if (info && info.variant) {
+        const motivo = info.motivo === 'vencedora' ? 'a combinação que mais traz resposta (80% dos envios)'
+            : info.motivo === 'teste' ? 'uma das combinações em teste (20% dos envios)'
+            : 'sorteio, até a IA ter 60 envios para comparar';
+        selo.appendChild(prEl('span', '', ` · tom ${(PR_TOM[info.variant] || info.variant).toLowerCase()} + ${PR_GATILHO[info.gatilho] || info.gatilho} · ${motivo}`));
+    }
+    selo.appendChild(prEl('small', '', 'Mesmas regras do disparo. Cada lead recebe um texto próprio.'));
+    return selo;
+}
+
+// ── Panorama do Teste A/B (o mesmo quadro do Painel) ──
+async function mostrarPanoramaAB() {
+    const fundo = prEl('div', 'modal-backdrop active');
+    const m = prEl('div', 'modal ia-modal');
+    m.appendChild(prEl('div', 'modal-title', 'Teste A/B das mensagens'));
+    m.appendChild(prEl('div', 'modal-sub', 'Quantas pessoas (sem contar robô) responderam a cada combinação de tom e gatilho.'));
+    const box = prEl('div', 'ia-ab-box');
+    box.appendChild(prEl('div', 'ph-mudo', 'Carregando…'));
+    m.appendChild(box);
+    const acoes = prEl('div', 'modal-actions');
+    const fechar = prEl('button', 'modal-btn', 'Fechar');
+    fechar.onclick = () => fundo.remove();
+    acoes.appendChild(fechar);
+    m.appendChild(acoes);
+    fundo.appendChild(m);
+    fundo.onclick = e => { if (e.target === fundo) fundo.remove(); };
+    document.body.appendChild(fundo);
+    try {
+        const leads = (_prDados && _prDados.leads) || await prBuscarTudo(() => supabaseClient.from('leads')
+            .select('variante_ab,gatilho_cta,respondeu,resposta_suspeita_bot').eq('user_id', currentUser.id).not('enviado_em', 'is', null).order('id'));
+        prDesenharAB({ leads }, box);
+    } catch (e) {
+        box.innerHTML = '';
+        box.appendChild(prEl('div', 'ph-mudo', 'Não consegui carregar agora. Tente de novo em instantes.'));
+    }
+}
+
 function renderLeadsIADashboard() {
     const lista   = document.getElementById('ia-leads-list-dashboard');
     const countEl = document.getElementById('ia-leads-count-badge');
@@ -7030,16 +7523,15 @@ function renderLeadsIADashboard() {
         ? []
         : (iaLeadsFonte.length > 0 ? iaLeadsFonte : (iaFonteAtual === 'leads' ? todosLeads : []));
 
-    const termo = (document.getElementById('ia-search')?.value || '').toLowerCase();
-    
     // Se algum lead foi verificado, mostrar só os com WA
     const algumVerificado = fonte.some(l => l.is_whatsapp !== null && l.is_whatsapp !== undefined);
-    
-    const leads = fonte.filter(l =>
+
+    const leads = _iaOrdenar(fonte.filter(l =>
         l.phone &&
         (!algumVerificado || l.is_whatsapp === true) && // só WA se verificado
-        (!termo || (l.title || '').toLowerCase().includes(termo) || (l.phone || '').includes(termo))
-    );
+        _iaPassaFiltro(l)
+    ));
+    const filtroAtivo = _iaFiltroAtual().txt || _iaFiltroAtual().tipo !== 'todos';
 
     const totalFonte = fonte.filter(l => l.phone).length;
     if (countEl) {
@@ -7049,7 +7541,7 @@ function renderLeadsIADashboard() {
             countEl.style.color = '#16a34a';
             countEl.style.borderColor = '#bbf7d0';
         } else {
-            countEl.textContent = `${leads.length} leads`;
+            countEl.textContent = `${leads.length} leads` + (filtroAtivo ? ' no filtro' : '');
             countEl.style.background = '';
             countEl.style.color = '';
             countEl.style.borderColor = '';
@@ -7057,7 +7549,9 @@ function renderLeadsIADashboard() {
     }
 
     if (leads.length === 0) {
-        const msg = iaFonteAtual === 'campanha'
+        const msg = filtroAtivo && totalFonte
+            ? 'Nenhum lead neste filtro'
+            : iaFonteAtual === 'campanha'
             ? 'Selecione uma campanha acima ↑'
             : 'Nenhum lead carregado<br><br>Faça uma busca em Prospecção ↗';
         lista.innerHTML = `<div style="text-align:center;padding:40px 16px;color:var(--muted);font-family:'Inter',sans-serif;font-size:0.65rem;">${msg}</div>`;
@@ -7074,17 +7568,21 @@ function renderLeadsIADashboard() {
         // na nuvem) — fica verde e continua assim mesmo numa campanha nova,
         // porque é identificado pelo telefone, não pela seleção atual na tela.
         const jaEnviado = leadJaFoiEnviado(lead.phone);
+        const bloq = bloqueadoLead(lead);
+        const score = _iaScore(lead);
+        const corScore = score >= 70 ? 'alto' : score >= 45 ? 'medio' : 'baixo';
 
         const item = document.createElement('div');
         item.className = 'ia-lead-item-dash' + (selecionado ? ' selecionado' : '') + (gerado ? ' gerado' : '') + (jaEnviado ? ' enviado-confirmado' : '');
         item.innerHTML = `
             <input type="checkbox" class="ia-lead-checkbox-dash" ${selecionado ? 'checked' : ''}
                 onchange="toggleSelecionarLeadIA(${realIdx}, this)" onclick="event.stopPropagation()">
+            <span class="ia-score ${corScore}" title="Score do lead">${score}</span>
             <div class="ia-lead-info-dash" onclick="selecionarLeadPreview(${realIdx})">
-                <div class="ia-lead-name-dash">${lead.title || 'Sem nome'}</div>
-                <div class="ia-lead-phone-dash">${lead.phone || '—'}</div>
+                <div class="ia-lead-name-dash">${escapeHtml(lead.title || 'Sem nome')}</div>
+                <div class="ia-lead-phone-dash">${ehCelularBR(lead.phone) ? 'Celular' : 'Fixo'} · ${escapeHtml(lead.phone || '—')}${lead.rating ? ' · ⭐ ' + escapeHtml(String(lead.rating)) : ''}</div>
             </div>
-            ${jaEnviado ? '<span class="ia-lead-badge-enviado">✅ Enviado</span>' : (gerado ? '<span style="font-size:0.55rem;background:#dcfce7;color:#16a34a;padding:2px 6px;border-radius:4px;border:1px solid #bbf7d0;">✅</span>' : '')}
+            ${bloq ? '<span class="ia-lead-badge-bloq">Não contatar</span>' : jaEnviado ? '<span class="ia-lead-badge-enviado">✅ Enviado</span>' : (gerado ? '<span style="font-size:0.55rem;background:#dcfce7;color:#16a34a;padding:2px 6px;border-radius:4px;border:1px solid #bbf7d0;">✅</span>' : '')}
             <button onclick="event.stopPropagation();removerLeadFilaIA(${realIdx})" title="Remover da fila"
                 style="background:none;border:none;cursor:pointer;color:#dc2626;font-size:0.85rem;padding:2px 4px;line-height:1;flex-shrink:0;">✕</button>
         `;
@@ -7133,8 +7631,9 @@ async function gerarMensagemTestePreview() {
             <div style="font-family:'Inter',sans-serif;font-size:0.55rem;color:var(--muted);text-align:center;padding:4px 0 8px;">prévia — exemplo sem lead real</div>
             ${paragrafos.map(p => `
                 <div style="background:#fff;border-radius:12px;padding:10px 12px;font-size:0.75rem;line-height:1.5;color:#0D1330;box-shadow:0 1px 2px rgba(0,0,0,0.1);word-break:break-word;">
-                    ${p}<div style="text-align:right;font-size:0.55rem;color:#999;margin-top:4px;">${agora} ✓✓</div>
+                    ${escapeHtml(p)}<div style="text-align:right;font-size:0.55rem;color:#999;margin-top:4px;">${agora} ✓✓</div>
                 </div>`).join('')}`;
+        if (area) area.prepend(iaSeloPrevia(ultimaEscolhaAB));
     } catch(e) {
         showToast(`❌ ${e.message}`, 'err');
     } finally {
@@ -7148,7 +7647,7 @@ function atualizarPreviewMensagemDashboard() {
     if (!area || iaLeadAtual === null) return;
 
     const msg = iaMensagensGeradas[iaLeadAtual]?.msg;
-    const lead = todosLeads[iaLeadAtual];
+    const lead = _iaFonteLista()[iaLeadAtual] || todosLeads[iaLeadAtual];
     
     if (!msg) {
         area.innerHTML = `<div style="text-align:center;padding:40px 16px;color:var(--muted);font-family:'Inter',sans-serif;font-size:0.65rem;">Gere uma mensagem para ${lead?.title || 'este lead'}</div>`;
@@ -7160,9 +7659,10 @@ function atualizarPreviewMensagemDashboard() {
     
     area.innerHTML = paragrafos.map((p, i) => `
         <div style="background:#fff;border-radius:12px;padding:10px 12px;font-size:0.75rem;line-height:1.5;color:#0D1330;box-shadow:0 1px 2px rgba(0,0,0,0.1);word-break:break-word;">
-            ${p}
+            ${escapeHtml(p)}
             ${i === paragrafos.length - 1 ? `<div style="font-size:0.55rem;color:#999;margin-top:4px;text-align:right;">${agora} ✓✓</div>` : ''}
         </div>`).join('');
+    area.prepend(iaSeloPrevia(iaMensagensGeradas[iaLeadAtual]?.escolha));
     
     // Atualizar botão WhatsApp
     const waBtn = document.getElementById('ia-wa-btn-dash');
@@ -7220,6 +7720,11 @@ function trocarAbaComIA(aba, el) {
     if (aba === 'ia') {
         renderLeadsIA(); // renderiza já com o que tiver no cache, sem travar a UI
         carregarLeadsEnviadosDaNuvem().then(() => renderLeadsIA()); // atualiza com o dado fresco da nuvem
+        carregarNaoContatar().then(() => renderLeadsIADashboard()).catch(() => {});
+        iaAtualizarCota();
+        const f = _iaFiltroAtual();
+        const st = document.getElementById('ia-filtro-tipo'), so = document.getElementById('ia-filtro-ordem');
+        if (st) st.value = f.tipo; if (so) so.value = f.ordem;
     }
 }
 
@@ -7331,10 +7836,12 @@ function resetarStatusLeads() {
 
 function selecionarTodosIA() {
     // "Selecionar tudo" deixa de fora quem já recebeu mensagem e quem comprovadamente não tem WhatsApp.
-    const comTel = todosLeads.filter(l => l.phone);
+    // Vale para a lista que está na tela (Prospectados ou campanha) e respeita o filtro escolhido.
+    const fonte = _iaFonteLista();
+    const comTel = fonte.filter(l => l.phone && _iaPassaFiltro(l));
     const leads = comTel.filter(l => !leadJaFoiEnviado(l.phone) && l.is_whatsapp !== false && !bloqueadoLead(l));
     const deFora = comTel.length - leads.length;
-    const todosIdx = leads.map(l => todosLeads.indexOf(l));
+    const todosIdx = leads.map(l => fonte.indexOf(l));
     const todosMarcados = todosIdx.every(idx => iaLeadsSelecionados.has(idx));
     if (todosMarcados) {
         iaLeadsSelecionados.clear();
@@ -7471,12 +7978,16 @@ async function gerarMensagemLead(idx) {
     if (!lead) return;
 
     const prompt  = document.getElementById('ia-prompt-livre')?.value.trim() || '';
-    const empresa = prompt || document.getElementById('ia-empresa')?.value.trim() || 'nossa empresa';
+    const empresa = prompt;     // vazio: usa o mesmo texto padrão do servidor
 
     const btn = document.getElementById(`ia-gbtn-${idx}`);
     if (btn) { btn.disabled = true; btn.textContent = '⏳...'; }
 
-    if (iaLeadAtual === idx) mostrarTypingWA();
+    if (iaLeadAtual === idx) {
+        mostrarTypingWA();
+        const area = document.getElementById('ia-message-preview-area');
+        if (area && !document.getElementById('ia-wa-bubbles')) area.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:40px;color:var(--muted);font-family:'Inter',sans-serif;font-size:0.65rem;gap:10px;"><div class="ia-typing"><span></span><span></span><span></span></div> gerando com as regras do disparo...</div>`;
+    }
 
     try {
         let msg = await gerarMensagemIA(lead, empresa);
@@ -7484,7 +7995,7 @@ async function gerarMensagemLead(idx) {
 
         if (!msg) throw new Error('Resposta vazia');
 
-        iaMensagensGeradas[idx] = { msg, phone: lead.phone, variant };
+        iaMensagensGeradas[idx] = { msg, phone: lead.phone, variant, escolha: ultimaEscolhaAB };
 
         // Atualiza badge e botão na lista
         const badge = document.getElementById(`ia-badge-${idx}`);
@@ -7524,7 +8035,7 @@ async function gerarMensagemLead(idx) {
 
     } catch (e) {
         if (btn) { btn.disabled = false; btn.textContent = '✨ Gerar'; }
-        if (iaLeadAtual === idx) {
+        if (iaLeadAtual === idx && document.getElementById('ia-wa-bubbles')) {
             document.getElementById('ia-wa-bubbles').innerHTML = `<div style="font-family:'Inter',sans-serif;font-size:0.65rem;color:#ef4444;text-align:center;padding:10px;">Erro: ${e.message}</div>`;
         }
         showToast('❌ Erro ao gerar mensagem', 'err');
@@ -7532,6 +8043,7 @@ async function gerarMensagemLead(idx) {
 }
 
 function gerarMensagensLote() {
+    _iaEnvioExterno = null;
     if (iaLeadsSelecionados.size === 0) {
         showToast('⚠️ Selecione ao menos um lead na lista!', 'err');
         return;
@@ -7549,7 +8061,12 @@ function abrirModalTiming() {
         atualizarEstimativaModal();
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
+        iaResumoEnvio();
     }
+}
+function cancelarModalTiming() {
+    _iaEnvioExterno = null;
+    fecharModalTiming();
 }
 
 function fecharModalTiming() {
@@ -7579,7 +8096,7 @@ function atualizarEstimativaModal() {
     const tempoIA       = 3;
     const tempoTyping   = typing * 4;
     const tempoTotal    = mediaDelay + tempoIA + tempoTyping;
-    const totalLeads    = iaLeadsSelecionados.size || 0;
+    const totalLeads    = (_iaEnvioExterno ? _iaEnvioExterno.length : iaLeadsSelecionados.size) || 0;
     const minutos       = Math.round((tempoTotal * totalLeads) / 60);
 
     // Número de pausas de lote (a última leva não pausa)
@@ -7949,21 +8466,12 @@ async function iniciarEnvioNoServidor({ min, max, typing, batchSize, batchPause 
         return;
     }
 
-    // --- Montar lista de leads filtrados ---
-    const allIndices = Array.from(iaLeadsSelecionados);
-    const semWA  = allIndices.filter(i => todosLeads[i]?.is_whatsapp === false);
-    const comWA  = allIndices.filter(i => todosLeads[i]?.is_whatsapp === true);
-    const naoVer = allIndices.filter(i => todosLeads[i]?.is_whatsapp == null);
-    const indices = comWA.length > 0 ? [...comWA, ...naoVer] : allIndices;
-
-    if (semWA.length > 0) addLog(`⚠️ ${semWA.length} lead(s) sem WhatsApp removidos da fila`);
-
-    // Celulares primeiro (respondem 1,6x mais que fixos); a ordem entre eles se mantém.
-    await carregarNaoContatar();
-    const bloqueadosSel = indices.map(i => todosLeads[i]).filter(l => l && bloqueadoLead(l)).length;
-    if (bloqueadosSel) addLog(`🚫 ${bloqueadosSel} lead(s) da lista Não contatar removidos da fila`);
-    const leads = indices.map(i => todosLeads[i]).filter(l => l && !bloqueadoLead(l))
-        .map((l, pos) => ({ l, pos })).sort((a, b) => (ehCelularBR(b.l.phone) - ehCelularBR(a.l.phone)) || (a.pos - b.pos)).map(x => x.l);
+    // --- Montar a fila (mesma regra do resumo: tira já contatados, sem WhatsApp e Não contatar; celulares primeiro) ---
+    const _fila = await iaMontarFila();
+    const leads = _fila.leads;
+    if (_fila.fora.enviados) addLog(`⏭️ ${_fila.fora.enviados} já contatados ficaram de fora`);
+    if (_fila.fora.semWA) addLog(`⚠️ ${_fila.fora.semWA} lead(s) sem WhatsApp removidos da fila`);
+    if (_fila.fora.bloq) addLog(`🚫 ${_fila.fora.bloq} lead(s) da lista Não contatar removidos da fila`);
 
     if (leads.length === 0) {
         showToast('⚠️ Nenhum lead válido para enviar', 'err');
@@ -7979,7 +8487,8 @@ async function iniciarEnvioNoServidor({ min, max, typing, batchSize, batchPause 
     await carregarLeadsEnviadosDaNuvem();
     // Envia lista de números já enviados para o n8n filtrar duplicados
     // ...e a lista Não contatar vai junto: o servidor pula esses números mesmo se algum escapar daqui.
-    const numerosJaEnviados = Array.from(new Set([...Array.from(_telefonesEnviadosCache), ...numerosNaoContatar()]));
+    const _liberados = Object.keys(_iaLiberados());
+    const numerosJaEnviados = Array.from(new Set([...Array.from(_telefonesEnviadosCache).filter(t => !_liberados.includes(t)), ...numerosNaoContatar()]));
 
     const payload = {
         leads,
@@ -8000,6 +8509,7 @@ async function iniciarEnvioNoServidor({ min, max, typing, batchSize, batchPause 
             typingMax:   config.uazapi?.typingMax || 10,
             batchSize:   batchSize || config.uazapi?.batchSize  || 10,
             batchPause:  batchPause || config.uazapi?.batchPause || 30,
+            reenvioLiberado: _liberados,       // o servidor não barra estes como "já enviado"
             promptLivre
         }
     };
@@ -8018,6 +8528,8 @@ async function iniciarEnvioNoServidor({ min, max, typing, batchSize, batchPause 
         const data = await res.json();
 
         _campanhaIdAtiva = data.campanhaId;
+        _iaEnvioExterno = null;
+        setTimeout(() => iaAtualizarCota(true), 4000);
         gravarPerfisLeads(_campanhaIdAtiva, leads);       // score que aprende (não trava o envio)
         // Guarda nicho + local para exibir o nome da campanha nas metricas
         // (local, pra esse navegador) e também no Supabase (pra funcionar
@@ -8616,7 +9128,7 @@ function mostrarTypingWA() {
 
 function mostrarPreviewWA(msg, nome) {
     const bubbles = document.getElementById('ia-wa-bubbles');
-    if (!bubbles) return;
+    if (!bubbles) { atualizarPreviewMensagemDashboard(); return; }   // painel atual mostra a prévia na coluna do meio
     const paragrafos = msg.split(/\n+/).filter(p => p.trim());
     const agora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     bubbles.innerHTML = paragrafos.map((p, i) => `
@@ -8627,10 +9139,10 @@ function mostrarPreviewWA(msg, nome) {
 }
 
 function copiarMensagemAtual() {
-    const bubbles = document.getElementById('ia-wa-bubbles');
-    if (!bubbles || !bubbles.textContent.trim()) { showToast('// gere uma mensagem primeiro', 'err'); return; }
+    const bubbles = document.getElementById('ia-wa-bubbles') || document.getElementById('ia-message-preview-area');
     const msg = iaLeadAtual !== null && iaMensagensGeradas[iaLeadAtual]
-        ? iaMensagensGeradas[iaLeadAtual].msg : bubbles.innerText;
+        ? iaMensagensGeradas[iaLeadAtual].msg : '';
+    if (!msg) { showToast('// gere uma mensagem primeiro', 'err'); return; }
     navigator.clipboard.writeText(msg).then(() => showToast('✅ Mensagem copiada!', 'ok'));
 }
 
@@ -8716,22 +9228,6 @@ async function panoramaTesteAB() {
 }
 
 // Mostra o panorama do Teste A/B num alerta simples (chamado pelo botão "Ver panorama Teste A/B")
-async function mostrarPanoramaAB() {
-    const r = await panoramaTesteAB();
-    const linhasGatilho = Object.keys(r.gatilhos || {})
-        .map(g => `${g}: ${r.gatilhos[g]}`)
-        .join('\n') || 'Nenhum dado ainda';
-    alert(
-        `📊 TESTE A/B — COPY DE PROSPECÇÃO\n\n` +
-        `Variante A (tom direto): ${r.A} enviadas (${r.pct_A})\n` +
-        `Variante B (tom consultivo): ${r.B} enviadas (${r.pct_B})\n` +
-        `Sem variante registrada: ${r.sem_variante}\n\n` +
-        `Total enviados: ${r.total_enviados}\n\n` +
-        `🎯 GATILHOS PERSUASIVOS:\n${linhasGatilho}\n\n` +
-        `Dica: cruze com as respostas recebidas no WhatsApp pra ver qual combinação converteu mais.`
-    );
-}
-
 // Upsert de "já enviado" na tabela `leads` — fonte de verdade única, por usuário.
 async function sincronizarEnvioNaNuvem(cleanPhone, leadTitle, variant, gatilho, campanhaId) {
     if (!currentUser || !cleanPhone) return;
@@ -8874,30 +9370,13 @@ async function avisarJaContatados(leads) {
 function leadJaFoiEnviado(phone) {
     const cleanPhone = formatPhoneBR(phone);
     if (!cleanPhone) return false;
+    if (_iaLiberados()[cleanPhone]) return false;      // liberado para reenvio
     return _telefonesEnviadosCache.has(cleanPhone);
 }
 
-function limparLeadsEnviados() {
-    if (!confirm('Limpar registro de leads já enviados? Isso apaga o status "enviado" na sua conta (Supabase) e permite reenvio para todos os números.')) return;
-    if (!currentUser) { showToast('⚠️ Faça login pra limpar o registro.', 'err'); return; }
-    (async () => {
-        try {
-            const { error } = await supabaseClient
-                .from('leads')
-                .update({ status_envio: null, enviado_em: null, variante_ab: null })
-                .eq('user_id', currentUser.id)
-                .eq('status_envio', 'enviado');
-            if (error) throw error;
-            _telefonesEnviadosCache = new Set();
-            atualizarContadorEnviados();
-            renderLeadsIA();
-            showToast('✅ Registro de enviados limpo na sua conta!', 'ok');
-        } catch (e) {
-            console.warn('[LIMPAR ENVIADOS]', e);
-            showToast('❌ Erro ao limpar na nuvem. Tenta de novo.', 'err');
-        }
-    })();
-}
+// O antigo "Limpar registro de enviados" apagava o histórico inteiro e liberava reenvio para todo mundo.
+// Agora a liberação é por número (abrirLiberarReenvio).
+function limparLeadsEnviados() { abrirLiberarReenvio(); }
 
 function atualizarContadorEnviados() {
     const el = document.getElementById('cont-enviados');
@@ -9442,29 +9921,16 @@ function regrasFormatoVariantAB(variant) {
 // A variante escolhida fica disponível logo após o await em `ultimaVariantAB`.
 async function gerarMensagemIA(lead, promptLivre, chaveForcada, providerForcado, variantForcada) {
     const provider = providerForcado || config.iaProvider || 'openai';
-    const variant = variantForcada || escolherVariantAB();
+    // Mesmas regras do disparo: A/B que aprende (80% na combinação vencedora), gatilho e avaliações.
+    let escolha;
+    if (variantForcada) escolha = { variant: variantForcada, gatilho: IA_GATILHOS[Math.floor(Math.random() * IA_GATILHOS.length)].tipo, motivo: 'forcada' };
+    else if (providerForcado) escolha = { variant: 'A', gatilho: 'curiosidade', motivo: 'teste' };
+    else escolha = iaEscolherAB(await iaCarregarAB());
+    const variant = escolha.variant;
     ultimaVariantAB = variant;
+    ultimaEscolhaAB = escolha;
 
-    const prompt = `Você é especialista em prospecção B2B via WhatsApp.
-
-INSTRUÇÕES DO USUÁRIO:
-${promptLivre}
-
-DADOS DO LEAD (do Google Maps):
-- Nome/Empresa: ${lead.title || lead.name || 'Empresa'}
-- Categoria: ${lead.category || 'Negócio local'}
-- Endereço: ${lead.address || 'Não informado'}
-- Avaliação: ${lead.rating ? `${lead.rating} estrelas (${lead.reviews || '?'} avaliações)` : 'Não informado'}${contextoAvaliacoesIA(lead)}
-- Site: ${lead.website || 'Não informado'}
-
-Crie UMA mensagem de primeiro contato para WhatsApp seguindo as instruções acima.
-Personalize usando os dados do lead quando fizer sentido.
-REGRAS OBRIGATÓRIAS DE FORMATO (variante ${variant}):
-${regrasFormatoVariantAB(variant)}
-- Personalize usando os dados do lead (nome, categoria, avaliação)
-
-Retorne APENAS o texto da mensagem separado em parágrafos, sem aspas, sem títulos, sem explicações.
-Gere em Português do Brasil.`;
+    const prompt = iaPromptServidor(lead, promptLivre, variant, escolha.gatilho);
 
     if (provider === 'gemini') {
         const key = chaveForcada || config.gemini?.key;
@@ -9479,7 +9945,7 @@ Gere em Português do Brasil.`;
             throw new Error(`Gemini ${res.status}${errBody ? ': ' + errBody.substring(0,150) : ''}`);
         }
         const data = await res.json();
-        return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+        return iaComoServidorEnvia(data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '');
     } else {
         const key = chaveForcada || config.openai?.key;
         if (!key) throw new Error('OpenAI não configurado. Configure na aba Integrações.');
@@ -9493,7 +9959,7 @@ Gere em Português do Brasil.`;
             throw new Error(`OpenAI ${res.status}${errBody ? ': ' + errBody.substring(0,150) : ''}`);
         }
         const data = await res.json();
-        return data.choices?.[0]?.message?.content?.trim() || '';
+        return iaComoServidorEnvia(data.choices?.[0]?.message?.content?.trim() || '');
     }
 }
 
@@ -11429,8 +11895,8 @@ function prDesenharNichos(d) {
 }
 
 // 6) Teste A/B: tom x gatilho, com a mesma conta que o n8n usa para escolher a vencedora
-function prDesenharAB(d) {
-    const box = document.getElementById('pr-ab');
+function prDesenharAB(d, alvo) {
+    const box = alvo || document.getElementById('pr-ab');
     if (!box) return;
     box.innerHTML = '';
     const g = {};
