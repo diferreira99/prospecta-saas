@@ -1148,6 +1148,24 @@
     </style>
 <style>
 /* Fonte dos leads: API oficial ou backup Serper */
+.ps-sugestoes { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:2px 0 10px; font-family:'Inter',sans-serif; font-size:0.68rem; color:var(--muted); }
+.ps-sugestoes .ps-rot { font-weight:600; margin-right:2px; }
+.ps-sug { font-family:'Inter',sans-serif; font-size:0.68rem; font-weight:700; padding:5px 10px; border-radius:99px; border:1.5px solid #bbf7d0; background:#f0fdf4; color:#166534; cursor:pointer; }
+.ps-sug:hover, .ps-sug:focus-visible { border-color:#16a34a; outline:none; }
+.ps-sug small { font-weight:600; opacity:.8; margin-left:4px; }
+.ps-aprende { width:100%; font-size:0.62rem; color:var(--muted); margin-top:2px; }
+.ps-aviso { margin:2px 0 8px; padding:8px 12px; border-radius:10px; background:#FFF7ED; border:1px solid #fed7aa; color:#9a3412; font-family:'Inter',sans-serif; font-size:0.72rem; line-height:1.45; }
+.ps-chip { font-family:'Inter',sans-serif; font-size:0.6rem; font-weight:700; padding:4px 10px; border-radius:20px; border:1.5px solid #d1d5db; background:#fff; color:#6b7280; cursor:pointer; white-space:nowrap; }
+.ps-chip[aria-pressed="true"] { border-color:#165DFF; background:#EBF0FF; color:#165DFF; }
+.ps-acoes { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:-4px 0 14px; }
+.ps-acao { font-family:'Inter',sans-serif; font-size:0.7rem; font-weight:700; padding:8px 14px; border-radius:10px; border:1.5px solid var(--border); background:var(--surface); color:var(--text); cursor:pointer; }
+.ps-acao:hover { border-color:#FF6A00; color:#C2410C; }
+.ps-acao.principal { background:#FF6A00; border-color:#FF6A00; color:#fff; }
+.ps-acao.principal:hover { background:#ea580c; color:#fff; }
+.ps-acao:disabled { opacity:.5; cursor:not-allowed; }
+.ps-acoes-dica { font-family:'Inter',sans-serif; font-size:0.62rem; color:var(--muted); }
+.ps-ajuste { margin-top:12px; padding:10px 12px; border-radius:10px; background:#F5F3FF; border:1px solid #ddd6fe; font-family:'Inter',sans-serif; font-size:0.66rem; color:#4c1d95; line-height:1.5; }
+@media (max-width: 600px) { .ps-acao { flex:1 1 calc(50% - 4px); font-size:0.64rem; padding:8px 8px; } .ps-acao.principal { flex-basis:100%; } .ps-acoes-dica { width:100%; } .ps-chip { font-size:0.58rem; padding:4px 8px; } }
 .fonte-leads { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:8px; margin:4px 0 12px; }
 .fonte-opt { display:flex; flex-direction:column; align-items:flex-start; gap:2px; text-align:left; padding:10px 12px; border-radius:10px;
   border:1.5px solid var(--border,#e5e7eb); background:var(--surface,#fff); color:var(--text,#111827); cursor:pointer; font-family:'Inter',sans-serif; transition:border-color .15s, background .15s, box-shadow .15s; }
@@ -1785,16 +1803,9 @@ function iniciarAppPosLogin() {
                         </select>
                     </div>
                 </div>
-                <div class="fonte-leads" role="radiogroup" aria-label="Fonte dos leads">
-                    <button type="button" id="fonte-oficial" class="fonte-opt" role="radio" onclick="escolherFonteLeads('oficial')">
-                        <span class="fonte-nome">⚡ API oficial</span>
-                        <span class="fonte-desc">Google Maps direto · WhatsApp, horário e redes · 3 a 6 min</span>
-                    </button>
-                    <button type="button" id="fonte-serper" class="fonte-opt" role="radio" onclick="escolherFonteLeads('serper')">
-                        <span class="fonte-nome">🛟 Backup (Serper)</span>
-                        <span class="fonte-desc">Mais rápido, menos dados · use se a oficial falhar</span>
-                    </button>
-                </div>
+                <!-- atalhos com os nichos que mais respondem + aviso de nicho fraco (preenchidos pelo JS) -->
+                <div id="nicho-aviso" class="ps-aviso" role="status" hidden></div>
+                <div id="prosp-sugestoes" class="ps-sugestoes" hidden></div>
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                     <button class="btn" onclick="buscar()" id="btn" style="flex:1;">
                         <span class="btn-label">Buscar Leads</span>
@@ -1849,12 +1860,16 @@ function iniciarAppPosLogin() {
                     <input id="search-leads" placeholder="Buscar lead..." autocomplete="off" oninput="buscarLeadsTabela(this.value)" style="width:100%;padding:5px 10px 5px 28px;border:1.5px solid var(--border);border-radius:20px;font-family:'Inter',sans-serif;font-size:0.62rem;background:#fff;color:var(--text);outline:none;transition:border-color .2s;" onfocus="this.style.borderColor='#FF6A00'" onblur="this.style.borderColor='var(--border)'">
                 </div>
                 <!-- Filtros HOT/WARM/COLD -->
-                <div style="display:flex;align-items:center;gap:5px;">
+                <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
                     <button id="filter-all"  onclick="filtrarClassificacao('all')"  style="font-family:'Inter',sans-serif;font-size:0.6rem;padding:4px 10px;border-radius:20px;border:1.5px solid #165DFF;background:#EBF0FF;color:#165DFF;cursor:pointer;font-weight:700;transition:all .15s;">Todos</button>
                     <button id="filter-hot"  onclick="filtrarClassificacao('hot')"  style="font-family:'Inter',sans-serif;font-size:0.6rem;padding:4px 10px;border-radius:20px;border:1.5px solid #fca5a5;background:#fff;color:#dc2626;cursor:pointer;font-weight:700;transition:all .15s;">🔥 HOT</button>
                     <button id="filter-warm" onclick="filtrarClassificacao('warm')" style="font-family:'Inter',sans-serif;font-size:0.6rem;padding:4px 10px;border-radius:20px;border:1.5px solid #fde68a;background:#fff;color:#d97706;cursor:pointer;font-weight:700;transition:all .15s;">⚡ WARM</button>
                     <button id="filter-cold" onclick="filtrarClassificacao('cold')" style="font-family:'Inter',sans-serif;font-size:0.6rem;padding:4px 10px;border-radius:20px;border:1.5px solid #C2D8FF;background:#fff;color:#165DFF;cursor:pointer;font-weight:700;transition:all .15s;">❄️ COLD</button>
                     <button id="filter-site" onclick="toggleFiltroSite()" title="Clique para alternar: todos → com site → sem site (só com WhatsApp)" style="font-family:'Inter',sans-serif;font-size:0.6rem;padding:4px 10px;border-radius:20px;border:1.5px solid #d1d5db;background:#fff;color:#6b7280;cursor:pointer;font-weight:700;transition:all .15s;">🌐 Com/sem site</button>
+                    <button type="button" class="ps-chip" id="pf-novos" aria-pressed="false" onclick="alternarFiltroExtra('novos')" title="Esconde quem já recebeu mensagem sua">🆕 Só novos</button>
+                    <button type="button" class="ps-chip" id="pf-celular" aria-pressed="false" onclick="alternarFiltroExtra('celular')" title="Celular costuma ser o próprio dono">📱 Só celular</button>
+                    <button type="button" class="ps-chip" id="pf-whats" aria-pressed="false" onclick="alternarFiltroExtra('whats')" title="Só quem tem WhatsApp confirmado">✅ WhatsApp confirmado</button>
+                    <button type="button" class="ps-chip" id="pf-negativa" aria-pressed="false" onclick="alternarFiltroExtra('negativa')" title="Tem avaliação de 1 ou 2 estrelas: dor visível, bom gancho para a conversa">⭐ Avaliação negativa</button>
                 </div>
                 <div class="stats-right">
                     <button id="btn-verificar-whats" onclick="verificarWhatsAppLote()" style="font-family:'Inter',sans-serif;font-size:0.62rem;padding:6px 12px;border-radius:8px;border:1.5px solid #16a34a;background:#dcfce7;color:#16a34a;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:5px;">
@@ -1867,6 +1882,12 @@ function iniciarAppPosLogin() {
                     </select>
                     <span class="count-badge" id="count-badge"></span>
                 </div>
+            </div>
+            <div id="ps-acoes" class="ps-acoes" hidden>
+                <button type="button" class="ps-acao principal" id="ps-btn-melhores" onclick="campanhaComMelhores()"></button>
+                <button type="button" class="ps-acao" id="ps-btn-cidade" onclick="mesmaBuscaOutraCidade()">🔁 Mesma busca em outra cidade</button>
+                <button type="button" class="ps-acao" id="ps-btn-fundo" onclick="buscarMaisFundo()" hidden>🔎 Buscar mais nesta cidade</button>
+                <span class="ps-acoes-dica" id="ps-acoes-dica"></span>
             </div>
 
             <div class="table-wrap">
@@ -4538,6 +4559,7 @@ function trocarAba(aba, el) {
     document.getElementById('page-subtitle').textContent = sub;
     const btRel = document.getElementById('btn-relatorio-topo');
     if (btRel) btRel.style.display = aba === 'metricas' ? 'inline-flex' : 'none';
+    if (aba === 'prospeccao') setTimeout(() => { try { carregarInteligenciaProspeccao(); } catch (e) {} }, 200);
 
     const content = document.getElementById('main-content');
     content.style.padding  = '';
@@ -4641,7 +4663,9 @@ function setMaxLeads(val) {
 const API_LEADS_OFICIAL = 'https://google-maps-scraper-production-3f90.up.railway.app';
 const BUSCA_OFICIAL_LIMITE_MS = 30 * 60 * 1000;
 
-function fonteLeadsAtual() { return userGet('fonteLeads', 'oficial') === 'serper' ? 'serper' : 'oficial'; }
+// A oficial é sempre a padrão; o Serper só entra sozinho, como reserva, se a oficial falhar (ver buscar()).
+let _fonteEmUso = 'oficial';
+function fonteLeadsAtual() { return _fonteEmUso; }
 function escolherFonteLeads(fonte) { userSet('fonteLeads', fonte); pintarFonteLeads(); }
 function pintarFonteLeads() {
     const f = fonteLeadsAtual();
@@ -4743,13 +4767,14 @@ async function completarRedesDosRestaurados(u) {
 let _ultimaBuscaInfo = null;
 let _forcarNovaBusca = false;
 
-async function buscarViaApiOficial(nicho, local, maxLeads) {
+async function buscarViaApiOficial(nicho, local, maxLeads, emGrade) {
     // Vários termos separados por vírgula viram uma busca só (ex.: "contabilidade, contador"):
     // o Google mostra ~120 empresas por termo, então sinônimos trazem bem mais empresas.
     const termos = nicho.split(',').map(t => t.trim()).filter(Boolean).slice(0, 5);
     const pedido = termos.length > 1
         ? { buscas: termos, cidade: local, profundidade: 10, tempo_limite_min: 25 }
         : { busca: termos[0] || nicho, cidade: local, profundidade: 10, tempo_limite_min: 15 };
+    if (emGrade) { pedido.grade = 3; pedido.tempo_limite_min = 45; }   // cidade em 9 regiões
     if (_forcarNovaBusca) pedido.forcar_nova = true;
     _forcarNovaBusca = false;
     const criada = await _apiOficial('/leads/buscas', {
@@ -4761,10 +4786,11 @@ async function buscarViaApiOficial(nicho, local, maxLeads) {
     // Cache: a mesma busca (mesmo nicho e cidade) já foi feita nos últimos dias -> resultado na hora.
     if (criada.reaproveitada && !criada.em_andamento && criada.status === 'pronta') {
         const d = await _apiOficial('/leads/buscas/' + encodeURIComponent(criada.id));
+        _ultimaQtdBruta = (d.leads || []).length;
         return (d.leads || []).map(converterLeadOficial).slice(0, maxLeads);
     }
     // Alguém já estava fazendo a mesma busca: acompanha a mesma, sem duplicar na fila.
-    const pendente = { id: criada.id, nicho, local, maxLeads, inicio: Date.now(), carona: !!criada.em_andamento };
+    const pendente = { id: criada.id, nicho, local, maxLeads, inicio: Date.now(), carona: !!criada.em_andamento, grade: !!emGrade };
     userSet('buscaOficialPendente', pendente);
     return acompanharBuscaOficial(pendente);
 }
@@ -4870,8 +4896,8 @@ async function acompanharBuscaOficial(p) {
     if (tabela) tabela.innerHTML = `<tr><td colspan="6"><div class="empty"><div class="icon">🗺️</div><p>Minerando… as empresas aparecem aqui conforme forem encontradas.</p></div></td></tr>`;
     try {
         while (true) {
-            if (Date.now() - p.inicio > BUSCA_OFICIAL_LIMITE_MS) {
-                throw new Error('a busca passou de 30 minutos. Tente de novo ou use o Backup (Serper)');
+            if (Date.now() - p.inicio > BUSCA_OFICIAL_LIMITE_MS * (p.grade ? 2 : 1)) {
+                throw new Error('a busca passou do tempo limite');
             }
             let resumo;
             try {
@@ -4879,7 +4905,7 @@ async function acompanharBuscaOficial(p) {
                 resumo = (lista.buscas || []).find(b => b.id === p.id);
                 falhas = 0;
             } catch (e) {
-                if (++falhas >= 6) throw new Error('o servidor da API oficial não respondeu (' + e.message + '). Tente o Backup (Serper)');
+                if (++falhas >= 6) throw new Error('o servidor da busca não respondeu (' + e.message + ')');
                 await _esperar(5000);
                 continue;
             }
@@ -4918,8 +4944,9 @@ async function acompanharBuscaOficial(p) {
                 const d = await _apiOficial('/leads/buscas/' + encodeURIComponent(p.id));
                 const leads = (d.leads || []).map(converterLeadOficial);
                 if (resumo.status !== 'pronta' && !leads.length) {
-                    throw new Error('o Google Maps não respondeu a esta busca (pode ser bloqueio temporário). Tente de novo mais tarde ou use o Backup (Serper)');
+                    throw new Error('o Google Maps não respondeu a esta busca (pode ser bloqueio temporário)');
                 }
+                _ultimaQtdBruta = leads.length;
                 return leads.slice(0, p.maxLeads);
             }
             await _esperar(5000);
@@ -5022,12 +5049,13 @@ function esconderMinerando() {
 async function retomarBuscaOficial() {
     const p = userGet('buscaOficialPendente', null);
     if (!p || !p.id) return;
-    if (Date.now() - p.inicio > BUSCA_OFICIAL_LIMITE_MS) { userSet('buscaOficialPendente', null); return; }
+    if (Date.now() - p.inicio > BUSCA_OFICIAL_LIMITE_MS * (p.grade ? 2 : 1)) { userSet('buscaOficialPendente', null); return; }
     const btn = document.getElementById('btn');
     const nichoEl = document.getElementById('nicho'), localEl = document.getElementById('local');
     if (nichoEl) nichoEl.value = p.nicho; if (localEl) localEl.value = p.local;
     if (btn) { btn.disabled = true; btn.classList.add('loading'); const l = btn.querySelector('.btn-label'); if (l) l.textContent = 'Extraindo...'; }
     try {
+        _ultimaBuscaGrade = !!p.grade;
         todosLeads = await acompanharBuscaOficial(p);
         _leadsBase = todosLeads.slice();
         dadosEnriquecidos = {}; paginaAtual = 1;
@@ -5057,7 +5085,9 @@ async function retomarBuscaOficial() {
 async function buscar() {
     const nicho    = document.getElementById('nicho').value.trim();
     const local    = document.getElementById('local').value.trim();
-    const maxLeads = parseInt(document.getElementById('max-leads').value) || 20;
+    const emGrade  = _proximaBuscaGrade;              // "Buscar mais nesta cidade": traz todas as regiões
+    _proximaBuscaGrade = false;
+    const maxLeads = emGrade ? 1000 : (parseInt(document.getElementById('max-leads').value) || 20);
     const btn      = document.getElementById('btn');
     const status   = document.getElementById('status');
     const statsBar = document.getElementById('stats-bar');
@@ -5078,10 +5108,22 @@ async function buscar() {
     todosLeads = []; dadosEnriquecidos = {}; paginaAtual = 1;
 
     try {
-        if (fonteLeadsAtual() === 'oficial') {
-            todosLeads = await buscarViaApiOficial(nicho, local, maxLeads);
-        } else {
-            todosLeads = await buscarViaSerper(nicho, local, maxLeads);
+        _fonteEmUso = 'oficial';
+        _ultimaBuscaGrade = emGrade;
+        try {
+            todosLeads = await buscarViaApiOficial(nicho, local, maxLeads, emGrade);
+        } catch (eOficial) {
+            // A busca principal falhou: tenta sozinha a reserva (Serper), sem o usuário precisar escolher.
+            console.warn('[BUSCA] oficial falhou, usando a reserva:', eOficial && eOficial.message);
+            _fonteEmUso = 'serper';
+            _ultimaQtdBruta = 0;
+            showToast('⚠️ A busca principal não respondeu. Buscando pela reserva…', 'err');
+            status.innerText = '// busca principal indisponível, usando a reserva…';
+            try {
+                todosLeads = await buscarViaSerper(nicho, local, Math.min(maxLeads, 100));
+            } catch (eReserva) {
+                throw new Error((eOficial && eOficial.message ? eOficial.message : 'busca principal indisponível') + ' (a reserva também falhou)');
+            }
         }
         _leadsBase = todosLeads.slice(); // salva cópia original para filtros
         if (!todosLeads.length || !todosLeads[0].title) {
@@ -5093,7 +5135,7 @@ async function buscar() {
         // Sincroniza por página com o total de leads buscados
         porPagina = todosLeads.length;
         status.className = 'status ok';
-        status.innerText = `// ${todosLeads.length} leads extraídos com sucesso`;
+        status.innerText = `// ${todosLeads.length} leads extraídos com sucesso` + (fonteLeadsAtual() === 'serper' ? ' (pela reserva, com menos dados)' : '');
         const info = fonteLeadsAtual() === 'oficial' ? _ultimaBuscaInfo : null;
         if (info && info.reaproveitada && !info.emAndamento) {
             // Resultado do cache: avisa de quando é e oferece buscar de novo no Google Maps.
@@ -5118,6 +5160,7 @@ async function buscar() {
         _filtroClass = 'all';
         _filtroSite = 'all';
         _soComWhats = false;
+        _filtrosExtra = {}; pintarFiltrosExtra();
         _sortCol = null;
         _sortDir = -1;
         _expandAberto = null;
@@ -5134,12 +5177,14 @@ async function buscar() {
         status.className = 'status err';
         status.innerText = `// erro: ${e.message}`;
         if (fonteLeadsAtual() === 'oficial') avisarBuscaFalhou(e.message);
-        const dicaBackup = fonteLeadsAtual() === 'oficial' ? ' Você pode tentar de novo ou escolher o Backup (Serper).' : '';
+        const dicaBackup = ' A busca principal e a reserva não responderam. Tente de novo em alguns minutos.';
         document.getElementById('tabela').innerHTML = `<tr><td colspan="5"><div class="empty"><div class="icon">❌</div><p>Não foi possível buscar os leads.${dicaBackup}</p></div></td></tr>`;
     } finally {
+        _fonteEmUso = 'oficial';
         btn.disabled = false;
         btn.classList.remove('loading');
         const btnLbl = btn.querySelector('.btn-label'); if(btnLbl) btnLbl.textContent = 'Buscar Leads';
+        try { atualizarAcoesBusca(); } catch (e) {}
     }
 }
 
@@ -5302,7 +5347,9 @@ function calcScore(l) {
     if ((Number(l.avaliacoes_negativas) || 0) > 0) s += 5;
     // Penalizar ausência de telefone (sem canal de contato direto)
     if (!l.phone) s = Math.max(s - 10, 0);
-    return Math.min(s, 100);
+    // Ajuste aprendido com as suas respostas reais (só liga quando há dados suficientes)
+    s += ajusteScoreAprendido(l);
+    return Math.max(0, Math.min(s, 100));
 }
 function ehCelularBR(phone) {
     const d = formatPhoneBR(phone);
@@ -5563,6 +5610,12 @@ function aplicarFiltroOrdem() {
         lista = lista.filter(l => l.is_whatsapp === true);
     }
 
+    // Filtros extras (podem ser combinados)
+    if (_filtrosExtra.novos)    lista = lista.filter(l => !leadJaFoiEnviado(l.phone));
+    if (_filtrosExtra.celular)  lista = lista.filter(l => ehCelularBR(l.phone));
+    if (_filtrosExtra.whats)    lista = lista.filter(l => l.is_whatsapp === true);
+    if (_filtrosExtra.negativa) lista = lista.filter(l => (Number(l.avaliacoes_negativas) || 0) > 0);
+
     // Ordenação
     if (_sortCol) {
         lista.sort((a, b) => {
@@ -5739,7 +5792,8 @@ function toggleExpandScore(realIdx, btn) {
                 </div>
             </div>
             ${blocoSinais(l)}
-            ${blocoAvaliacoes(l)}`;
+            ${blocoAvaliacoes(l)}
+            ${blocoAjusteScore(l)}`;
 
         expandRow.style.display = '';
         leadRow.style.outline = `2px solid ${clsColor}`;
@@ -6079,7 +6133,7 @@ function confirmarCampanha() {
         nome,
         nicho: document.getElementById('nicho').value.trim(),
         local:  document.getElementById('local').value.trim(),
-        leads: todosLeads.map(l => ({ title:l.title||'', phone:l.phone||'', website:l.website||'', rating:l.rating||'', address:l.address||'', is_whatsapp: (l.is_whatsapp === true || l.is_whatsapp === false) ? l.is_whatsapp : null })),
+        leads: todosLeads.map(l => ({ title:l.title||'', phone:l.phone||'', website:l.website||'', rating:l.rating||'', address:l.address||'', is_whatsapp: (l.is_whatsapp === true || l.is_whatsapp === false) ? l.is_whatsapp : null, perfil: perfilLead(l) })),
         criadaEm: new Date().toLocaleString('pt-BR')
     };
     campanhas.unshift(campanha);
@@ -7431,6 +7485,7 @@ async function iniciarEnvioNoServidor({ min, max, typing, batchSize, batchPause 
         const data = await res.json();
 
         _campanhaIdAtiva = data.campanhaId;
+        gravarPerfisLeads(_campanhaIdAtiva, leads);       // score que aprende (não trava o envio)
         // Guarda nicho + local para exibir o nome da campanha nas metricas
         // (local, pra esse navegador) e também no Supabase (pra funcionar
         // em qualquer navegador/aparelho onde você for ver as métricas)
@@ -10952,6 +11007,280 @@ async function prMoverColuna(ids, col, bt) {
         return r;
     };
 })();
+// ====================================================================
+// PROSPECÇÃO INTELIGENTE: score que aprende, sugestão de próxima busca, campanha com os
+// melhores em 1 clique, filtros extras e busca em grade ("buscar mais nesta cidade").
+// ====================================================================
+var _ajusteScore = null;            // { ativo, envios, humanas, feats: { chave: { ajuste, lift, com, sem } } }
+var _statsNicho = null;             // [{ nome, env, hum }] dos nichos com volume, do melhor para o pior
+var _cidadesUsadas = [];
+var _intelCarregadaEm = 0;
+var _filtrosExtra = {};
+var _proximaBuscaGrade = false, _ultimaBuscaGrade = false, _ultimaQtdBruta = 0;
+const SCORE_MIN_ENVIOS = 200, SCORE_MIN_HUMANAS = 20, SCORE_MIN_GRUPO = 30;
+const SCORE_SINAIS = [
+    { k: 'celular',   nome: 'Celular',                       tem: l => ehCelularBR(l.phone) },
+    { k: 'site',      nome: 'Tem site',                      tem: l => !!(l.website && String(l.website).trim()) },
+    { k: 'redes',     nome: 'Tem rede social',               tem: l => !!(l.instagram || l.facebook || l.linkedin) },
+    { k: 'nota45',    nome: 'Nota 4,5 ou mais',              tem: l => (parseFloat(l.rating) || 0) >= 4.5 },
+    { k: 'aval50',    nome: '50 avaliações ou mais',         tem: l => (parseInt(l.reviews) || 0) >= 50 },
+    { k: 'negativa',  nome: 'Tem avaliação negativa',        tem: l => (Number(l.avaliacoes_negativas) || 0) > 0 },
+    { k: 'recente',   nome: 'Avaliação nos últimos 4 meses', tem: l => _diasDesdeUltimaAvaliacao(l) <= 120 },
+    { k: 'whats',     nome: 'WhatsApp confirmado',           tem: l => l.is_whatsapp === true },
+];
+try { _ajusteScore = userGet('ajusteScore', null); } catch (e) {}
+
+// Perfil do lead no momento do envio: é o que permite descobrir depois o que faz alguém responder.
+function perfilLead(l) {
+    if (!l) return null;
+    if (l.perfil && l.perfil.v) return l.perfil;      // já calculado quando a campanha foi salva
+    const sinais = {};
+    SCORE_SINAIS.forEach(s => { try { sinais[s.k] = !!s.tem(l); } catch (e) { sinais[s.k] = false; } });
+    let base = 0;
+    try { base = calcScore(l) - ajusteScoreAprendido(l); } catch (e) {}
+    return {
+        v: 1, score: base, sinais,
+        nota: parseFloat(l.rating) || null, avaliacoes: parseInt(l.reviews) || 0,
+        negativas: Number(l.avaliacoes_negativas) || 0, categoria: l.category || null,
+        cidade: l.cidade || (document.getElementById('local')?.value || '').trim() || null,
+        nicho: (document.getElementById('nicho')?.value || '').trim() || null,
+        fonte: l.fonte || null,
+    };
+}
+async function gravarPerfisLeads(campanhaId, leads) {
+    if (!currentUser || !campanhaId || !Array.isArray(leads) || !leads.length) return;
+    try {
+        const vistos = new Set();
+        const linhas = [];
+        leads.forEach(l => {
+            const tel = formatPhoneBR(l.phone);
+            if (!tel || vistos.has(tel)) return;
+            vistos.add(tel);
+            linhas.push({ user_id: currentUser.id, campanha_id: String(campanhaId), phone: tel, perfil: perfilLead(l) });
+        });
+        for (let i = 0; i < linhas.length; i += 500) {
+            const { error } = await supabaseClient.from('lead_perfil').upsert(linhas.slice(i, i + 500), { onConflict: 'user_id,campanha_id,phone' });
+            if (error) throw error;
+        }
+    } catch (e) { console.warn('[PERFIL LEADS]', e && e.message); }
+}
+
+// Quanto cada sinal muda o score, aprendido com quem respondeu de verdade (sem robô).
+function ajusteScoreAprendido(l) {
+    const a = _ajusteScore;
+    if (!a || !a.ativo || !a.feats) return 0;
+    let t = 0;
+    for (const s of SCORE_SINAIS) {
+        const f = a.feats[s.k];
+        if (f && f.ajuste) { try { if (s.tem(l)) t += f.ajuste; } catch (e) {} }
+    }
+    return Math.max(-20, Math.min(20, t));
+}
+function blocoAjusteScore(l) {
+    const a = _ajusteScore;
+    if (!a) return '';
+    if (!a.ativo) {
+        return `<div class="ps-ajuste">🧠 <strong>Score que aprende:</strong> juntando dados (${a.envios || 0} de ${SCORE_MIN_ENVIOS} envios com perfil, ${a.humanas || 0} respostas de pessoas). Depois disso o score passa a se ajustar pelo que faz os seus leads responderem.</div>`;
+    }
+    const itens = SCORE_SINAIS.filter(s => a.feats[s.k] && a.feats[s.k].ajuste && (() => { try { return s.tem(l); } catch (e) { return false; } })())
+        .map(s => { const f = a.feats[s.k]; return `${s.nome}: ${f.ajuste > 0 ? '+' : ''}${f.ajuste} (responde ${String(f.lift.toFixed(1)).replace('.', ',')}x)`; });
+    return `<div class="ps-ajuste">🧠 <strong>Ajuste pelo seu histórico:</strong> ${itens.length ? itens.join(' · ') : 'nenhum sinal deste lead mudou o score'}. Aprendido com ${a.envios} envios e ${a.humanas} respostas de pessoas.</div>`;
+}
+function calcularAjusteScore(envios) {
+    // envios: [{ sinais, humana }]
+    const out = { ativo: false, envios: envios.length, humanas: envios.filter(e => e.humana).length, feats: {}, em: Date.now() };
+    if (out.envios < SCORE_MIN_ENVIOS || out.humanas < SCORE_MIN_HUMANAS) return out;
+    SCORE_SINAIS.forEach(s => {
+        const com = envios.filter(e => e.sinais && e.sinais[s.k]), sem = envios.filter(e => e.sinais && !e.sinais[s.k]);
+        if (com.length < SCORE_MIN_GRUPO || sem.length < SCORE_MIN_GRUPO) return;
+        const tx = g => (g.filter(e => e.humana).length + 1) / (g.length + 10);   // suavizada, como no A/B
+        const lift = tx(com) / tx(sem);
+        let ajuste = Math.round((lift - 1) * 12);
+        ajuste = Math.max(-10, Math.min(10, ajuste));
+        if (Math.abs(ajuste) < 2) ajuste = 0;
+        out.feats[s.k] = { ajuste, lift, com: com.length, sem: sem.length };
+    });
+    out.ativo = true;
+    return out;
+}
+
+// Carrega tudo que a aba Prospecção usa (no máximo a cada 10 minutos).
+async function carregarInteligenciaProspeccao(forcar) {
+    if (!currentUser || typeof prBuscarTudo !== 'function') return;
+    if (!forcar && Date.now() - _intelCarregadaEm < 10 * 60 * 1000) { pintarSugestoesNicho(); return; }
+    _intelCarregadaEm = Date.now();
+    try {
+        const uid = currentUser.id;
+        const [leads, campanhasNuvem, perfis] = await Promise.all([
+            prBuscarTudo(() => supabaseClient.from('leads').select('campanha_id,phone,respondeu,resposta_suspeita_bot').eq('user_id', uid).not('enviado_em', 'is', null).order('id')),
+            prBuscarTudo(() => supabaseClient.from('campanhas').select('id,nicho,local').eq('user_id', uid).order('id')),
+            prBuscarTudo(() => supabaseClient.from('lead_perfil').select('campanha_id,phone,perfil').eq('user_id', uid).order('campanha_id')).catch(() => []),
+        ]);
+        // nichos que mais respondem
+        const nichoDe = {}, grupos = {};
+        const cidades = new Set();
+        campanhasNuvem.forEach(c => { nichoDe[c.id] = String(c.nicho || '').trim(); if (c.local) cidades.add(String(c.local).trim()); });
+        leads.forEach(l => {
+            const n = nichoDe[l.campanha_id];
+            if (!n) return;
+            const g = grupos[_normNicho(n)] || (grupos[_normNicho(n)] = { nome: n, env: 0, hum: 0 });
+            g.env++; if (l.respondeu && !l.resposta_suspeita_bot) g.hum++;
+        });
+        _statsNicho = Object.values(grupos).filter(g => g.env >= 15).sort((a, b) => b.hum / b.env - a.hum / a.env);
+        _cidadesUsadas = Array.from(cidades);
+        // score que aprende: junta perfil (no envio) com a resposta (depois)
+        const resp = {};
+        leads.forEach(l => { resp[l.campanha_id + '|' + prTel(l.phone)] = !!(l.respondeu && !l.resposta_suspeita_bot); });
+        const envios = [];
+        perfis.forEach(p => {
+            const k = p.campanha_id + '|' + prTel(p.phone);
+            if (k in resp) envios.push({ sinais: (p.perfil && p.perfil.sinais) || {}, humana: resp[k] });
+        });
+        const antes = JSON.stringify(_ajusteScore && _ajusteScore.feats);
+        _ajusteScore = calcularAjusteScore(envios);
+        userSet('ajusteScore', _ajusteScore);
+        if (_ajusteScore.ativo && JSON.stringify(_ajusteScore.feats) !== antes && todosLeads.length) {
+            try { aplicarFiltroOrdem(); } catch (e) {}
+        }
+    } catch (e) {
+        console.warn('[PROSPECÇÃO] não consegui carregar as sugestões:', e && e.message);
+    }
+    pintarSugestoesNicho();
+}
+function _normNicho(t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
+
+// Atalhos "Mais respondem" abaixo do Nicho + situação do score que aprende
+function pintarSugestoesNicho() {
+    const box = document.getElementById('prosp-sugestoes');
+    if (!box) return;
+    box.innerHTML = '';
+    const top = (_statsNicho || []).slice(0, 3);
+    if (top.length >= 2) {
+        box.appendChild(prEl('span', 'ps-rot', 'Mais respondem:'));
+        top.forEach(g => {
+            const b = prEl('button', 'ps-sug', g.nome);
+            b.type = 'button';
+            b.title = `${g.hum} de ${g.env} pessoas responderam`;
+            b.appendChild(prEl('small', '', prPctTxt(g.hum, g.env)));
+            b.addEventListener('click', () => {
+                const n = document.getElementById('nicho');
+                n.value = g.nome; n.dispatchEvent(new Event('input'));
+                const loc = document.getElementById('local');
+                if (!loc.value.trim()) loc.focus(); else document.getElementById('btn').focus();
+            });
+            box.appendChild(b);
+        });
+    }
+    const a = _ajusteScore;
+    if (a) {
+        const t = a.ativo ? `🧠 Score ajustado pelas suas respostas (${a.envios} envios analisados).`
+            : `🧠 Score que aprende: juntando dados (${a.envios || 0} de ${SCORE_MIN_ENVIOS} envios com perfil).`;
+        box.appendChild(prEl('div', 'ps-aprende', t));
+    }
+    box.hidden = !box.childNodes.length;
+    avisarNichoFraco();
+}
+// Aviso ao digitar um nicho que responde bem menos que o melhor
+function avisarNichoFraco() {
+    const el = document.getElementById('nicho-aviso');
+    if (!el) return;
+    const termo = _normNicho((document.getElementById('nicho')?.value || '').split(',')[0]);
+    const lista = _statsNicho || [];
+    el.hidden = true;
+    if (termo.length < 3 || lista.length < 2) return;
+    const g = lista.find(x => _normNicho(x.nome) === termo) || lista.find(x => { const n = _normNicho(x.nome); return n.includes(termo) || termo.includes(n); });
+    const melhor = lista[0];
+    if (!g || g === melhor) return;
+    const tg = g.hum / g.env, tm = melhor.hum / melhor.env;
+    if (tg >= tm * 0.75) return;
+    const comp = tm / tg >= 1.8 ? `metade de ${melhor.nome} (${prPctTxt(melhor.hum, melhor.env)})` : `menos que ${melhor.nome} (${prPctTxt(melhor.hum, melhor.env)})`;
+    el.textContent = `⚠️ ${g.nome} responde ${prPctTxt(g.hum, g.env)}, ${comp}. Vale buscar mesmo assim, mas os atalhos abaixo costumam render mais.`;
+    el.hidden = false;
+}
+document.addEventListener('input', e => { if (e.target && e.target.id === 'nicho') avisarNichoFraco(); });
+
+// Filtros extras (combináveis)
+function alternarFiltroExtra(k) {
+    _filtrosExtra[k] = !_filtrosExtra[k];
+    pintarFiltrosExtra();
+    aplicarFiltroOrdem();
+}
+function pintarFiltrosExtra() {
+    ['novos', 'celular', 'whats', 'negativa'].forEach(k => {
+        const b = document.getElementById('pf-' + k);
+        if (b) b.setAttribute('aria-pressed', String(!!_filtrosExtra[k]));
+    });
+}
+
+// Os melhores para campanha: com telefone, sem "não tem WhatsApp", HOT ou WARM, nunca contatados, celular primeiro.
+function melhoresParaCampanha() {
+    const base = (_leadsBase && _leadsBase.length) ? _leadsBase : todosLeads;
+    return base
+        .filter(l => l && l.phone && l.is_whatsapp !== false && !leadJaFoiEnviado(l.phone) && calcScore(l) >= 40)
+        .map(l => ({ l, cel: ehCelularBR(l.phone) ? 1 : 0, sc: calcScore(l) }))
+        .sort((a, b) => (b.cel - a.cel) || (b.sc - a.sc))
+        .map(x => x.l);
+}
+function atualizarAcoesBusca() {
+    const box = document.getElementById('ps-acoes');
+    if (!box) return;
+    const base = (_leadsBase && _leadsBase.length) ? _leadsBase : todosLeads;
+    if (!base || !base.length || !base[0] || !base[0].title) { box.hidden = true; return; }
+    box.hidden = false;
+    const n = melhoresParaCampanha().length;
+    const bt = document.getElementById('ps-btn-melhores');
+    bt.textContent = n ? `🚀 Criar campanha com os ${n} melhores` : '🚀 Nenhum lead novo bom para campanha';
+    bt.disabled = !n;
+    const fundo = document.getElementById('ps-btn-fundo');
+    fundo.hidden = !(_ultimaQtdBruta >= 100 && !_ultimaBuscaGrade);
+    const dica = document.getElementById('ps-acoes-dica');
+    dica.textContent = n ? 'Com WhatsApp, HOT ou WARM, nunca contatados, celular primeiro.' : '';
+}
+// Vai para a Prospecção IA já com os melhores marcados (o envio continua pedindo a sua confirmação).
+function campanhaComMelhores() {
+    const melhores = melhoresParaCampanha();
+    if (!melhores.length) { showToast('Nenhum lead novo e bom nesta busca', 'err'); return; }
+    // tira os filtros da tabela para a lista da IA conter todos os leads da busca
+    const busca = document.getElementById('search-leads'); if (busca) busca.value = '';
+    _filtrosExtra = {}; pintarFiltrosExtra();
+    _filtroSite = 'all'; _soComWhats = false;
+    filtrarClassificacao('all');
+    const alvo = new Set(melhores);
+    iaLeadsSelecionados.clear();
+    todosLeads.forEach((l, i) => { if (alvo.has(l)) iaLeadsSelecionados.add(i); });
+    const nav = document.querySelector(`.nav-item[onclick*="'ia'"]`);
+    trocarAba('ia', nav || document.body);
+    document.querySelectorAll('.bn-item').forEach(b => b.classList.remove('active'));
+    setTimeout(() => {
+        try { renderLeadsIA(); renderLeadsIADashboard(); atualizarEstimativaModal(); } catch (e) {}
+        showToast(`🚀 ${iaLeadsSelecionados.size} melhores selecionados. Confira a mensagem e clique em Enviar.`, 'ok');
+    }, 250);
+}
+function mesmaBuscaOutraCidade() {
+    const loc = document.getElementById('local');
+    const atual = loc.value.trim();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    loc.value = '';
+    loc.focus();
+    const sugestoes = _cidadesUsadas.filter(c => _normNicho(c) !== _normNicho(atual)).slice(0, 4);
+    showToast('Digite a nova cidade e clique em Buscar Leads (o nicho continua o mesmo)' + (sugestoes.length ? '. Já buscou em: ' + sugestoes.join(', ') : ''), 'ok');
+}
+function buscarMaisFundo() {
+    const nicho = document.getElementById('nicho').value.trim(), local = document.getElementById('local').value.trim();
+    if (!nicho || !local) { showToast('Preencha nicho e localidade', 'err'); return; }
+    if (!confirm(`Buscar "${nicho}" em ${local} dividindo a cidade em 9 regiões?\n\nO Google mostra uns 120 resultados por busca; assim vêm bem mais empresas. Leva de 20 a 40 minutos e você pode sair da aba: a busca continua no servidor.`)) return;
+    _proximaBuscaGrade = true;
+    buscar();
+}
+// a barra de ações acompanha qualquer redesenho da tabela
+(function () {
+    const original = renderPagina;
+    renderPagina = function () {
+        const r = original.apply(this, arguments);
+        try { atualizarAcoesBusca(); } catch (e) {}
+        return r;
+    };
+})();
 
 async function carregarMetricas() {
     const icon = document.getElementById('metricas-refresh-icon');
@@ -11990,6 +12319,7 @@ async function dispararSequenciaIA(ci) {
         const data = await res.json();
 
         const campanhaId = data.campanhaId || payload.campanhaId;
+        gravarPerfisLeads(campanhaId, leads);           // score que aprende (não trava o envio)
         seqAddLog(`✅ Servidor aceitou! ID: ${campanhaId}`);
         seqAddLog(`💡 Pode fechar o app — o servidor está enviando!`);
         seqSetStatus('✅ Rodando no servidor — pode fechar!', '#16a34a');
