@@ -466,6 +466,11 @@
             #tab-prospeccao .table-wrap td:nth-child(5) {
                 display: none;
             }
+            #tab-prospeccao .td-rating { cursor: pointer; }
+            #tab-prospeccao .td-rating .ver-detalhe { display: block; }
+            /* O detalhe do lead é a 1ª (e única) célula da linha: não pode cair na regra que esconde a coluna # */
+            #tab-prospeccao .table-wrap tr[id^="expand-row-"] td { display: table-cell; }
+            #tab-prospeccao .table-wrap tr[id^="expand-row-"] td > div { position: sticky; left: 0; max-width: calc(100vw - 24px); box-sizing: border-box; }
 
             
 
@@ -1121,6 +1126,7 @@
 .minerando { display:flex; gap:16px; align-items:center; flex-wrap:wrap; margin-top:12px; padding:14px; border-radius:12px;
   border:1.5px solid #FFD6B0; background:linear-gradient(135deg,#FFF8F2,#F5F8FF); }
 .minerando[hidden] { display:none !important; }
+.ver-detalhe { display:none; font-family:'Inter',sans-serif; font-size:.58rem; font-weight:700; color:#FF6A00; margin-top:3px; white-space:nowrap; }
 .mapinha { width:260px; max-width:100%; height:auto; border-radius:10px; box-shadow:0 2px 10px rgba(22,93,255,.12); flex:0 1 260px; margin:0 auto; }
 .minerando-info { flex:1 1 220px; min-width:0; font-family:'Inter',sans-serif; }
 .minerando-titulo { font-weight:800; font-size:1rem; color:#FF6A00; }
@@ -4964,7 +4970,7 @@ function renderPagina(pagina) {
                 ${l.is_whatsapp === true  ? '<span style="margin-left:6px;font-size:0.65rem;background:#dcfce7;color:#16a34a;padding:2px 7px;border-radius:10px;font-family:JetBrains Mono,monospace;font-weight:700;">✅ WA</span>' : ''}
                 ${l.is_whatsapp === false ? '<span style="margin-left:6px;font-size:0.65rem;background:#fee2e2;color:#dc2626;padding:2px 7px;border-radius:10px;font-family:JetBrains Mono,monospace;font-weight:700;">❌ WA</span>' : ''}
             </td>
-            <td><div class="rating"><span class="star">★</span><span>${l.rating||'—'}</span>${l.reviews?`<span class="rev">(${l.reviews})</span>`:''}</div></td>
+            <td class="td-rating" onclick="abrirDetalheCelular(${realIdx}, this)"><div class="rating"><span class="star">★</span><span>${l.rating||'—'}</span>${l.reviews?`<span class="rev">(${l.reviews})</span>`:''}</div><span class="ver-detalhe">detalhes ▾</span></td>
             <td>
                 <div style="display:flex;align-items:center;gap:6px;">
                     <div style="font-family:'Inter',sans-serif;font-size:0.82rem;font-weight:800;color:${clsColors[cls]};">${score}</div>
@@ -5341,7 +5347,41 @@ function buscarLeadsTabela(termo) {
 }
 
 // ── Expand Score ──
+// Avaliações do Google (só a API oficial traz): negativas e as 5 mais recentes, sem nome de quem avaliou.
+function blocoAvaliacoes(l) {
+    const revs = Array.isArray(l.ultimas_avaliacoes) ? l.ultimas_avaliacoes.filter(r => r && (r.texto || r.nota)) : [];
+    const neg = Number(l.avaliacoes_negativas) || 0;
+    if (!revs.length && !neg) return '';
+    const est = n => n ? '★'.repeat(n) + '☆'.repeat(Math.max(0, 5 - n)) : '';
+    const quando = r => r.data ? new Date(r.data + 'T12:00:00').toLocaleDateString('pt-BR') : (r.quando || '');
+    const corta = t => t.length > 260 ? t.slice(0, 257).trimEnd() + '…' : t;
+    return `
+            <div style="margin-top:14px;padding-top:12px;border-top:1px solid #EBF0FF;font-family:'Inter',sans-serif;">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
+                    <span style="font-size:0.6rem;color:var(--muted);letter-spacing:0.5px;text-transform:uppercase;font-weight:700;">O que dizem no Google</span>
+                    ${neg ? `<span style="font-size:0.6rem;font-weight:700;background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:6px;">${neg} ${neg === 1 ? 'avaliação negativa' : 'avaliações negativas'} (1–2★)</span>` : ''}
+                </div>
+                ${revs.map(r => `
+                <div style="padding:7px 0;border-bottom:1px dashed #EBF0FF;">
+                    <div style="font-size:0.62rem;"><span style="color:#f59e0b;letter-spacing:1px;">${est(r.nota)}</span> <span style="color:var(--muted);">${escapeHtml(quando(r))}</span></div>
+                    ${r.texto ? `<div style="font-size:0.7rem;color:var(--text);line-height:1.45;margin-top:2px;overflow-wrap:anywhere;">${escapeHtml(corta(r.texto))}</div>` : '<div style="font-size:0.65rem;color:var(--muted);margin-top:2px;">(só a nota, sem texto)</div>'}
+                </div>`).join('')}
+            </div>`;
+}
+function textoAvaliacoes(l) {
+    return (Array.isArray(l.ultimas_avaliacoes) ? l.ultimas_avaliacoes : [])
+        .filter(r => r && (r.texto || r.nota))
+        .map(r => `${r.nota ? r.nota + '★' : ''}${r.data ? ' (' + new Date(r.data + 'T12:00:00').toLocaleDateString('pt-BR') + ')' : ''}: ${r.texto || '(sem texto)'}`.trim())
+        .join(' | ');
+}
+
 let _expandAberto = null;
+// No celular a coluna do Score (com o botão ▼) fica escondida: tocar na avaliação abre o mesmo detalhe.
+function abrirDetalheCelular(realIdx, td) {
+    if (window.innerWidth > 900) return;
+    const btn = td.closest('tr')?.querySelector('[onclick^="toggleExpandScore("]');
+    if (btn) toggleExpandScore(realIdx, btn);
+}
 function toggleExpandScore(realIdx, btn) {
     const expandRow = document.getElementById(`expand-row-${realIdx}`);
     const leadRow   = document.getElementById(`lead-row-${realIdx}`);
@@ -5413,7 +5453,8 @@ function toggleExpandScore(realIdx, btn) {
                         ${l.hours?`<div style="font-family:'Inter',sans-serif;font-size:0.58rem;color:var(--muted);margin-top:3px;line-height:1.5;">${l.hours.split('\n').slice(0,3).join(' · ')}</div>`:''}
                     </div>
                 </div>
-            </div>`;
+            </div>
+            ${blocoAvaliacoes(l)}`;
 
         expandRow.style.display = '';
         leadRow.style.outline = `2px solid ${clsColor}`;
@@ -5565,7 +5606,9 @@ function exportarCSV() {
         'Score', 'Classificação', 'Presença', 'Saúde', 'Engajamento', 'Timing',
         'Nome', 'Categoria', 'Telefone', 'Link WhatsApp',
         'Site', 'Endereço', 'Avaliação', 'Reviews',
-        'Aberto Agora', 'CNPJ', 'Situação', 'Cidade/UF', 'CNAE'
+        'Aberto Agora', 'CNPJ', 'Situação', 'Cidade/UF', 'CNAE',
+        'Instagram', 'Facebook', 'LinkedIn', 'Bairro', 'CEP', 'Horário',
+        'Avaliações negativas (1-2★)', 'Últimas avaliações'
     ];
 
     const rows = fonte.map((l, idx) => {
@@ -5593,7 +5636,15 @@ function exportarCSV() {
             enr.cnpj           || '',
             enr.situacao       || '',
             enr.cidade_uf      || '',
-            enr.cnae_descricao || ''
+            enr.cnae_descricao || '',
+            l.instagram || '',
+            l.facebook  || '',
+            l.linkedin  || '',
+            l.bairro    || '',
+            l.cep       || '',
+            (l.hours || l.horario || '').replace(/\n/g, ' · '),
+            l.avaliacoes_negativas || '',
+            textoAvaliacoes(l)
         ];
     });
 
