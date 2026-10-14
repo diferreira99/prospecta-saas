@@ -1164,6 +1164,27 @@
 .ps-acao.principal:hover { background:#ea580c; color:#fff; }
 .ps-acao:disabled { opacity:.5; cursor:not-allowed; }
 .ps-acoes-dica { font-family:'Inter',sans-serif; font-size:0.62rem; color:var(--muted); }
+/* o atributo hidden precisa vencer o display:flex destas classes */
+.ps-sugestoes[hidden], .ps-acoes[hidden], .ps-aviso[hidden], .nc-modal[hidden], .ps-chip[hidden], .ps-acao[hidden], .pr-bench[hidden] { display:none !important; }
+.lead-bloqueado td { opacity:.5; }
+.lead-bloqueado .lead-name { text-decoration:line-through; }
+.lead-bloqueado td:last-child { opacity:1; }
+.tag-maps { background:#EFF6FF; color:#1d4ed8; border:1px solid #bfdbfe; }
+.tag-bloq { background:#fff; color:#6b7280; border:1px solid #e5e7eb; cursor:pointer; padding:3px 7px; }
+.tag-bloq:hover { border-color:#dc2626; }
+.ps-selo { font-family:'Inter',sans-serif; font-size:0.52rem; font-weight:700; padding:2px 5px; border-radius:4px; white-space:nowrap; }
+.ps-selo.bloq { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; }
+.ps-selo.aberta { background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; }
+.ps-selo.novidade { background:#fdf4ff; color:#a21caf; border:1px solid #f0abfc; }
+.ps-sug.sin { border-color:#C2D8FF; background:#EFF6FF; color:#1d4ed8; }
+.ps-sug[aria-pressed="true"] { border-color:#165DFF; background:#165DFF; color:#fff; }
+.nc-modal { position:fixed; inset:0; z-index:99998; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; padding:16px; font-family:'Inter',sans-serif; }
+.nc-caixa { background:var(--surface); border-radius:16px; padding:22px; width:100%; max-width:440px; max-height:85vh; overflow-y:auto; }
+.nc-caixa h3 { margin:0 0 4px; font-size:1rem; color:var(--text); }
+.nc-form { display:flex; gap:8px; margin:12px 0; flex-wrap:wrap; }
+.nc-form input { flex:1 1 180px; padding:9px 12px; border:1.5px solid var(--border); border-radius:8px; font-size:0.78rem; background:var(--surface); color:var(--text); }
+.nc-item { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 0; border-top:1px solid var(--border); font-size:0.76rem; color:var(--text); }
+.nc-item small { color:var(--muted); display:block; }
 .ps-ajuste { margin-top:12px; padding:10px 12px; border-radius:10px; background:#F5F3FF; border:1px solid #ddd6fe; font-family:'Inter',sans-serif; font-size:0.66rem; color:#4c1d95; line-height:1.5; }
 @media (max-width: 600px) { .ps-acao { flex:1 1 calc(50% - 4px); font-size:0.64rem; padding:8px 8px; } .ps-acao.principal { flex-basis:100%; } .ps-acoes-dica { width:100%; } .ps-chip { font-size:0.58rem; padding:4px 8px; } }
 .fonte-leads { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:8px; margin:4px 0 12px; }
@@ -1805,6 +1826,7 @@ function iniciarAppPosLogin() {
                 </div>
                 <!-- atalhos com os nichos que mais respondem + aviso de nicho fraco (preenchidos pelo JS) -->
                 <div id="nicho-aviso" class="ps-aviso" role="status" hidden></div>
+                <div id="nicho-sinonimos" class="ps-sugestoes" hidden></div>
                 <div id="prosp-sugestoes" class="ps-sugestoes" hidden></div>
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                     <button class="btn" onclick="buscar()" id="btn" style="flex:1;">
@@ -1866,7 +1888,9 @@ function iniciarAppPosLogin() {
                     <button id="filter-warm" onclick="filtrarClassificacao('warm')" style="font-family:'Inter',sans-serif;font-size:0.6rem;padding:4px 10px;border-radius:20px;border:1.5px solid #fde68a;background:#fff;color:#d97706;cursor:pointer;font-weight:700;transition:all .15s;">⚡ WARM</button>
                     <button id="filter-cold" onclick="filtrarClassificacao('cold')" style="font-family:'Inter',sans-serif;font-size:0.6rem;padding:4px 10px;border-radius:20px;border:1.5px solid #C2D8FF;background:#fff;color:#165DFF;cursor:pointer;font-weight:700;transition:all .15s;">❄️ COLD</button>
                     <button id="filter-site" onclick="toggleFiltroSite()" title="Clique para alternar: todos → com site → sem site (só com WhatsApp)" style="font-family:'Inter',sans-serif;font-size:0.6rem;padding:4px 10px;border-radius:20px;border:1.5px solid #d1d5db;background:#fff;color:#6b7280;cursor:pointer;font-weight:700;transition:all .15s;">🌐 Com/sem site</button>
-                    <button type="button" class="ps-chip" id="pf-novos" aria-pressed="false" onclick="alternarFiltroExtra('novos')" title="Esconde quem já recebeu mensagem sua">🆕 Só novos</button>
+                    <button type="button" class="ps-chip" id="pf-novos" aria-pressed="false" onclick="alternarFiltroExtra('novos')" title="Esconde quem já recebeu mensagem sua">✉️ Nunca contatados</button>
+                    <button type="button" class="ps-chip" id="pf-aberta" aria-pressed="false" onclick="alternarFiltroExtra('aberta')" title="Poucas avaliações, todas recentes: empresa que abriu há pouco">🌱 Abertas há pouco</button>
+                    <button type="button" class="ps-chip" id="pf-novidade" aria-pressed="false" onclick="alternarFiltroExtra('novidade')" title="Empresas que não apareciam na última vez que você fez esta mesma busca" hidden>✨ Novidades</button>
                     <button type="button" class="ps-chip" id="pf-celular" aria-pressed="false" onclick="alternarFiltroExtra('celular')" title="Celular costuma ser o próprio dono">📱 Só celular</button>
                     <button type="button" class="ps-chip" id="pf-whats" aria-pressed="false" onclick="alternarFiltroExtra('whats')" title="Só quem tem WhatsApp confirmado">✅ WhatsApp confirmado</button>
                     <button type="button" class="ps-chip" id="pf-negativa" aria-pressed="false" onclick="alternarFiltroExtra('negativa')" title="Tem avaliação de 1 ou 2 estrelas: dor visível, bom gancho para a conversa">⭐ Avaliação negativa</button>
@@ -1887,8 +1911,10 @@ function iniciarAppPosLogin() {
                 <button type="button" class="ps-acao principal" id="ps-btn-melhores" onclick="campanhaComMelhores()"></button>
                 <button type="button" class="ps-acao" id="ps-btn-cidade" onclick="mesmaBuscaOutraCidade()">🔁 Mesma busca em outra cidade</button>
                 <button type="button" class="ps-acao" id="ps-btn-fundo" onclick="buscarMaisFundo()" hidden>🔎 Buscar mais nesta cidade</button>
+                <button type="button" class="ps-acao" id="ps-btn-bloq" onclick="abrirNaoContatar()">🚫 Não contatar</button>
                 <span class="ps-acoes-dica" id="ps-acoes-dica"></span>
             </div>
+            <div id="ps-bairros" class="ps-sugestoes ps-bairros" hidden></div>
 
             <div class="table-wrap">
                 <table>
@@ -5068,6 +5094,7 @@ async function retomarBuscaOficial() {
         document.getElementById('stats-text').innerText = `${p.nicho} · ${p.local}`;
         document.getElementById('count-badge').innerText = `${todosLeads.length} leads`;
         salvarNoHistorico(p.nicho, p.local, p.maxLeads, todosLeads.length);
+        marcarNovidadesDaBusca(p.nicho, p.local, _leadsBase);
         userSet('ultimosLeads', { leads: todosLeads, nicho: p.nicho, local: p.local, maxLeads: p.maxLeads, buscaId: p.id, data: new Date().toLocaleString('pt-BR') });
         filtrarClassificacao('all');
         renderPagina(1);
@@ -5154,13 +5181,14 @@ async function buscar() {
         document.getElementById('stats-text').innerText  = `${nicho} · ${local}`;
         document.getElementById('count-badge').innerText = `${todosLeads.length} leads`;
         salvarNoHistorico(nicho, local, maxLeads, todosLeads.length);
+        marcarNovidadesDaBusca(nicho, local, _leadsBase);
         // Salva leads no localStorage para recuperar após reload
         userSet('ultimosLeads', { leads: todosLeads, nicho, local, maxLeads, buscaId: _ultimaBuscaInfo?.id || null, data: new Date().toLocaleString('pt-BR') });
         // Reset filtros/busca ao fazer nova busca
         _filtroClass = 'all';
         _filtroSite = 'all';
         _soComWhats = false;
-        _filtrosExtra = {}; pintarFiltrosExtra();
+        _filtrosExtra = {}; _filtroBairro = null; pintarFiltrosExtra();
         _sortCol = null;
         _sortDir = -1;
         _expandAberto = null;
@@ -5223,6 +5251,7 @@ function renderPagina(pagina) {
 
         const row = document.createElement('tr');
         row.id = `lead-row-${realIdx}`;
+        if (bloqueadoLead(l)) row.classList.add('lead-bloqueado');
         row.style.animationDelay = `${i * 25}ms`;
         row.style.cursor = 'default';
         row.innerHTML = `
@@ -5230,6 +5259,7 @@ function renderPagina(pagina) {
             <td>
                 <div style="display:flex;align-items:center;gap:6px;">
                     <div class="lead-name">${l.title||'-'}</div>
+                    ${seloLeadExtra(l)}
                     ${jaEmCampanha ? '<span title="Já em campanha" style="font-size:0.52rem;background:#FFF3E0;color:#FF6A00;padding:2px 5px;border-radius:4px;border:1px solid #FFD6B0;font-family:Inter,sans-serif;font-weight:700;white-space:nowrap;">📨 Campanha</span>' : ''}
                     ${jaNoKanban  ? '<span title="Já no CRM"     style="font-size:0.52rem;background:#dcfce7;color:#16a34a;padding:2px 5px;border-radius:4px;border:1px solid #bbf7d0;font-family:Inter,sans-serif;font-weight:700;white-space:nowrap;">✅ CRM</span>' : ''}
                 </div>
@@ -5254,9 +5284,11 @@ function renderPagina(pagina) {
                 </div>
             </td>
             <td><div class="actions">
-                ${cleanPhone?`<a href="https://wa.me/${cleanPhone}" target="_blank" class="tag tag-wa">WhatsApp</a>`:''}
+                ${cleanPhone?`<a href="https://wa.me/${cleanPhone}" target="_blank" rel="noopener" class="tag tag-wa" title="Abre o WhatsApp com uma primeira mensagem pronta (você revisa antes de mandar)" onclick="return abrirWhatsComMensagem(event, ${realIdx})">WhatsApp</a>`:''}
                 ${l.website?`<a href="${l.website}" target="_blank" class="tag tag-site">Site</a>`:''}
+                <a href="${escapeHtml(linkGoogleMaps(l))}" target="_blank" rel="noopener" class="tag tag-maps" title="Ver fotos, fachada e avaliações no Google Maps">Maps</a>
                 ${botoesRedes(l)}
+                <button type="button" class="tag tag-bloq" onclick="alternarNaoContatarLead(${realIdx})" title="${bloqueadoLead(l) ? 'Tirar da lista Não contatar' : 'Nunca mandar campanha para este lead'}" aria-label="${bloqueadoLead(l) ? 'Tirar da lista Não contatar' : 'Adicionar à lista Não contatar'}">${bloqueadoLead(l) ? '↩️' : '🚫'}</button>
                 <button onclick="adicionarLeadKanbanDireto(${realIdx})" title="Adicionar ao Kanban" ${jaNoKanban ? 'disabled' : ''} style="font-family:'Inter',sans-serif;font-size:0.62rem;padding:4px 9px;border-radius:6px;border:1px solid ${jaNoKanban ? 'rgba(22,163,74,0.2)' : 'rgba(22,93,255,0.2)'};background:${jaNoKanban ? 'rgba(22,163,74,0.1)' : 'rgba(22,93,255,0.08)'};color:${jaNoKanban ? '#16a34a' : '#165DFF'};cursor:${jaNoKanban ? 'default' : 'pointer'};font-weight:600;transition:all .15s;white-space:nowrap;" ${jaNoKanban ? '' : 'onmouseover="this.style.background=\'rgba(22,93,255,0.16)\'" onmouseout="this.style.background=\'rgba(22,93,255,0.08)\'"'}>${jaNoKanban ? '✅ CRM' : '+ CRM'}</button>
             </div></td>
         `;
@@ -5345,6 +5377,7 @@ function calcScore(l) {
     // Sinais da API oficial: empresa ativa (avaliação recente) e dor visível (avaliações negativas)
     if (_diasDesdeUltimaAvaliacao(l) <= 120) s += 5;
     if ((Number(l.avaliacoes_negativas) || 0) > 0) s += 5;
+    if (abertaRecente(l)) s += 5;
     // Penalizar ausência de telefone (sem canal de contato direto)
     if (!l.phone) s = Math.max(s - 10, 0);
     // Ajuste aprendido com as suas respostas reais (só liga quando há dados suficientes)
@@ -5374,9 +5407,11 @@ function sinaisLead(l) {
     if (dias <= 120) out.push(['🟢', dias <= 30 ? 'Avaliada este mês: empresa ativa' : `Última avaliação há ${dias} dias: empresa ativa`]);
     else if (dias !== Infinity) out.push(['💤', `Última avaliação há ${dias} dias: pode estar parada`]);
     const rev = parseInt(l.reviews) || 0;
-    if (l.fonte === 'oficial' && rev > 0 && rev < 15) out.push(['🌱', `Só ${rev} avaliações: empresa pequena ou nova, costuma decidir rápido`]);
+    if (abertaRecente(l)) out.push(['🌱', 'Aberta há pouco: poucas avaliações e todas recentes. Dono montando tudo, costuma ouvir propostas']);
+    else if (l.fonte === 'oficial' && rev > 0 && rev < 15) out.push(['🌱', `Só ${rev} avaliações: empresa pequena ou nova, costuma decidir rápido`]);
     if (l.instagram) out.push(['📸', 'Tem Instagram: dá para conhecer antes de chamar']);
     if (!l.website) out.push(['🌐', 'Sem site']);
+    if (bloqueadoLead(l)) out.unshift(['🚫', 'Está na sua lista Não contatar: nunca recebe campanha']);
     return out;
 }
 
@@ -5615,6 +5650,9 @@ function aplicarFiltroOrdem() {
     if (_filtrosExtra.celular)  lista = lista.filter(l => ehCelularBR(l.phone));
     if (_filtrosExtra.whats)    lista = lista.filter(l => l.is_whatsapp === true);
     if (_filtrosExtra.negativa) lista = lista.filter(l => (Number(l.avaliacoes_negativas) || 0) > 0);
+    if (_filtrosExtra.aberta)   lista = lista.filter(l => abertaRecente(l));
+    if (_filtrosExtra.novidade) lista = lista.filter(l => !!l._novidade);
+    if (_filtroBairro)          lista = lista.filter(l => _normNicho(l.bairro) === _filtroBairro);
 
     // Ordenação
     if (_sortCol) {
@@ -6803,7 +6841,7 @@ function resetarStatusLeads() {
 function selecionarTodosIA() {
     // "Selecionar tudo" deixa de fora quem já recebeu mensagem e quem comprovadamente não tem WhatsApp.
     const comTel = todosLeads.filter(l => l.phone);
-    const leads = comTel.filter(l => !leadJaFoiEnviado(l.phone) && l.is_whatsapp !== false);
+    const leads = comTel.filter(l => !leadJaFoiEnviado(l.phone) && l.is_whatsapp !== false && !bloqueadoLead(l));
     const deFora = comTel.length - leads.length;
     const todosIdx = leads.map(l => todosLeads.indexOf(l));
     const todosMarcados = todosIdx.every(idx => iaLeadsSelecionados.has(idx));
@@ -7430,7 +7468,10 @@ async function iniciarEnvioNoServidor({ min, max, typing, batchSize, batchPause 
     if (semWA.length > 0) addLog(`⚠️ ${semWA.length} lead(s) sem WhatsApp removidos da fila`);
 
     // Celulares primeiro (respondem 1,6x mais que fixos); a ordem entre eles se mantém.
-    const leads = indices.map(i => todosLeads[i]).filter(Boolean)
+    await carregarNaoContatar();
+    const bloqueadosSel = indices.map(i => todosLeads[i]).filter(l => l && bloqueadoLead(l)).length;
+    if (bloqueadosSel) addLog(`🚫 ${bloqueadosSel} lead(s) da lista Não contatar removidos da fila`);
+    const leads = indices.map(i => todosLeads[i]).filter(l => l && !bloqueadoLead(l))
         .map((l, pos) => ({ l, pos })).sort((a, b) => (ehCelularBR(b.l.phone) - ehCelularBR(a.l.phone)) || (a.pos - b.pos)).map(x => x.l);
 
     if (leads.length === 0) {
@@ -7446,7 +7487,8 @@ async function iniciarEnvioNoServidor({ min, max, typing, batchSize, batchPause 
     // Garante que a lista de já-enviados está fresca (direto da nuvem) antes de montar o payload
     await carregarLeadsEnviadosDaNuvem();
     // Envia lista de números já enviados para o n8n filtrar duplicados
-    const numerosJaEnviados = Array.from(_telefonesEnviadosCache);
+    // ...e a lista Não contatar vai junto: o servidor pula esses números mesmo se algum escapar daqui.
+    const numerosJaEnviados = Array.from(new Set([...Array.from(_telefonesEnviadosCache), ...numerosNaoContatar()]));
 
     const payload = {
         leads,
@@ -11027,6 +11069,7 @@ const SCORE_SINAIS = [
     { k: 'negativa',  nome: 'Tem avaliação negativa',        tem: l => (Number(l.avaliacoes_negativas) || 0) > 0 },
     { k: 'recente',   nome: 'Avaliação nos últimos 4 meses', tem: l => _diasDesdeUltimaAvaliacao(l) <= 120 },
     { k: 'whats',     nome: 'WhatsApp confirmado',           tem: l => l.is_whatsapp === true },
+    { k: 'aberta',    nome: 'Aberta há pouco',               tem: l => abertaRecente(l) },
 ];
 try { _ajusteScore = userGet('ajusteScore', null); } catch (e) {}
 
@@ -11107,6 +11150,8 @@ function calcularAjusteScore(envios) {
 // Carrega tudo que a aba Prospecção usa (no máximo a cada 10 minutos).
 async function carregarInteligenciaProspeccao(forcar) {
     if (!currentUser || typeof prBuscarTudo !== 'function') return;
+    carregarNaoContatar().then(() => { try { if (todosLeads.length) renderPagina(paginaAtual || 1); else atualizarAcoesBusca(); } catch (e) {} });
+    pintarSinonimos();
     if (!forcar && Date.now() - _intelCarregadaEm < 10 * 60 * 1000) { pintarSugestoesNicho(); return; }
     _intelCarregadaEm = Date.now();
     try {
@@ -11206,7 +11251,7 @@ function alternarFiltroExtra(k) {
     aplicarFiltroOrdem();
 }
 function pintarFiltrosExtra() {
-    ['novos', 'celular', 'whats', 'negativa'].forEach(k => {
+    ['novos', 'celular', 'whats', 'negativa', 'aberta', 'novidade'].forEach(k => {
         const b = document.getElementById('pf-' + k);
         if (b) b.setAttribute('aria-pressed', String(!!_filtrosExtra[k]));
     });
@@ -11216,7 +11261,7 @@ function pintarFiltrosExtra() {
 function melhoresParaCampanha() {
     const base = (_leadsBase && _leadsBase.length) ? _leadsBase : todosLeads;
     return base
-        .filter(l => l && l.phone && l.is_whatsapp !== false && !leadJaFoiEnviado(l.phone) && calcScore(l) >= 40)
+        .filter(l => l && l.phone && l.is_whatsapp !== false && !leadJaFoiEnviado(l.phone) && !bloqueadoLead(l) && calcScore(l) >= 40)
         .map(l => ({ l, cel: ehCelularBR(l.phone) ? 1 : 0, sc: calcScore(l) }))
         .sort((a, b) => (b.cel - a.cel) || (b.sc - a.sc))
         .map(x => x.l);
@@ -11279,6 +11324,291 @@ function buscarMaisFundo() {
         const r = original.apply(this, arguments);
         try { atualizarAcoesBusca(); } catch (e) {}
         return r;
+    };
+})();
+
+// ── Lista "Não contatar" (amigos, clientes, concorrentes e quem pediu para sair) ──
+var _naoContatar = [];            // [{ id, phone, nome, motivo }]
+var _optOutTels = new Set();      // quem pediu para parar (vem dos leads)
+var _ncCarregadoEm = 0;
+var _filtroBairro = null;
+async function carregarNaoContatar(forcar) {
+    if (!currentUser) return;
+    if (!forcar && Date.now() - _ncCarregadoEm < 60 * 1000) return;
+    try {
+        const [lista, sair] = await Promise.all([
+            prBuscarTudo(() => supabaseClient.from('nao_contatar').select('id,phone,nome,motivo').eq('user_id', currentUser.id).order('id')),
+            prBuscarTudo(() => supabaseClient.from('leads').select('phone').eq('user_id', currentUser.id).eq('opt_out', true).order('id')),
+        ]);
+        _naoContatar = lista;
+        _optOutTels = new Set(sair.map(l => formatPhoneBR(l.phone)).filter(Boolean));
+        _ncCarregadoEm = Date.now();
+    } catch (e) { console.warn('[NÃO CONTATAR]', e && e.message); }
+}
+function numerosNaoContatar() {
+    const t = new Set(_optOutTels || []);
+    (_naoContatar || []).forEach(x => { const p = formatPhoneBR(x.phone); if (p) t.add(p); });
+    return Array.from(t);
+}
+function bloqueadoLead(l) {
+    if (!l || !Array.isArray(_naoContatar) || !_optOutTels) return false;   // a lista ainda não carregou
+    const tel = formatPhoneBR(l.phone);
+    if (tel && (_optOutTels.has(tel) || _naoContatar.some(x => x.phone && formatPhoneBR(x.phone) === tel))) return true;
+    return _naoContatar.some(x => _nomeBate(l.title || l.name, x.nome));
+}
+// O nome da lista precisa aparecer como palavras inteiras no nome do lead ("Empresa 1" não pega "Empresa 10").
+function _nomeBate(nomeLead, nomeLista) {
+    const a = _normNicho(nomeLead), b = _normNicho(nomeLista);
+    return b.length >= 4 && !!a && (' ' + a + ' ').includes(' ' + b + ' ');
+}
+async function alternarNaoContatarLead(idx) {
+    const l = todosLeads[idx];
+    if (!l || !currentUser) return;
+    const tel = formatPhoneBR(l.phone);
+    try {
+        if (bloqueadoLead(l)) {
+            if (tel && _optOutTels.has(tel)) { showToast('Este número pediu para sair: continua bloqueado', 'err'); return; }
+            const alvo = _naoContatar.filter(x => (x.phone && formatPhoneBR(x.phone) === tel) || _nomeBate(l.title, x.nome));
+            for (const x of alvo) await supabaseClient.from('nao_contatar').delete().eq('id', x.id);
+            showToast('↩️ ' + (l.title || 'Lead') + ' saiu da lista Não contatar', 'ok');
+        } else {
+            const { error } = await supabaseClient.from('nao_contatar').insert({ user_id: currentUser.id, phone: tel || null, nome: tel ? (l.title || null) : (l.title || 'sem nome'), motivo: 'marcado na Prospecção' });
+            if (error) throw error;
+            showToast('🚫 ' + (l.title || 'Lead') + ' nunca vai receber campanha', 'ok');
+        }
+        await carregarNaoContatar(true);
+        renderPagina(paginaAtual || 1);
+    } catch (e) { showToast('❌ Não consegui salvar: ' + (e && e.message), 'err'); }
+}
+async function abrirNaoContatar() {
+    await carregarNaoContatar(true);
+    let m = document.getElementById('nc-modal');
+    if (!m) {
+        m = prEl('div', 'nc-modal'); m.id = 'nc-modal';
+        m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true'); m.setAttribute('aria-labelledby', 'nc-titulo');
+        m.addEventListener('click', e => { if (e.target === m) m.hidden = true; });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && !m.hidden) m.hidden = true; });
+        document.body.appendChild(m);
+    }
+    m.innerHTML = '';
+    const cx = prEl('div', 'nc-caixa');
+    const h = prEl('h3', '', '🚫 Não contatar'); h.id = 'nc-titulo';
+    cx.appendChild(h);
+    cx.appendChild(prEl('div', 'ph-linha', 'Quem está aqui nunca recebe campanha: aparece riscado na busca, fica fora da seleção e o servidor pula o número. Quem pede para sair entra sozinho.'));
+    const form = prEl('form', 'nc-form');
+    const inp = prEl('input'); inp.placeholder = 'Número (com DDD) ou nome da empresa'; inp.setAttribute('aria-label', 'Número ou nome');
+    const mot = prEl('input'); mot.placeholder = 'Motivo (opcional): cliente, amigo…'; mot.setAttribute('aria-label', 'Motivo');
+    const bt = prEl('button', 'ps-acao principal', 'Adicionar'); bt.type = 'submit';
+    form.append(inp, mot, bt);
+    form.addEventListener('submit', async e => {
+        e.preventDefault();
+        const v = inp.value.trim();
+        if (!v) return;
+        const dig = v.replace(/\D/g, '');
+        const linha = dig.length >= 10 ? { phone: formatPhoneBR(dig) || dig, nome: null } : { phone: null, nome: v };
+        const { error } = await supabaseClient.from('nao_contatar').insert({ user_id: currentUser.id, ...linha, motivo: mot.value.trim() || null });
+        if (error) { showToast('❌ ' + (String(error.message).includes('duplicate') ? 'Esse número já está na lista' : error.message), 'err'); return; }
+        await abrirNaoContatar();
+        try { renderPagina(paginaAtual || 1); } catch (e2) {}
+    });
+    cx.appendChild(form);
+    const lista = prEl('div');
+    if (!_naoContatar.length && !_optOutTels.size) lista.appendChild(prEl('div', 'ph-mudo', 'Ninguém na lista ainda.'));
+    _naoContatar.slice().reverse().forEach(x => {
+        const it = prEl('div', 'nc-item');
+        const t = prEl('div', '', x.nome && x.phone ? x.nome : (x.nome || '+' + x.phone));
+        t.appendChild(prEl('small', '', [x.phone && x.nome ? '+' + x.phone : '', x.motivo || ''].filter(Boolean).join(' · ')));
+        const rm = prEl('button', 'ph-btn', 'Tirar'); rm.type = 'button';
+        rm.setAttribute('aria-label', 'Tirar ' + (x.nome || x.phone) + ' da lista');
+        rm.addEventListener('click', async () => {
+            await supabaseClient.from('nao_contatar').delete().eq('id', x.id);
+            await abrirNaoContatar();
+            try { renderPagina(paginaAtual || 1); } catch (e2) {}
+        });
+        it.append(t, rm);
+        lista.appendChild(it);
+    });
+    if (_optOutTels.size) lista.appendChild(prEl('div', 'ph-linha', '+ ' + _optOutTels.size + ' número(s) que pediram para sair (entram sozinhos, não dá para tirar).'));
+    cx.appendChild(lista);
+    const fechar = prEl('button', 'ps-acao', 'Fechar'); fechar.type = 'button'; fechar.style.marginTop = '12px';
+    fechar.addEventListener('click', () => { m.hidden = true; });
+    cx.appendChild(fechar);
+    m.appendChild(cx);
+    m.hidden = false;
+    inp.focus();
+}
+
+// ── Empresa aberta há pouco: poucas avaliações e todas recentes ──
+function abertaRecente(l) {
+    const rev = parseInt(l && l.reviews) || 0;
+    if (rev < 1 || rev > 10) return false;
+    const datas = (Array.isArray(l.ultimas_avaliacoes) ? l.ultimas_avaliacoes : [])
+        .map(r => r && r.data ? Date.parse(r.data + 'T12:00:00') : NaN).filter(t => !isNaN(t));
+    if (!datas.length) return false;
+    const maisAntiga = (Date.now() - Math.min(...datas)) / 86400000;
+    // até 5 avaliações a API traz todas, então a mais antiga é a primeira; com 6 a 10, exige um prazo menor
+    return rev <= 5 ? maisAntiga <= 180 : maisAntiga <= 90;
+}
+function seloLeadExtra(l) {
+    let h = '';
+    if (bloqueadoLead(l)) h += '<span class="ps-selo bloq" title="Está na lista Não contatar">🚫 Não contatar</span>';
+    if (abertaRecente(l)) h += '<span class="ps-selo aberta" title="Poucas avaliações, todas recentes">🌱 Aberta há pouco</span>';
+    if (l._novidade) h += '<span class="ps-selo novidade" title="Não aparecia na última vez que você fez esta busca">✨ Novidade</span>';
+    return h;
+}
+
+// ── Novidades desde a última vez que a mesma busca foi feita ──
+function marcarNovidadesDaBusca(nicho, local, leads) {
+    try {
+        const chave = _normNicho(nicho) + '|' + _normNicho(local);
+        const vistas = userGet('buscasVistas', {});
+        const id = l => l.place_id || formatPhoneBR(l.phone) || _normNicho(l.title);
+        const antes = vistas[chave];
+        let novas = 0;
+        leads.forEach(l => { l._novidade = !!(antes && antes.ids && !antes.ids.includes(id(l))); if (l._novidade) novas++; });
+        const ids = Array.from(new Set([...(antes && antes.ids ? antes.ids : []), ...leads.map(id)])).slice(-3000);
+        vistas[chave] = { ids, em: Date.now() };
+        const chaves = Object.keys(vistas).sort((a, b) => vistas[b].em - vistas[a].em).slice(0, 40);   // guarda as 40 buscas mais recentes
+        const enxuto = {}; chaves.forEach(k => { enxuto[k] = vistas[k]; });
+        userSet('buscasVistas', enxuto);
+        const chip = document.getElementById('pf-novidade');
+        if (chip) { chip.hidden = !novas; chip.textContent = '✨ Novidades (' + novas + ')'; }
+        if (antes && novas) showToast(`✨ ${novas} empresa(s) nova(s) desde a última vez que você buscou ${nicho} em ${local}`, 'ok');
+    } catch (e) { console.warn('[NOVIDADES]', e && e.message); }
+}
+
+// ── Sinônimos: mais termos = mais empresas na mesma busca (o Google mostra ~120 por termo) ──
+const SINONIMOS_NICHO = {
+    'pet shop': ['banho e tosa', 'agropet', 'clínica veterinária', 'hotel para cachorro'],
+    'petshop': ['banho e tosa', 'agropet', 'clínica veterinária'],
+    'contabilidade': ['contador', 'escritório contábil', 'assessoria contábil', 'abertura de empresa'],
+    'contador': ['contabilidade', 'escritório contábil', 'assessoria contábil'],
+    'serralheiro': ['serralheria', 'portão automático', 'esquadrias de alumínio', 'estruturas metálicas'],
+    'serralheria': ['serralheiro', 'portão automático', 'esquadrias de alumínio'],
+    'empresa de ti': ['suporte técnico de informática', 'consultoria em ti', 'terceirização de ti', 'infraestrutura de ti'],
+    'consultoria em ti': ['empresa de ti', 'suporte técnico de informática', 'segurança da informação'],
+    'suporte tecnico': ['assistência técnica de informática', 'empresa de ti', 'manutenção de computadores'],
+    'facilities': ['empresa de limpeza', 'portaria terceirizada', 'zeladoria', 'terceirização de serviços'],
+    'agencia de marketing': ['marketing digital', 'agência de publicidade', 'gestão de redes sociais', 'tráfego pago'],
+    'marketing digital': ['agência de marketing', 'gestão de redes sociais', 'tráfego pago'],
+    'clinica de estetica': ['estética facial', 'depilação a laser', 'harmonização facial', 'spa'],
+    'salao de beleza': ['cabeleireiro', 'barbearia', 'manicure', 'esmalteria'],
+    'barbearia': ['barbeiro', 'salão de beleza masculino', 'cabeleireiro'],
+    'dentista': ['clínica odontológica', 'ortodontia', 'implante dentário', 'odontologia'],
+    'clinica odontologica': ['dentista', 'ortodontia', 'implante dentário'],
+    'academia': ['crossfit', 'estúdio de pilates', 'personal trainer', 'centro de treinamento'],
+    'pilates': ['estúdio de pilates', 'fisioterapia', 'academia'],
+    'fisioterapia': ['clínica de fisioterapia', 'pilates', 'quiropraxia', 'osteopatia'],
+    'restaurante': ['lanchonete', 'pizzaria', 'hamburgueria', 'marmitaria'],
+    'pizzaria': ['restaurante', 'delivery de pizza', 'lanchonete'],
+    'padaria': ['confeitaria', 'panificadora', 'cafeteria'],
+    'oficina mecanica': ['auto center', 'funilaria', 'centro automotivo', 'troca de óleo'],
+    'auto center': ['oficina mecânica', 'pneus', 'alinhamento e balanceamento'],
+    'imobiliaria': ['corretor de imóveis', 'administradora de imóveis', 'aluguel de imóveis'],
+    'advogado': ['escritório de advocacia', 'advocacia trabalhista', 'advocacia empresarial'],
+    'escritorio de advocacia': ['advogado', 'advocacia trabalhista', 'advocacia empresarial'],
+    'arquiteto': ['escritório de arquitetura', 'design de interiores', 'projeto residencial'],
+    'construtora': ['empreiteira', 'reformas', 'engenharia civil', 'construção civil'],
+    'materiais de construcao': ['loja de materiais de construção', 'depósito de materiais', 'home center'],
+    'escola': ['escola particular', 'colégio', 'escola de idiomas', 'curso preparatório'],
+    'escola de idiomas': ['curso de inglês', 'escola de inglês', 'curso de espanhol'],
+    'grafica': ['gráfica rápida', 'comunicação visual', 'impressão digital'],
+    'otica': ['ótica', 'óculos', 'lentes de contato'],
+    'farmacia': ['drogaria', 'farmácia de manipulação'],
+    'hotel': ['pousada', 'hostel', 'motel'],
+    'lava rapido': ['estética automotiva', 'lavagem automotiva', 'lava jato'],
+    'transportadora': ['logística', 'frete', 'mudanças', 'entregas'],
+    'seguranca eletronica': ['câmeras de segurança', 'alarme', 'portaria remota', 'monitoramento'],
+};
+function sinonimosDoNicho(texto) {
+    const termos = texto.split(',').map(t => t.trim()).filter(Boolean);
+    if (!termos.length || termos.length >= 5) return [];
+    const usados = new Set(termos.map(_normNicho));
+    const k = _normNicho(termos[0]);
+    let lista = SINONIMOS_NICHO[Object.keys(SINONIMOS_NICHO).find(x => _normNicho(x) === k)] || null;
+    if (!lista) {
+        const parcial = Object.keys(SINONIMOS_NICHO).find(x => { const n = _normNicho(x); return k.length >= 4 && (n.includes(k) || k.includes(n)); });
+        lista = parcial ? SINONIMOS_NICHO[parcial] : [];
+    }
+    return lista.filter(t => !usados.has(_normNicho(t))).slice(0, 5 - termos.length);
+}
+function pintarSinonimos() {
+    const box = document.getElementById('nicho-sinonimos');
+    const n = document.getElementById('nicho');
+    if (!box || !n) return;
+    const sug = sinonimosDoNicho(n.value);
+    box.innerHTML = '';
+    if (!sug.length) { box.hidden = true; return; }
+    box.appendChild(prEl('span', 'ps-rot', 'Somar à busca (traz mais empresas):'));
+    sug.forEach(t => {
+        const b = prEl('button', 'ps-sug sin', '+ ' + t); b.type = 'button';
+        b.addEventListener('click', () => {
+            const atual = n.value.split(',').map(x => x.trim()).filter(Boolean);
+            if (atual.length >= 5) return;
+            n.value = atual.concat(t).join(', ');
+            pintarSinonimos();
+            avisarNichoFraco();
+        });
+        box.appendChild(b);
+    });
+    box.hidden = false;
+}
+document.addEventListener('input', e => { if (e.target && e.target.id === 'nicho') pintarSinonimos(); });
+
+// ── WhatsApp com uma primeira mensagem pronta (você revisa no WhatsApp antes de mandar) ──
+function mensagemAberturaLead(l) {
+    const nome = String(l.title || '').split(/[|\-–(]/)[0].trim();
+    const revs = Array.isArray(l.ultimas_avaliacoes) ? l.ultimas_avaliacoes : [];
+    const elogio = revs.find(r => r && r.nota >= 4 && String(r.texto || '').length >= 25);
+    let msg = `Olá! Tudo bem? Falo com o responsável${nome ? ' pela ' + nome : ''}?`;
+    if (elogio) msg += ` Vi no Google que os clientes de vocês falam muito bem do atendimento${l.rating ? ` (nota ${String(l.rating).replace('.', ',')})` : ''}.`;
+    else if (l.rating && parseFloat(l.rating) >= 4.5) msg += ` Vi a nota ${String(l.rating).replace('.', ',')} de vocês no Google, parabéns!`;
+    msg += ' Queria te mostrar uma ideia rápida que pode ajudar vocês. Posso te mandar?';
+    return msg;
+}
+function abrirWhatsComMensagem(ev, idx) {
+    const l = todosLeads[idx];
+    const tel = l && formatPhoneBR(l.phone);
+    if (!tel) return true;
+    if (bloqueadoLead(l) && !confirm('Este lead está na lista Não contatar. Abrir o WhatsApp mesmo assim?')) { ev.preventDefault(); return false; }
+    ev.preventDefault();
+    window.open(`https://wa.me/${tel}?text=${encodeURIComponent(mensagemAberturaLead(l))}`, '_blank', 'noopener');
+    return false;
+}
+
+// ── Google Maps: link da empresa (ou uma busca pelo nome e endereço) ──
+function linkGoogleMaps(l) {
+    if (l.google_maps && /^https:\/\//.test(l.google_maps)) return l.google_maps;
+    return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent([l.title, l.address].filter(Boolean).join(' '));
+}
+
+// ── Bairros: atalhos com os que mais aparecem na busca ──
+function pintarBairros() {
+    const box = document.getElementById('ps-bairros');
+    if (!box) return;
+    const base = (_leadsBase && _leadsBase.length) ? _leadsBase : todosLeads;
+    const cont = {};
+    (base || []).forEach(l => { const b = String(l.bairro || '').trim(); if (b) { const k = _normNicho(b); (cont[k] = cont[k] || { nome: b, n: 0 }).n++; } });
+    const top = Object.entries(cont).filter(([, v]) => v.n >= 2).sort((a, b) => b[1].n - a[1].n).slice(0, 8);
+    box.innerHTML = '';
+    if (top.length < 2) { box.hidden = true; return; }
+    box.appendChild(prEl('span', 'ps-rot', 'Bairros:'));
+    top.forEach(([k, v]) => {
+        const b = prEl('button', 'ps-sug sin', v.nome); b.type = 'button';
+        b.appendChild(prEl('small', '', String(v.n)));
+        b.setAttribute('aria-pressed', String(_filtroBairro === k));
+        b.addEventListener('click', () => { _filtroBairro = _filtroBairro === k ? null : k; aplicarFiltroOrdem(); });
+        box.appendChild(b);
+    });
+    box.hidden = false;
+}
+(function () {
+    const original = atualizarAcoesBusca;
+    atualizarAcoesBusca = function () {
+        original.apply(this, arguments);
+        try { pintarBairros(); } catch (e) {}
+        const bt = document.getElementById('ps-btn-bloq');
+        if (bt) { const n = _naoContatar.length + _optOutTels.size; bt.textContent = '🚫 Não contatar' + (n ? ` (${n})` : ''); }
     };
 })();
 
@@ -12233,6 +12563,8 @@ async function dispararSequenciaIA(ci) {
     let leads = filtro === 'sowhatsapp'
         ? c.leads.filter(l => l.phone && l.is_whatsapp === true)
         : c.leads.filter(l => l.phone);
+    await carregarNaoContatar();
+    leads = leads.filter(l => !bloqueadoLead(l));       // lista Não contatar nunca recebe campanha
 
     if (!leads.length) {
         showToast('Nenhum lead com telefone nesta campanha', 'err'); return;
@@ -12287,6 +12619,7 @@ async function dispararSequenciaIA(ci) {
             contextoExtra: etapaPendente.contextoExtra || ''
         },
         leads,
+        numerosJaEnviados: numerosNaoContatar(),        // o servidor pula estes números
         diasFollowup: etapaPendente.dia || 3,
         config: {
             uazapiUrl:    cfg.uazapi.url,
