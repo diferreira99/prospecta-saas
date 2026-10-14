@@ -12513,6 +12513,51 @@ function confirmarGerarRelatorio() {
     if (botao) gerarRelatorioPDF(botao, { escopo, secoes, telefoneWhats });
 }
 
+// Funil do relatório: só os leads enviados no filtro (campanha + período); interessados, negociação e
+// ganhos são os desses mesmos telefones. Devolve null se algo falhar (o PDF segue sem o funil).
+async function prFunilRelatorio(campanhaId) {
+    if (!currentUser) return null;
+    try {
+        const uid = currentUser.id, intervalo = _intervaloPeriodoISO();
+        const [leads, campanhas, interesses, pipeline] = await Promise.all([
+            prBuscarTudo(() => {
+                let q = supabaseClient.from('leads').select('campanha_id,phone,enviado_em,respondeu,resposta_suspeita_bot,variante_ab,gatilho_cta')
+                    .eq('user_id', uid).not('enviado_em', 'is', null).order('id');
+                if (campanhaId !== 'all') q = q.eq('campanha_id', campanhaId);
+                if (intervalo && intervalo.start) q = q.gte('enviado_em', intervalo.start);
+                if (intervalo && intervalo.end) q = q.lt('enviado_em', intervalo.end);
+                return q;
+            }),
+            prBuscarTudo(() => supabaseClient.from('campanhas').select('id,nicho').eq('user_id', uid).order('id')),
+            prBuscarTudo(() => supabaseClient.from('fila_sugestoes').select('id,phone,classificacao').eq('user_id', uid).in('classificacao', ['quente', 'duvida']).order('id')),
+            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('id,phone,col,valor').eq('user_id', uid).order('id')),
+        ]);
+        const tels = new Set(leads.map(l => prTel(l.phone)));
+        const humanas = leads.filter(prHumana).length;
+        const interessados = new Set(interesses.map(r => prTel(r.phone)).filter(t => tels.has(t)));
+        const pipe = pipeline.filter(p => tels.has(prTel(p.phone)));
+        pipe.forEach(p => { if (p.col === 'negociando' || p.col === 'fechado') interessados.add(prTel(p.phone)); });
+        const negociacao = pipe.filter(p => p.col === 'negociando' || p.col === 'fechado').length;
+        const ganhos = pipe.filter(p => p.col === 'fechado');
+        const valor = ganhos.reduce((t, p) => t + (Number(p.valor) || 0), 0);
+
+        // recomendações: melhor nicho e combinação vencedora do A/B dentro do filtro
+        const nichoDe = {}; campanhas.forEach(c => { nichoDe[c.id] = String(c.nicho || '').trim(); });
+        const nichos = {}, ab = {};
+        leads.forEach(l => {
+            const n = nichoDe[l.campanha_id];
+            if (n) { const g = nichos[n.toLowerCase()] || (nichos[n.toLowerCase()] = { nome: n, env: 0, hum: 0 }); g.env++; if (prHumana(l)) g.hum++; }
+            if (l.variante_ab && l.gatilho_cta) { const k = l.variante_ab + '|' + l.gatilho_cta; const g = ab[k] || (ab[k] = { tom: l.variante_ab, gat: l.gatilho_cta, env: 0, hum: 0 }); g.env++; if (prHumana(l)) g.hum++; }
+        });
+        const nichosOrd = Object.values(nichos).filter(g => g.env >= 15).sort((a, b) => b.hum / b.env - a.hum / a.env);
+        const abOrd = Object.values(ab).filter(g => g.env >= 15).sort((a, b) => (b.hum + 1) / (b.env + 10) - (a.hum + 1) / (a.env + 10));
+        return { enviados: leads.length, humanas, interessados: interessados.size, negociacao, ganhos: ganhos.length, valor, nichos: nichosOrd, ab: abOrd };
+    } catch (e) {
+        console.warn('[RELATORIO] funil:', e && e.message);
+        return null;
+    }
+}
+
 async function gerarRelatorioPDF(btn, opcoes) {
     const originalText = btn.innerHTML;
     btn.innerHTML = '⏳ Gerando relatório...';
@@ -12902,9 +12947,83 @@ async function gerarRelatorioPDF(btn, opcoes) {
             }).join('')
             : `<div style="font-size:0.65rem;color:#8a94a8;text-align:center;padding:8px;">Nenhum ponto de atenção identificado neste período. ✅</div>`;
 
+        // ── FUNIL: do envio à venda (substitui a "taxa de sucesso" como destaque) ──
+        const funil = await prFunilRelatorio(campanhaFiltroId);
+        const esc = v => (typeof escapeHtml === 'function' ? escapeHtml(String(v)) : String(v));
+        let funilHtml = '', kpisFunilHtml = '';
+        if (funil && funil.enviados) {
+            const etapas = [
+                ['Enviados', funil.enviados, '#165DFF'], ['Pessoas responderam', funil.humanas, '#165DFF'],
+                ['Interessados', funil.interessados, '#165DFF'], ['Em negociação', funil.negociacao, '#8b5cf6'], ['Ganhos', funil.ganhos, '#16a34a'],
+            ];
+            const linhasFunil = etapas.map((e, i) => {
+                const w = Math.max(e[1] ? 1.5 : 0, e[1] / funil.enviados * 100);
+                const conv = i ? `<span style="color:#8a94a8;font-weight:500;margin-left:6px;">${prPctTxt(e[1], etapas[i - 1][1])}</span>` : '';
+                return `<div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;font-size:0.66rem;">
+                    <div style="width:130px;color:#4a5268;">${e[0]}</div>
+                    <div style="flex:1;background:#E6EAF2;border-radius:99px;height:12px;overflow:hidden;"><div style="width:${w}%;height:100%;background:${e[2]};border-radius:99px;"></div></div>
+                    <div style="width:90px;text-align:right;font-weight:700;color:#0D1330;">${e[1]}${conv}</div></div>`;
+            }).join('');
+            let pior = null;
+            for (let i = 1; i < etapas.length; i++) {
+                if (etapas[i - 1][1] < 5) continue;
+                const t = etapas[i][1] / etapas[i - 1][1];
+                if (!pior || t < pior.t) pior = { i, t };
+            }
+            const dicas = {
+                1: 'Poucas pessoas respondem: teste outros nichos e priorize números de celular.',
+                2: 'Muitas respostas não viram interesse: deixe mais claro na mensagem o que você oferece.',
+                3: 'Interessados que não avançam: responda rápido os leads quentes e envie a proposta.',
+                4: 'Negociações que não fecham: retome cada uma no Pipeline e registre o valor ao fechar.',
+            };
+            const piorHtml = pior ? `<div style="margin-top:10px;background:#FFF4EC;border-radius:8px;padding:8px 12px;font-size:0.62rem;color:#9a3412;">
+                <strong>Maior perda:</strong> entre "${etapas[pior.i - 1][0]}" e "${etapas[pior.i][0]}" (${etapas[pior.i][1]} de ${etapas[pior.i - 1][1]}). ${dicas[pior.i]}</div>` : '';
+            funilHtml = `<div class="pdf-avoid" style="margin-bottom:26px;">
+                <div style="font-size:0.7rem;font-weight:700;color:#0D1330;margin-bottom:10px;">Do envio à venda</div>
+                <div style="background:#F5F6FA;border-radius:14px;padding:16px 18px;">${linhasFunil}
+                    <div style="font-size:0.58rem;color:#8a94a8;margin-top:4px;">O número cinza é a porcentagem em relação à etapa anterior. Respostas de robô (menus e mensagens automáticas) não contam.</div>
+                    ${piorHtml}</div></div>`;
+            const card = (bg, borda, cor, valor, rotulo, sub) => `<div style="flex:1;background:${bg};border:1.5px solid ${borda};border-radius:12px;padding:14px 16px;">
+                <div style="font-size:1.5rem;font-weight:800;color:${cor};">${valor}</div>
+                <div style="font-size:0.62rem;color:${cor};font-weight:700;text-transform:uppercase;">${rotulo}</div>
+                ${sub ? `<div style="font-size:0.58rem;margin-top:4px;color:#4a5268;">${sub}</div>` : ''}</div>`;
+            kpisFunilHtml = `<div class="pdf-avoid" style="display:flex;gap:12px;margin-bottom:8px;">
+                ${card('#EBF0FF', '#C2D8FF', '#165DFF', funil.enviados, 'Enviados', comparativo ? _setaVariacao(comparativo.enviados.variacao) + ' vs período anterior' : '')}
+                ${card('#F0FDF4', '#BBF7D0', '#16a34a', funil.humanas, 'Pessoas responderam', prPctTxt(funil.humanas, funil.enviados) + ' de quem recebeu')}
+                ${card('#FFF3E0', '#FFD6B0', '#FF6A00', funil.interessados, 'Interessados', funil.negociacao + ' em negociação')}
+                ${card('#F0FDF4', '#86EFAC', '#15803d', _brl(funil.valor), 'Vendas', funil.ganhos + (funil.ganhos === 1 ? ' cliente fechado' : ' clientes fechados'))}
+            </div>
+            <div style="font-size:0.58rem;color:#8a94a8;margin-bottom:4px;">Entrega: ${taxaSucesso}% das mensagens processadas (${erros} ${erros === 1 ? 'erro' : 'erros'}) · ${Object.keys(porCampanha).length} campanhas</div>`;
+
+            // recomendações entram nos Pontos de Atenção
+            const taxaResp = funil.humanas / funil.enviados;
+            if (funil.enviados >= 20 && taxaResp >= 0.10) alertas.unshift({ tipo: 'info', texto: `${prPctTxt(funil.humanas, funil.enviados)} das pessoas que receberam responderam, acima do comum em prospecção B2B fria (5% a 10%). Vale aumentar o volume.` });
+            else if (funil.enviados >= 20 && taxaResp < 0.05) alertas.unshift({ tipo: 'aviso', texto: `Só ${prPctTxt(funil.humanas, funil.enviados)} das pessoas responderam, abaixo do comum (5% a 10%). Revise a mensagem e a lista de leads.` });
+            if (funil.nichos.length >= 2) {
+                const m = funil.nichos[0], u = funil.nichos[funil.nichos.length - 1];
+                alertas.push({ tipo: 'info', texto: `Melhor nicho: ${esc(m.nome)} (${prPctTxt(m.hum, m.env)} responderam). O que menos respondeu: ${esc(u.nome)} (${prPctTxt(u.hum, u.env)}).` });
+            }
+            if (funil.ab.length >= 2) {
+                const v = funil.ab[0];
+                alertas.push({ tipo: 'info', texto: `Mensagem que mais funciona: tom ${(PR_TOM[v.tom] || v.tom).toLowerCase()} com gatilho de ${PR_GATILHO[v.gat] || v.gat} (${prPctTxt(v.hum, v.env)} responderam).` });
+            }
+        }
+        // a lista de alertas pode ter mudado: refaz o HTML
+        const alertasHtmlFinal = alertas.length
+            ? alertas.map(a => {
+                const cor = a.tipo === 'erro' ? '#dc2626' : a.tipo === 'aviso' ? '#d97706' : '#165DFF';
+                const bg  = a.tipo === 'erro' ? '#FEF2F2' : a.tipo === 'aviso' ? '#FFF7ED' : '#EFF6FF';
+                const icone = a.tipo === 'erro' ? '⚠️' : a.tipo === 'aviso' ? '🔔' : 'ℹ️';
+                return `<div style="display:flex;gap:8px;align-items:flex-start;background:${bg};border:1px solid ${cor}33;border-radius:10px;padding:10px 12px;margin-bottom:8px;font-size:0.65rem;color:#0D1330;"><span>${icone}</span><span>${a.texto}</span></div>`;
+            }).join('')
+            : alertasHtml;
+
         // ── RESUMO EXECUTIVO (topo do relatório) ──
         let resumoTexto = `No período analisado, foram processados <strong>${totalProcessado}</strong> lead(s), com <strong>${enviados}</strong> mensagem(ns) enviada(s) e taxa de sucesso de <strong>${taxaSucesso}%</strong>.`;
-        if (totalVariantes > 0) {
+        if (funil && funil.enviados) {
+            resumoTexto = `No período analisado, foram enviadas <strong>${funil.enviados}</strong> mensagens: <strong>${funil.humanas}</strong> pessoas responderam (${prPctTxt(funil.humanas, funil.enviados)}), <strong>${funil.interessados}</strong> mostraram interesse, <strong>${funil.negociacao}</strong> estão ou passaram por negociação e <strong>${funil.ganhos}</strong> ${funil.ganhos === 1 ? 'virou cliente' : 'viraram clientes'} (${_brl(funil.valor)}). A entrega foi de ${taxaSucesso}%.`;
+        }
+        if (totalVariantes > 0 && !(funil && funil.enviados)) {   // com o funil, a recomendação de mensagem vai nos Pontos de Atenção
             const melhorVariante = variantA >= variantB ? 'A' : 'B';
             resumoTexto += ` A variante mais utilizada foi a <strong>${melhorVariante}</strong>`;
             if (melhorGatilhoKey) resumoTexto += ` e o gatilho mais frequente foi <strong>${nomesGatilho[melhorGatilhoKey] || melhorGatilhoKey}</strong>`;
@@ -13081,7 +13200,7 @@ async function gerarRelatorioPDF(btn, opcoes) {
                 </div>
 
                 <!-- KPIs -->
-                <div class="pdf-avoid" style="display:flex;gap:12px;margin-bottom:10px;">
+                ${kpisFunilHtml ? kpisFunilHtml : `<div class="pdf-avoid" style="display:flex;gap:12px;margin-bottom:10px;">
                     <div style="flex:1;background:#F0FDF4;border:1.5px solid #BBF7D0;border-radius:12px;padding:14px 16px;">
                         <div style="font-size:1.5rem;font-weight:800;color:#16a34a;">${enviados}</div>
                         <div style="font-size:0.62rem;color:#16a34a;font-weight:700;text-transform:uppercase;">Enviados</div>
@@ -13101,17 +13220,18 @@ async function gerarRelatorioPDF(btn, opcoes) {
                         <div style="font-size:1.5rem;font-weight:800;color:#FF6A00;">${Object.keys(porCampanha).length}</div>
                         <div style="font-size:0.62rem;color:#FF6A00;font-weight:700;text-transform:uppercase;">Campanhas</div>
                     </div>
-                </div>
+                </div>`}
                 ${comparativo ? `<div style="font-size:0.55rem;color:#8a94a8;margin-bottom:26px;">Comparado ao período de ${comparativo.label}</div>` : `<div style="margin-bottom:26px;"></div>`}
+                ${funilHtml}
 
                 <!-- Observações automáticas -->
                 <div style="margin-bottom:26px;">
                     <div style="font-size:0.7rem;font-weight:700;color:#0D1330;margin-bottom:10px;">Pontos de Atenção</div>
-                    ${alertasHtml}
+                    ${alertasHtmlFinal}
                 </div>
 
-                <!-- Gráficos -->
-                <div style="display:flex;gap:24px;align-items:center;margin-bottom:28px;background:#F5F6FA;border-radius:14px;padding:20px 24px;">
+                <!-- Gráficos (a rosca só aparece quando houve erro, pulo ou cancelamento; senão seria 100% verde) -->
+                <div style="display:${funil && funil.enviados && !(erros + pulados + cancelados) ? 'none' : 'flex'};gap:24px;align-items:center;margin-bottom:28px;background:#F5F6FA;border-radius:14px;padding:20px 24px;">
                     <div style="flex-shrink:0;">${donut}</div>
                     <div style="display:flex;flex-direction:column;gap:8px;">
                         <div style="font-size:0.7rem;font-weight:700;color:#0D1330;margin-bottom:4px;">Distribuição de status</div>
