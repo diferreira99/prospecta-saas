@@ -1172,6 +1172,50 @@
 .ps-acoes-dica { font-family:'Inter',sans-serif; font-size:0.62rem; color:var(--muted); }
 /* o atributo hidden precisa vencer o display:flex destas classes */
 .ps-sugestoes[hidden], .ps-acoes[hidden], .ps-aviso[hidden], .nc-modal[hidden], .ps-chip[hidden], .ps-acao[hidden], .pr-bench[hidden] { display:none !important; }
+.cp-topo { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:10px; margin-bottom:14px; font-family:'Inter',sans-serif; }
+.cp-titulo { margin:0; font-size:1.2rem; color:var(--text); }
+.cp-subtitulo { font-family:'Inter',sans-serif; font-size:0.9rem; color:var(--muted); margin:24px 0 10px; }
+.cp-topo-acoes { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.cp-topo-acoes .pk-sel { width:auto; }
+.cp-lista { display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:14px; }
+.cp-card { background:var(--surface); border:1.5px solid var(--border); border-radius:14px; padding:16px; font-family:'Inter',sans-serif; display:flex; flex-direction:column; gap:10px; min-width:0; }
+.cp-card.aberto { grid-column:1 / -1; border-color:#C2D8FF; }
+.cp-card h3 { margin:0; font-size:0.95rem; color:var(--text); display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.cp-sub { font-size:0.66rem; color:var(--muted); }
+.cp-selo { font-size:0.58rem; font-weight:800; padding:2px 7px; border-radius:99px; }
+.cp-selo.top { background:#fef3c7; color:#92400e; } .cp-selo.baixo { background:#fef2f2; color:#b91c1c; } .cp-selo.vivo { background:#FFF4EC; color:#C2410C; }
+.cp-nums { display:grid; grid-template-columns:repeat(5,1fr); gap:6px; }
+.cp-num { background:var(--surface2); border-radius:10px; padding:8px 4px; text-align:center; min-width:0; }
+.cp-num b { display:block; font-size:0.95rem; color:var(--text); white-space:nowrap; } .cp-num span { font-size:0.54rem; color:var(--muted); text-transform:uppercase; }
+.cp-num.verde b { color:#16a34a; } .cp-num.azul b { color:#165DFF; } .cp-num.laranja b { color:#FF6A00; }
+.cp-barra { position:relative; height:8px; background:var(--surface2); border-radius:99px; }
+.cp-barra > span { position:absolute; left:0; top:0; bottom:0; border-radius:99px; background:#165DFF; }
+.cp-barra > i { position:absolute; top:-3px; bottom:-3px; width:2px; background:#0D1330; opacity:.55; }
+.cp-acoes { display:flex; flex-wrap:wrap; gap:6px; }
+.cp-acoes .ps-acao { font-size:0.66rem; padding:7px 10px; }
+.cp-abas { display:flex; gap:6px; border-bottom:1px solid var(--border); padding-bottom:6px; flex-wrap:wrap; }
+.cp-aba { font-family:'Inter',sans-serif; font-size:0.7rem; font-weight:700; padding:6px 12px; border-radius:8px; border:none; background:transparent; color:var(--muted); cursor:pointer; }
+.cp-aba[aria-selected="true"] { background:#EFF6FF; color:#1d4ed8; }
+.cp-tabela-wrap { overflow-x:auto; }
+.cp-tabela { width:100%; border-collapse:collapse; font-size:0.72rem; color:var(--text); }
+.cp-tabela th { text-align:left; font-size:0.6rem; color:var(--muted); text-transform:uppercase; padding:6px 4px; }
+.cp-tabela td { padding:7px 4px; border-top:1px solid var(--border); vertical-align:middle; }
+.cp-tabela td.cp-acoes-lead { white-space:nowrap; text-align:right; }
+.cp-tabela td.cp-acoes-lead .tag-rede { display:inline-flex; margin-left:4px; vertical-align:middle; }
+.cp-st { font-size:0.58rem; font-weight:700; padding:2px 7px; border-radius:99px; white-space:nowrap; display:inline-block; margin:1px 2px 1px 0; }
+.cp-st.hum { background:#dcfce7; color:#15803d; } .cp-st.robo { background:#f1f5f9; color:#475569; } .cp-st.nada { background:var(--surface2); color:var(--muted); } .cp-st.sair { background:#fee2e2; color:#b91c1c; } .cp-st.int { background:#FFF4EC; color:#C2410C; }
+.cp-msgs { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:10px; }
+.cp-msg { border:1px solid var(--border); border-radius:10px; padding:10px 12px; font-size:0.72rem; line-height:1.5; color:var(--text); white-space:pre-line; }
+.cp-msg.boa { border-color:#bbf7d0; background:#f0fdf4; }
+.cp-msg small { display:block; margin-top:6px; color:var(--muted); font-size:0.6rem; white-space:normal; }
+.cp-aovivo { background:linear-gradient(135deg,#0D1330,#165DFF); color:#fff; border-radius:16px; padding:16px 18px; margin-bottom:16px; font-family:'Inter',sans-serif; }
+.cp-aovivo h3 { margin:0 0 4px; font-size:0.68rem; text-transform:uppercase; letter-spacing:.5px; color:#C7D3FF; }
+.cp-aovivo .cp-av-nome { font-size:1.05rem; font-weight:800; }
+.cp-aovivo .cp-av-info { font-size:0.74rem; color:#E0E7FF; margin:4px 0 10px; }
+.cp-aovivo .cp-barra { background:rgba(255,255,255,.2); } .cp-aovivo .cp-barra > span { background:#FF6A00; }
+.cp-aovivo .ps-acao { background:transparent; color:#fff; border-color:rgba(255,255,255,.45); margin-top:10px; }
+.cp-aovivo[hidden] { display:none !important; }
+@media (max-width: 600px) { .cp-lista { grid-template-columns:1fr; } .cp-nums { grid-template-columns:repeat(3,1fr); } .cp-tabela .cp-col-data { display:none; } }
 .pk-busca, .pk-sel { font-family:'Inter',sans-serif; font-size:0.7rem; padding:6px 10px; border:1.5px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); }
 .pk-busca { min-width:160px; flex:0 1 220px; }
 #tab-pipeline .pk-topbar { flex-wrap:wrap; row-gap:8px; justify-content:flex-start; }
@@ -3603,6 +3647,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <!-- CAMPANHAS -->
         <div class="tab-content" id="tab-campanhas">
+            <!-- CAMPANHAS REAIS (da nuvem): ao vivo, placar agrupado por nicho+cidade, leads, mensagens e repescagem -->
+            <section id="cp-aovivo" class="cp-aovivo" aria-live="polite" hidden></section>
+            <div class="cp-topo">
+                <div>
+                    <h2 class="cp-titulo">Campanhas disparadas</h2>
+                    <div class="ph-linha" id="cp-resumo">Carregando…</div>
+                </div>
+                <div class="cp-topo-acoes">
+                    <label class="ph-linha" for="cp-ordem">Ordenar</label>
+                    <select id="cp-ordem" class="pk-sel" onchange="cpRender()">
+                        <option value="taxa">Melhor taxa de resposta</option>
+                        <option value="interessados">Mais interessados</option>
+                        <option value="valor">Mais R$ ganho</option>
+                        <option value="recente">Mais recentes</option>
+                    </select>
+                    <button type="button" class="pk-filter-btn" onclick="cpCarregar(true)">Atualizar</button>
+                </div>
+            </div>
+            <div id="cp-lista" class="cp-lista"></div>
+            <h3 class="cp-subtitulo" id="cp-salvas-tit" hidden>Listas salvas, ainda não disparadas</h3>
             <div id="campanhas-vazia" class="coming-soon">
                 <div class="cs-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></div>
                 <h2>Nenhuma campanha ainda</h2>
@@ -4974,6 +5038,7 @@ function trocarAba(aba, el) {
     const btRel = document.getElementById('btn-relatorio-topo');
     if (btRel) btRel.style.display = aba === 'metricas' ? 'inline-flex' : 'none';
     if (aba === 'prospeccao') setTimeout(() => { try { carregarInteligenciaProspeccao(); } catch (e) {} }, 200);
+    if (aba === 'campanhas') setTimeout(() => { try { cpCarregar(); } catch (e) {} }, 150);
 
     const content = document.getElementById('main-content');
     content.style.padding  = '';
@@ -6618,11 +6683,17 @@ function renderCampanhas() {
     const lista = document.getElementById('campanhas-lista');
     const vazia = document.getElementById('campanhas-vazia');
     if (!lista) return;
-    if (!campanhas.length) { vazia.style.display='flex'; lista.innerHTML=''; return; }
+    // O que já foi disparado aparece em "Campanhas disparadas" (números reais da nuvem); aqui ficam só as listas salvas
+    const _disparada = c => typeof _cpIdsComEnvio !== 'undefined' && (_cpIdsComEnvio.has(String(c.id)) || _cpIdsComEnvio.has('camp_' + c.id));
+    const salvas = campanhas.filter(c => !_disparada(c));
+    const titSalvas = document.getElementById('cp-salvas-tit');
+    if (titSalvas) titSalvas.hidden = !salvas.length;
+    if (!salvas.length) { vazia.style.display = (typeof _cpGrupos !== 'undefined' && _cpGrupos.length) ? 'none' : 'flex'; lista.innerHTML=''; return; }
     vazia.style.display = 'none';
     lista.innerHTML = '';
 
     campanhas.forEach((c, ci) => {
+        if (_disparada(c)) return;
         const comTel  = c.leads.filter(l => l.phone).length;
         const comSite = c.leads.filter(l => l.website).length;
         const comWA   = c.leads.filter(l => l.is_whatsapp === true).length;
@@ -12347,6 +12418,390 @@ async function salvarPlanoMontado() {
         _previaPlano = [];
         await carregarPlanoProspeccao(); carregarModelosPlano();
     } catch (e) { showToast('❌ Não consegui salvar: ' + (e && e.message), 'err'); }
+}
+
+// ====================================================================
+// CAMPANHAS DISPARADAS (fonte: nuvem). Agrupa disparos do mesmo nicho+cidade, mostra o placar real,
+// os leads de cada campanha, as mensagens que geraram resposta, a campanha ao vivo e a repescagem.
+// ====================================================================
+var _cpIdsComEnvio = new Set();
+var _cpGrupos = [];
+var _cpDados = null;
+var _cpAberto = null, _cpAba = 'leads', _cpFiltroLead = 'todos';
+var _cpCarregadoEm = 0, _cpAoVivoTimer = null;
+var _cpMsgCache = {};             // campanhaId -> linhas do status (com a mensagem)
+const CP_FU_TEXTO = 'Oi! Passando para retomar minha mensagem de alguns dias atrás. Faz sentido conversarmos rapidinho?';
+
+function _cpData(iso) { return iso ? new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : ''; }
+async function cpCarregar(forcar) {
+    if (!currentUser || typeof prBuscarTudo !== 'function') return;
+    cpAoVivo();
+    if (!forcar && Date.now() - _cpCarregadoEm < 60 * 1000 && _cpDados) { cpRender(); return; }
+    _cpCarregadoEm = Date.now();
+    try {
+        const uid = currentUser.id;
+        const [leads, camps, interesses, pipeline, fila, fuEnv] = await Promise.all([
+            prBuscarTudo(() => supabaseClient.from('leads').select('campanha_id,phone,title,enviado_em,respondeu,resposta_suspeita_bot,opt_out').eq('user_id', uid).not('enviado_em', 'is', null).order('id')),
+            prBuscarTudo(() => supabaseClient.from('campanhas').select('id,nome,nicho,local,criada_em').eq('user_id', uid).order('id')),
+            prBuscarTudo(() => supabaseClient.from('fila_sugestoes').select('phone,campanha_id').eq('user_id', uid).in('classificacao', ['quente', 'duvida']).order('id')),
+            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('phone,col,valor').eq('user_id', uid).order('id')),
+            prBuscarTudo(() => supabaseClient.from('fila_followups').select('phone,campanha_id,status').eq('user_id', uid).order('id')),
+            prBuscarTudo(() => supabaseClient.from('followups_enviados').select('phone,campanha_id').eq('user_id', uid).order('id')),
+        ]);
+        _cpDados = { leads, camps, interesses, pipeline, fila, fuEnv };
+        cpMontarGrupos();
+    } catch (e) {
+        console.warn('[CAMPANHAS]', e && e.message);
+        const r = document.getElementById('cp-resumo'); if (r) r.textContent = 'Não consegui carregar agora. Clique em Atualizar.';
+    }
+    cpRender();
+    try { renderCampanhas(); } catch (e) {}
+}
+function cpMontarGrupos() {
+    const d = _cpDados;
+    const campInfo = {};
+    d.camps.forEach(c => { campInfo[c.id] = c; });
+    const interessados = new Set(d.interesses.map(i => prTel(i.phone)));
+    const pipe = {};
+    d.pipeline.forEach(p => { pipe[prTel(p.phone)] = p; });
+    d.pipeline.forEach(p => { if (p.col === 'negociando' || p.col === 'fechado') interessados.add(prTel(p.phone)); });
+    const grupos = {};
+    _cpIdsComEnvio = new Set();
+    d.leads.forEach(l => {
+        const c = campInfo[l.campanha_id] || {};
+        _cpIdsComEnvio.add(String(l.campanha_id));
+        const nicho = String(c.nicho || '').split(',')[0].trim(), local = String(c.local || '').trim();
+        const k = nicho && local ? _normNicho(nicho) + '|' + _normNicho(local) : 'c|' + l.campanha_id;
+        const g = grupos[k] || (grupos[k] = { k, nicho, local, nome: nicho && local ? `${nicho} · ${local}` : (c.nome || ''), ids: new Set(), leads: [], ini: null, fim: null });
+        g.ids.add(String(l.campanha_id));
+        g.leads.push(l);
+        if (!g.ini || l.enviado_em < g.ini) g.ini = l.enviado_em;
+        if (!g.fim || l.enviado_em > g.fim) g.fim = l.enviado_em;
+    });
+    _cpGrupos = Object.values(grupos).map(g => {
+        let hum = 0, robo = 0, sair = 0;
+        const ints = new Set();
+        let ganhos = 0, valor = 0;
+        g.leads.forEach(l => {
+            const t = prTel(l.phone);
+            if (l.respondeu && !l.resposta_suspeita_bot) hum++; else if (l.respondeu) robo++;
+            if (l.opt_out) sair++;
+            if (interessados.has(t)) ints.add(t);
+            const p = pipe[t];
+            if (p && p.col === 'fechado') { ganhos++; valor += Number(p.valor) || 0; }
+        });
+        if (!g.nome) { const salvo = Array.from(g.ids).map(id => typeof _nomeCampanha === 'function' ? _nomeCampanha(id) : '').find(Boolean); g.nome = salvo || 'Campanha de ' + _cpData(g.ini); }
+        const fuPend = d.fila.filter(f => f.status === 'pendente' && g.ids.has(String(f.campanha_id))).length;
+        return { ...g, env: g.leads.length, hum, robo, sair, int: ints.size, ganhos, valor, fuPend, disparos: g.ids.size };
+    });
+}
+function cpMedia() {
+    let e = 0, h = 0;
+    _cpGrupos.forEach(g => { e += g.env; h += g.hum; });
+    return e ? h / e : 0;
+}
+function cpRender() {
+    const lista = document.getElementById('cp-lista');
+    if (!lista) return;
+    const res = document.getElementById('cp-resumo');
+    const media = cpMedia();
+    const totEnv = _cpGrupos.reduce((a, g) => a + g.env, 0);
+    if (res && _cpDados) res.textContent = `${_cpGrupos.length} campanhas (${_cpIdsComEnvio.size} disparos) · ${totEnv} envios · média de ${prPctTxt(_cpGrupos.reduce((a, g) => a + g.hum, 0), totEnv)} de pessoas respondendo`;
+    const ordem = document.getElementById('cp-ordem')?.value || 'taxa';
+    const nota = g => (g.hum + 1) / (g.env + 10);   // suavizada: 3 de 10 não vence 30 de 200 por sorte
+    const lst = _cpGrupos.slice().sort((a, b) =>
+        ordem === 'interessados' ? (b.int - a.int) || (nota(b) - nota(a)) :
+        ordem === 'valor' ? (b.valor - a.valor) || (b.int - a.int) :
+        ordem === 'recente' ? String(b.fim).localeCompare(String(a.fim)) :
+        (nota(b) - nota(a)) || (b.env - a.env));
+    lista.innerHTML = '';
+    if (!lst.length) { lista.appendChild(prEl('div', 'ph-mudo', _cpDados ? 'Nenhuma campanha disparada ainda.' : 'Carregando…')); return; }
+    const vivo = (userGet('campanhaAtiva', null) || {}).campanhaId;
+    lst.forEach(g => lista.appendChild(cpCard(g, media, vivo)));
+}
+function cpCard(g, media, vivo) {
+    const card = prEl('article', 'cp-card' + (_cpAberto === g.k ? ' aberto' : ''));
+    const h = prEl('h3', '', g.nome);
+    const tx = g.env ? g.hum / g.env : 0;
+    if (g.env >= 15 && media && tx >= media * 1.3) h.appendChild(prEl('span', 'cp-selo top', '🏆 Acima da média'));
+    else if (g.env >= 15 && media && tx <= media * 0.7) h.appendChild(prEl('span', 'cp-selo baixo', '⚠️ Abaixo da média'));
+    if (vivo && g.ids.has(String(vivo))) h.appendChild(prEl('span', 'cp-selo vivo', '● Rodando'));
+    card.appendChild(h);
+    card.appendChild(prEl('div', 'cp-sub', `${_cpData(g.ini)}${g.fim && _cpData(g.fim) !== _cpData(g.ini) ? ' a ' + _cpData(g.fim) : ''} · ${g.disparos} ${g.disparos === 1 ? 'disparo' : 'disparos'}${g.fuPend ? ` · ${g.fuPend} follow-up(s) na fila` : ''}`));
+    const nums = prEl('div', 'cp-nums');
+    [[g.env, 'Enviados', ''], [prPctTxt(g.hum, g.env), 'Pessoas', 'azul'], [g.robo, 'Robô', ''], [g.int, 'Quentes', 'laranja'], [g.valor ? _brl(g.valor) : g.ganhos, 'Ganhos', 'verde']]
+        .forEach(([v, r, c]) => { const n = prEl('div', 'cp-num ' + c); n.appendChild(prEl('b', '', String(v))); n.appendChild(prEl('span', '', r)); nums.appendChild(n); });
+    card.appendChild(nums);
+    const barra = prEl('div', 'cp-barra'); barra.title = `Taxa desta campanha (${prPctTxt(g.hum, g.env)}) e a média geral (${(media * 100).toFixed(1).replace('.', ',')}%)`;
+    const fill = prEl('span'); fill.style.width = Math.min(100, tx * 400) + '%'; barra.appendChild(fill);
+    const marca = prEl('i'); marca.style.left = Math.min(100, media * 400) + '%'; barra.appendChild(marca);
+    card.appendChild(barra);
+    const acoes = prEl('div', 'cp-acoes');
+    const bt = (txt, fn, cls) => { const b = prEl('button', 'ps-acao' + (cls ? ' ' + cls : ''), txt); b.type = 'button'; b.addEventListener('click', fn); acoes.appendChild(b); return b; };
+    bt(_cpAberto === g.k ? 'Fechar' : '👥 Ver leads e mensagens', () => { _cpAberto = _cpAberto === g.k ? null : g.k; _cpAba = 'leads'; cpRender(); }, _cpAberto === g.k ? '' : 'principal');
+    const eleg = cpElegiveisRepescagem(g).length;
+    const br = bt(`🔁 Retomar quem não respondeu${eleg ? ` (${eleg})` : ''}`, () => cpRepescar(g));
+    if (!eleg) { br.disabled = true; br.title = 'Ninguém elegível: precisa ter recebido há 3 dias ou mais, sem resposta de pessoa e sem follow-up.'; }
+    if (g.nicho) bt('📍 Repetir em outra cidade', () => cpRepetir(g, 'cidade'));
+    if (g.local) bt('🎯 Repetir com outro nicho', () => cpRepetir(g, 'nicho'));
+    card.appendChild(acoes);
+    if (_cpAberto === g.k) card.appendChild(cpDetalhe(g));
+    return card;
+}
+
+// Por dentro da campanha: leads, mensagens e disparos
+function cpDetalhe(g) {
+    const box = prEl('div');
+    const abas = prEl('div', 'cp-abas'); abas.setAttribute('role', 'tablist');
+    [['leads', 'Leads'], ['mensagens', 'Mensagens enviadas'], ['disparos', 'Disparos']].forEach(([k, n]) => {
+        const b = prEl('button', 'cp-aba', n); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(_cpAba === k));
+        b.addEventListener('click', () => { _cpAba = k; cpRender(); });
+        abas.appendChild(b);
+    });
+    box.appendChild(abas);
+    const corpo = prEl('div'); corpo.style.marginTop = '10px';
+    box.appendChild(corpo);
+    if (_cpAba === 'leads') cpAbaLeads(g, corpo);
+    else if (_cpAba === 'mensagens') cpAbaMensagens(g, corpo);
+    else cpAbaDisparos(g, corpo);
+    return box;
+}
+function cpStatusLead(l) {
+    const t = prTel(l.phone);
+    const ints = new Set(_cpDados.interesses.map(i => prTel(i.phone)));
+    return { hum: !!(l.respondeu && !l.resposta_suspeita_bot), robo: !!(l.respondeu && l.resposta_suspeita_bot), sair: !!l.opt_out, int: ints.has(t) };
+}
+function cpAbaLeads(g, corpo) {
+    const filtros = prEl('div', 'pk-motivos');
+    [['todos', 'Todos'], ['int', 'Interessados'], ['hum', 'Responderam'], ['robo', 'Só robô'], ['nada', 'Sem resposta']].forEach(([k, n]) => {
+        const b = prEl('button', 'ps-sug sin', n); b.type = 'button'; b.setAttribute('aria-pressed', String(_cpFiltroLead === k));
+        b.addEventListener('click', () => { _cpFiltroLead = k; cpRender(); });
+        filtros.appendChild(b);
+    });
+    corpo.appendChild(filtros);
+    const vistos = new Set();
+    const lista = g.leads.slice().sort((a, b) => String(b.enviado_em).localeCompare(String(a.enviado_em))).filter(l => {
+        const t = prTel(l.phone); if (vistos.has(t)) return false; vistos.add(t);
+        const s = cpStatusLead(l);
+        return _cpFiltroLead === 'todos' || (_cpFiltroLead === 'int' && s.int) || (_cpFiltroLead === 'hum' && s.hum) || (_cpFiltroLead === 'robo' && s.robo) || (_cpFiltroLead === 'nada' && !s.hum && !s.robo);
+    });
+    const wrap = prEl('div', 'cp-tabela-wrap');
+    const tab = prEl('table', 'cp-tabela');
+    tab.innerHTML = '<thead><tr><th>Empresa</th><th class="cp-col-data">Enviado</th><th>Resposta</th><th>Pipeline</th><th></th></tr></thead>';
+    const tb = prEl('tbody');
+    if (typeof pkLoad === 'function') pkLoad();
+    lista.slice(0, 200).forEach(l => {
+        const s = cpStatusLead(l);
+        const tr = prEl('tr');
+        const td1 = prEl('td'); td1.appendChild(prEl('b', '', l.title || ('+' + String(l.phone || '').replace(/\D/g, '')))); tr.appendChild(td1);
+        tr.appendChild(prEl('td', 'cp-col-data', _cpData(l.enviado_em)));
+        const td3 = prEl('td');
+        if (s.int) td3.appendChild(prEl('span', 'cp-st int', '🔥 Interessado'));
+        td3.appendChild(prEl('span', 'cp-st ' + (s.sair ? 'sair' : s.hum ? 'hum' : s.robo ? 'robo' : 'nada'), s.sair ? 'Pediu para sair' : s.hum ? 'Respondeu' : s.robo ? 'Só robô' : 'Sem resposta'));
+        tr.appendChild(td3);
+        const td4 = prEl('td'); td4.innerHTML = typeof faseDoFunilPorTelefone === 'function' ? faseDoFunilPorTelefone(l.phone) : ''; tr.appendChild(td4);
+        const td5 = prEl('td', 'cp-acoes-lead');
+        const tel = formatPhoneBR(l.phone);
+        if (tel) { const a = prEl('a', 'tag-rede tag-zap'); a.href = 'https://wa.me/' + tel; a.target = '_blank'; a.rel = 'noopener'; a.title = 'Abrir conversa no WhatsApp'; a.setAttribute('aria-label', 'Abrir conversa no WhatsApp'); a.innerHTML = _LOGO_REDE.whatsapp; td5.appendChild(a); }
+        const noCrm = (pkLeads || []).some(k => formatPhoneBR(k.phone) === tel);
+        const bc = prEl('button', 'tag-rede tag-crm' + (noCrm ? ' no-crm' : '')); bc.type = 'button'; bc.disabled = noCrm;
+        bc.title = noCrm ? 'Já está no CRM' : 'Adicionar ao CRM'; bc.setAttribute('aria-label', bc.title); bc.innerHTML = noCrm ? _LOGO_REDE.crmOk : _LOGO_REDE.crm;
+        bc.addEventListener('click', () => cpAddCrm(l, g, s));
+        td5.appendChild(bc);
+        const bloq = typeof bloqueadoLead === 'function' && bloqueadoLead({ phone: l.phone, title: l.title });
+        const bb = prEl('button', 'tag-rede tag-bloq' + (bloq ? ' ativo' : '')); bb.type = 'button';
+        bb.title = bloq ? 'Está na lista Não contatar' : 'Nunca mais mandar campanha'; bb.setAttribute('aria-label', bb.title); bb.innerHTML = bloq ? _LOGO_REDE.desbloq : _LOGO_REDE.bloq;
+        bb.disabled = bloq;
+        bb.addEventListener('click', () => cpNaoContatar(l));
+        td5.appendChild(bb);
+        tr.appendChild(td5);
+        tb.appendChild(tr);
+    });
+    tab.appendChild(tb); wrap.appendChild(tab); corpo.appendChild(wrap);
+    if (!lista.length) corpo.appendChild(prEl('div', 'ph-mudo', 'Nenhum lead neste filtro.'));
+    if (lista.length > 200) corpo.appendChild(prEl('div', 'ph-linha', `Mostrando 200 de ${lista.length}.`));
+}
+function cpAddCrm(l, g, s) {
+    pkLoad();
+    const tel = formatPhoneBR(l.phone);
+    if (pkLeads.some(k => formatPhoneBR(k.phone) === tel)) return;
+    pkLeads.push({ id: Date.now() + Math.random(), name: l.title || tel, cat: g.nicho || '', phone: tel, website: '', rating: 0, reviews: 0,
+        col: s.int ? 'negociando' : s.hum ? 'respondeu' : 'contatado', dias: 0, movedAt: Date.now(), nota: '' });
+    pkSave();
+    showToast('✅ ' + (l.title || 'Lead') + ' foi para o Pipeline', 'ok');
+    cpRender();
+}
+async function cpNaoContatar(l) {
+    try {
+        const { error } = await supabaseClient.from('nao_contatar').insert({ user_id: currentUser.id, phone: formatPhoneBR(l.phone) || null, nome: l.title || null, motivo: 'marcado em Campanhas' });
+        if (error && !String(error.message).includes('duplicate')) throw error;
+        await carregarNaoContatar(true);
+        showToast('🚫 ' + (l.title || 'Lead') + ' nunca vai receber campanha', 'ok');
+        cpRender();
+    } catch (e) { showToast('❌ ' + (e && e.message), 'err'); }
+}
+async function cpLinhasStatus(id) {
+    if (_cpMsgCache[id]) return _cpMsgCache[id];
+    const r = await fetch('https://primary-production-c1c7c.up.railway.app/webhook/status-campanha?campanhaId=' + encodeURIComponent(id) + '&userEmail=' + encodeURIComponent(currentUser?.email || ''), { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json().catch(() => ({}));
+    const linhas = Array.isArray(d.rows) ? d.rows : [];
+    _cpMsgCache[id] = linhas;
+    return linhas;
+}
+async function cpAbaMensagens(g, corpo) {
+    corpo.appendChild(prEl('div', 'ph-mudo', 'Carregando as mensagens…'));
+    try {
+        const linhas = (await Promise.all(Array.from(g.ids).map(id => cpLinhasStatus(id).catch(() => [])))).flat().filter(r => r.status === 'enviado' && r.mensagem);
+        corpo.innerHTML = '';
+        if (!linhas.length) {
+            corpo.appendChild(prEl('div', 'ph-linha', 'O texto das mensagens passou a ser guardado em 14/10 à noite. As campanhas a partir de agora mostram aqui o que foi enviado, separando as mensagens que geraram resposta das que não geraram.'));
+            return;
+        }
+        const resp = {};
+        g.leads.forEach(l => { resp[prTel(l.phone)] = !!(l.respondeu && !l.resposta_suspeita_bot); });
+        const boas = linhas.filter(r => resp[prTel(r.phone)]), ruins = linhas.filter(r => !resp[prTel(r.phone)]);
+        corpo.appendChild(prEl('div', 'ph-linha', `${boas.length} de ${linhas.length} mensagens guardadas geraram resposta de pessoa.`));
+        const grade = prEl('div', 'cp-msgs');
+        boas.slice(0, 4).concat(ruins.slice(0, Math.max(2, 6 - Math.min(4, boas.length)))).forEach(r => {
+            const boa = resp[prTel(r.phone)];
+            const m = prEl('div', 'cp-msg' + (boa ? ' boa' : ''), String(r.mensagem));
+            m.appendChild(prEl('small', '', `${boa ? '✅ Gerou resposta' : 'Sem resposta'} · ${r.lead || ''}${r.variant ? ' · tom ' + (PR_TOM[r.variant] || r.variant).toLowerCase() : ''}${r.gatilho ? ' + ' + (PR_GATILHO[r.gatilho] || r.gatilho) : ''}`));
+            grade.appendChild(m);
+        });
+        corpo.appendChild(grade);
+    } catch (e) {
+        corpo.innerHTML = '';
+        corpo.appendChild(prEl('div', 'ph-mudo', 'Não consegui buscar as mensagens agora.'));
+    }
+}
+function cpAbaDisparos(g, corpo) {
+    const porId = {};
+    g.leads.forEach(l => { const k = String(l.campanha_id); const p = porId[k] || (porId[k] = { env: 0, hum: 0, ini: l.enviado_em }); p.env++; if (l.respondeu && !l.resposta_suspeita_bot) p.hum++; if (l.enviado_em < p.ini) p.ini = l.enviado_em; });
+    const tab = prEl('table', 'cp-tabela');
+    tab.innerHTML = '<thead><tr><th>Disparo</th><th>Enviados</th><th>Responderam</th></tr></thead>';
+    const tb = prEl('tbody');
+    Object.entries(porId).sort((a, b) => String(b[1].ini).localeCompare(String(a[1].ini))).forEach(([id, p]) => {
+        const tr = prEl('tr');
+        tr.appendChild(prEl('td', '', new Date(p.ini).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })));
+        tr.appendChild(prEl('td', '', String(p.env)));
+        tr.appendChild(prEl('td', '', `${p.hum} (${prPctTxt(p.hum, p.env)})`));
+        tb.appendChild(tr);
+    });
+    tab.appendChild(tb); corpo.appendChild(tab);
+}
+
+// Repescagem: quem recebeu há 3 dias ou mais, sem resposta de pessoa, sem follow-up e sem bloqueio
+function cpElegiveisRepescagem(g) {
+    if (!_cpDados) return [];
+    const ja = new Set(_cpDados.fila.map(f => prTel(f.phone)).concat(_cpDados.fuEnv.map(f => prTel(f.phone))));
+    const pipe = {};
+    _cpDados.pipeline.forEach(p => { pipe[prTel(p.phone)] = p.col; });
+    const limite = Date.now() - 3 * 86400000;
+    const vistos = new Set();
+    return g.leads.filter(l => {
+        const t = prTel(l.phone);
+        if (!t || vistos.has(t)) return false; vistos.add(t);
+        if (new Date(l.enviado_em).getTime() > limite) return false;
+        if (l.respondeu && !l.resposta_suspeita_bot) return false;
+        if (l.opt_out || ja.has(t)) return false;
+        if (['negociando', 'fechado', 'descartado'].includes(pipe[t])) return false;
+        if (typeof bloqueadoLead === 'function' && bloqueadoLead({ phone: l.phone, title: l.title })) return false;
+        return true;
+    });
+}
+async function cpRepescar(g) {
+    const eleg = cpElegiveisRepescagem(g);
+    if (!eleg.length) return;
+    if (!confirm(`Colocar ${eleg.length} lead(s) de "${g.nome}" na fila de follow-up?\n\nNada é enviado agora: eles aparecem na aba Respostas com a mensagem\n"${CP_FU_TEXTO}"\npara você revisar e aprovar um por um.`)) return;
+    try {
+        const linhas = eleg.map(l => ({ user_id: currentUser.id, phone: formatPhoneBR(l.phone) || l.phone, lead_nome: l.title || null, campanha_id: String(l.campanha_id),
+            campanha_nome: g.nome, dia_etapa: 3, tipo: 'followup', mensagem: CP_FU_TEXTO, status: 'pendente' }));
+        for (let i = 0; i < linhas.length; i += 200) {
+            const { error } = await supabaseClient.from('fila_followups').insert(linhas.slice(i, i + 200));
+            if (error) throw error;
+        }
+        showToast(`🔁 ${linhas.length} follow-up(s) na fila. Aprove na aba Respostas.`, 'ok');
+        await cpCarregar(true);
+        try { if (typeof carregarFilaFollowups === 'function') carregarFilaFollowups(); } catch (e) {}
+    } catch (e) { showToast('❌ Não consegui criar a fila: ' + (e && e.message), 'err'); }
+}
+// Repetir o que funcionou: mesma campanha em outra cidade ou com outro nicho
+function cpRepetir(g, oQue) {
+    if ((oQue === 'cidade' && !g.nicho) || (oQue === 'nicho' && !g.local)) return;
+    const sugCidade = (typeof _cidadesPlano !== 'undefined' ? _cidadesPlano : []).concat(typeof CIDADES_VIZINHAS_SP !== 'undefined' ? CIDADES_VIZINHAS_SP : [])
+        .find(c => !_cpGrupos.some(x => x.k === _normNicho(g.nicho) + '|' + _normNicho(c))) || '';
+    const sugNicho = (typeof _statsNicho !== 'undefined' && _statsNicho ? _statsNicho.map(s => s.nome) : [])
+        .find(n => !_cpGrupos.some(x => x.k === _normNicho(n) + '|' + _normNicho(g.local))) || '';
+    const valor = (prompt(oQue === 'cidade' ? `Repetir "${g.nicho}" em qual cidade?` : `Qual nicho buscar em ${g.local}?`, oQue === 'cidade' ? sugCidade : sugNicho) || '').trim();
+    if (!valor) return;
+    const nicho = oQue === 'cidade' ? g.nicho : valor, local = oQue === 'cidade' ? valor : g.local;
+    if (confirm(`Buscar "${nicho}" em ${local} agora?\n\nOK = buscar agora · Cancelar = só colocar no Plano de Prospecção`)) {
+        document.getElementById('nicho').value = nicho; document.getElementById('local').value = local;
+        trocarAba('prospeccao', document.querySelector(".nav-item[onclick*=\"trocarAba('prospeccao'\"]"));
+        setTimeout(() => buscar(), 300);
+    } else {
+        cpPorNoPlano(nicho, local);
+    }
+}
+async function cpPorNoPlano(nicho, local) {
+    try {
+        const { data } = await supabaseClient.from('plano_prospeccao').select('*').eq('user_id', currentUser.id);
+        const pend = (data || []).filter(p => p.status !== 'usado');
+        const datas = proximosDiasUteis(pend.length + 1);
+        const maior = (data || []).reduce((m, p) => Math.max(m, p.dia || 0), 0);
+        const { error } = await supabaseClient.from('plano_prospeccao').insert({ user_id: currentUser.id, dia: maior + 1, nicho, local, status: 'pendente', data_planejada: datas[datas.length - 1] });
+        if (error) throw error;
+        showToast(`📅 "${nicho}" em ${local} entrou no Plano (${formatarDataPlano(datas[datas.length - 1])})`, 'ok');
+    } catch (e) { showToast('❌ ' + (e && e.message), 'err'); }
+}
+
+// Campanha ao vivo: progresso, próximo envio (janela) e cancelar
+function _cpProximaJanela() {
+    const h = (typeof config !== 'undefined' && config && config.horario) || null;
+    if (!h) return null;
+    const regra = d => (d.getDay() === 0 || d.getDay() === 6) ? h.fds : h.semana;
+    const agora = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' }));
+    for (let i = 0; i < 8; i++) {
+        const d = new Date(agora); d.setDate(d.getDate() + i);
+        const r = regra(d);
+        if (!r || !r.ativo) continue;
+        const [hi, mi] = (r.inicio || '00:00').split(':').map(Number), [hf, mf] = (r.fim || '23:59').split(':').map(Number);
+        const ini = new Date(d); ini.setHours(hi, mi, 0, 0);
+        const fim = new Date(d); fim.setHours(hf, mf, 0, 0);
+        if (i === 0 && agora >= ini && agora < fim) return { agora: true };
+        if (ini > agora) return { agora: false, quando: (i === 0 ? 'hoje' : i === 1 ? 'amanhã' : ini.toLocaleDateString('pt-BR', { weekday: 'long' })) + ' às ' + (r.inicio || '00:00') };
+    }
+    return null;
+}
+async function cpAoVivo() {
+    const box = document.getElementById('cp-aovivo');
+    if (!box) return;
+    const camp = userGet('campanhaAtiva', null);
+    clearTimeout(_cpAoVivoTimer);
+    if (!camp || !camp.campanhaId) { box.hidden = true; return; }
+    try {
+        delete _cpMsgCache[camp.campanhaId];
+        const linhas = await cpLinhasStatus(camp.campanhaId);
+        delete _cpMsgCache[camp.campanhaId];
+        const total = camp.total || (linhas[0] && parseInt(linhas[0].total, 10)) || 0;
+        const feitos = linhas.filter(r => ['enviado', 'erro', 'pulado', 'limite_diario'].includes(r.status)).length;
+        const env = linhas.filter(r => r.status === 'enviado').length;
+        const cancel = linhas.some(r => r.status === 'cancelado');
+        if (cancel || (total && feitos >= total)) { box.hidden = true; return; }
+        const nome = (typeof _nomeCampanha === 'function' && _nomeCampanha(camp.campanhaId)) || 'Campanha em andamento';
+        const jan = _cpProximaJanela();
+        box.innerHTML = '';
+        box.appendChild(prEl('h3', '', '● Ao vivo'));
+        box.appendChild(prEl('div', 'cp-av-nome', nome));
+        box.appendChild(prEl('div', 'cp-av-info', `${env} enviadas de ${total || '?'}${feitos - env ? ` · ${feitos - env} puladas ou com erro` : ''} · ` + (jan && !jan.agora ? `aguardando a janela de envio: ${jan.quando}` : 'enviando agora, com intervalos para parecer natural')));
+        const barra = prEl('div', 'cp-barra'); const f = prEl('span'); f.style.width = (total ? Math.min(100, feitos / total * 100) : 5) + '%'; barra.appendChild(f); box.appendChild(barra);
+        const bt = prEl('button', 'ps-acao', '⏹ Cancelar campanha'); bt.type = 'button';
+        bt.addEventListener('click', async () => { await pararEnvio(); cpAoVivo(); });
+        box.appendChild(bt);
+        box.hidden = false;
+        if (document.getElementById('tab-campanhas')?.classList.contains('active')) _cpAoVivoTimer = setTimeout(cpAoVivo, 30000);
+    } catch (e) { box.hidden = true; }
 }
 
 async function carregarMetricas() {
