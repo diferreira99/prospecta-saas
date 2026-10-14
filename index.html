@@ -1172,6 +1172,27 @@
 .ps-acoes-dica { font-family:'Inter',sans-serif; font-size:0.62rem; color:var(--muted); }
 /* o atributo hidden precisa vencer o display:flex destas classes */
 .ps-sugestoes[hidden], .ps-acoes[hidden], .ps-aviso[hidden], .nc-modal[hidden], .ps-chip[hidden], .ps-acao[hidden], .pr-bench[hidden] { display:none !important; }
+.pl-hoje { background:linear-gradient(135deg,#0D1330,#165DFF); color:#fff; border-radius:16px; padding:18px 20px; margin-bottom:14px; font-family:'Inter',sans-serif; }
+.pl-hoje h3 { margin:0 0 4px; font-size:0.7rem; text-transform:uppercase; letter-spacing:.5px; color:#C7D3FF; }
+.pl-hoje .pl-alvo { font-size:1.15rem; font-weight:800; margin-bottom:4px; }
+.pl-hoje .pl-info { font-size:0.74rem; color:#E0E7FF; line-height:1.5; margin-bottom:12px; }
+.pl-hoje .pl-alerta { background:rgba(255,255,255,.12); border-radius:8px; padding:6px 10px; font-size:0.7rem; margin-bottom:12px; }
+.pl-hoje .ps-acao.principal { background:#FF6A00; border-color:#FF6A00; }
+.pl-hoje .ps-acao:not(.principal) { background:transparent; color:#fff; border-color:rgba(255,255,255,.4); }
+.pl-acoes { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.pl-montar { background:var(--surface); border:1.5px solid #C2D8FF; border-radius:14px; padding:18px; margin-bottom:20px; font-family:'Inter',sans-serif; }
+.pl-montar h3 { margin:0 0 4px; font-size:0.9rem; color:var(--text); }
+.pl-input { width:100%; padding:9px 12px; border:1.5px solid var(--border); border-radius:8px; font-family:'Inter',sans-serif; font-size:0.78rem; background:var(--surface); color:var(--text); }
+.pl-linha { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-top:10px; }
+.pl-linha .pl-input { flex:1 1 180px; width:auto; }
+.pl-previa { margin-top:12px; display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:6px; }
+.pl-previa .pl-p { border:1px solid var(--border); border-radius:8px; padding:7px 10px; font-size:0.7rem; color:var(--text); background:var(--surface2); }
+.pl-previa .pl-p small { display:block; color:var(--muted); }
+.pl-placar { font-family:'Inter',sans-serif; font-size:0.62rem; line-height:1.45; color:var(--muted); border-radius:8px; padding:6px 8px; background:var(--surface2); }
+.pl-placar.bom { background:#f0fdf4; color:#166534; } .pl-placar.ruim { background:#fef2f2; color:#991b1b; }
+.pl-esgotada { font-family:'Inter',sans-serif; font-size:0.6rem; color:#9a3412; background:#FFF7ED; border-radius:6px; padding:4px 7px; }
+.pl-mini { padding:6px 10px; border-radius:8px; border:1.5px solid #C2D8FF; background:#EFF6FF; color:#1d4ed8; font-size:0.66rem; font-weight:700; cursor:pointer; font-family:'Inter',sans-serif; }
+.pl-hoje[hidden], .pl-montar[hidden] { display:none !important; }
 .lead-bloqueado td { opacity:.5; }
 .lead-bloqueado .lead-name { text-decoration:line-through; }
 .lead-bloqueado td:last-child { opacity:1; }
@@ -1774,6 +1795,32 @@ function iniciarAppPosLogin() {
         <!-- PLANO DE PROSPECÇÃO -->
         <div class="tab-content" id="tab-plano">
             <div style="max-width:960px;">
+                <!-- PLANO INTELIGENTE: o de hoje em 1 clique, montar pelo que responde e arquivar o antigo -->
+                <section id="pl-hoje" class="pl-hoje" aria-labelledby="pl-hoje-t" hidden></section>
+                <div class="pl-acoes">
+                    <button type="button" class="ps-acao principal" onclick="abrirMontarPlano()">🧠 Montar plano das próximas semanas</button>
+                    <button type="button" class="ps-acao" onclick="arquivarPlanoAtual()">🗄️ Arquivar plano atual</button>
+                </div>
+                <section id="pl-montar" class="pl-montar" aria-labelledby="pl-montar-t" hidden>
+                    <h3 id="pl-montar-t">🧠 Montar plano pelo que responde</h3>
+                    <p class="ph-linha">Junta os nichos que mais respondem com as suas cidades, sem repetir o que você já buscou e sem o mesmo nicho dois dias seguidos. Só segunda a sexta.</p>
+                    <label class="field-label" for="pl-cidades">Cidades (separe por vírgula)</label>
+                    <input id="pl-cidades" class="pl-input" autocomplete="off">
+                    <div class="field-label" style="margin-top:10px;">Nichos (clique para ligar ou desligar)</div>
+                    <div id="pl-nichos" class="ps-sugestoes"></div>
+                    <div class="pl-linha">
+                        <input id="pl-nicho-extra" class="pl-input" placeholder="Adicionar outro nicho" autocomplete="off" aria-label="Adicionar outro nicho">
+                        <button type="button" class="ps-acao" onclick="adicionarNichoPlano()">+ Nicho</button>
+                        <label class="field-label" for="pl-dias" style="margin:0 0 0 auto;">Dias úteis</label>
+                        <select id="pl-dias" class="pl-input" style="width:auto;"><option>10</option><option selected>20</option><option>30</option><option>40</option></select>
+                    </div>
+                    <div class="pl-linha">
+                        <button type="button" class="ps-acao" onclick="previaPlano()">👀 Ver prévia</button>
+                        <button type="button" class="ps-acao principal" id="pl-salvar" onclick="salvarPlanoMontado()" disabled>💾 Salvar plano</button>
+                        <button type="button" class="ps-acao" onclick="document.getElementById('pl-montar').hidden = true">Fechar</button>
+                    </div>
+                    <div id="pl-previa" class="pl-previa"></div>
+                </section>
                 <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:18px;margin-bottom:20px;">
                     <div style="font-family:'Inter',sans-serif;font-size:0.7rem;font-weight:700;color:var(--text);margin-bottom:8px;">📋 Colar plano (opcional)</div>
                     <p style="font-family:'Inter',sans-serif;font-size:0.65rem;color:var(--muted);margin-bottom:10px;line-height:1.6;">Cole uma linha por dia, no formato <strong>Nicho, Local</strong> (o "Dia X:" na frente é opcional, ele ignora sozinho). Isso substitui o plano atual.</p>
@@ -1803,7 +1850,7 @@ function iniciarAppPosLogin() {
                     </select>
                 </div>
                 <div id="plano-lista" style="display:flex;flex-direction:column;gap:8px;"></div>
-                <div id="plano-vazio" style="display:none;text-align:center;padding:40px 20px;color:var(--muted);font-family:'Inter',sans-serif;font-size:0.8rem;">Nenhum plano ainda — cole um acima ou peça pra IA montar um novo.</div>
+                <div id="plano-vazio" style="display:none;text-align:center;padding:40px 20px;color:var(--muted);font-family:'Inter',sans-serif;font-size:0.8rem;">Nenhum plano ainda. Clique em "🧠 Montar plano das próximas semanas" ou cole um acima.</div>
             </div>
         </div>
 
@@ -2117,7 +2164,9 @@ async function carregarPlanoProspeccao() {
         console.warn('Erro ao carregar plano:', e.message);
         _planoCache = [];
     }
+    try { await reagendarAtrasadosPlano(); } catch (e) { console.warn('[PLANO] reagendar:', e && e.message); }
     renderizarPlanoProspeccao();
+    try { carregarPlacarPlano(); } catch (e) {}
 }
 
 // ===================== TEMPLATES DE PLANO (reutilizáveis) =====================
@@ -2273,14 +2322,14 @@ function parsearLinhaPlano(linha, diaFallback) {
     return { dia, nicho, local };
 }
 
-// Calcula a data real de cada posição do plano, pulando domingo (você trabalha seg-sáb).
+// Calcula a data real de cada posição do plano, só em dias úteis (segunda a sexta, a janela de envio).
 // A posição 1 cai no próximo dia útil a partir de hoje.
 function calcularDataPlanejada(posicao) {
     let d = new Date();
     let diasUteisContados = 0;
     while (diasUteisContados < posicao) {
         d.setDate(d.getDate() + 1);
-        if (d.getDay() !== 0) diasUteisContados++; // pula domingo (0)
+        if (d.getDay() !== 0 && d.getDay() !== 6) diasUteisContados++; // segunda a sexta (sábado responde pouco)
     }
     return d;
 }
@@ -2394,6 +2443,8 @@ function renderizarPlanoProspeccao() {
                 </div>
                 <input type="text" value="${escapeHtml(item.nicho)}" onchange="editarCampoPlano(${item.id}, 'nicho', this.value)" placeholder="Nicho" style="font-family:'Inter',sans-serif;font-size:0.78rem;font-weight:700;color:var(--text);border:1px solid transparent;border-radius:6px;padding:5px 6px;background:transparent;width:100%;" onfocus="this.style.border='1px solid var(--border)'" onblur="this.style.border='1px solid transparent'">
                 <input type="text" value="${escapeHtml(item.local)}" onchange="editarCampoPlano(${item.id}, 'local', this.value)" placeholder="Local" style="font-family:'Inter',sans-serif;font-size:0.72rem;color:var(--muted);border:1px solid transparent;border-radius:6px;padding:5px 6px;background:transparent;width:100%;" onfocus="this.style.border='1px solid var(--border)'" onblur="this.style.border='1px solid transparent'">
+                ${infoItemPlano(item)}
+                ${usado ? `<button type="button" onclick="repetirItemPlano(${item.id})" class="pl-mini">🔁 Repetir em outra cidade</button>` : ''}
                 ${usado
                     ? `<button onclick="reverterStatusPlano(${item.id})" style="padding:6px 10px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--muted);font-size:0.65rem;font-weight:700;cursor:pointer;">↩️ Usado</button>`
                     : `<button onclick="usarComboDoPlano(${item.id})" style="padding:7px 10px;border-radius:8px;border:none;background:linear-gradient(135deg,#FF6A00,#165DFF);color:#fff;font-size:0.68rem;font-weight:700;cursor:pointer;">🔍 Buscar</button>`
@@ -2466,6 +2517,7 @@ async function adicionarLinhaPlano() {
 }
 
 async function usarComboDoPlano(id) {
+    if (typeof executarItemPlano === 'function') return executarItemPlano(id, false);
     const item = _planoCache.find(p => p.id === id);
     if (!item) return;
 
@@ -5108,6 +5160,7 @@ async function retomarBuscaOficial() {
         document.getElementById('count-badge').innerText = `${todosLeads.length} leads`;
         salvarNoHistorico(p.nicho, p.local, p.maxLeads, todosLeads.length);
         marcarNovidadesDaBusca(p.nicho, p.local, _leadsBase);
+        marcarPlanoUsadoPorBusca(p.nicho, p.local);
         userSet('ultimosLeads', { leads: todosLeads, nicho: p.nicho, local: p.local, maxLeads: p.maxLeads, buscaId: p.id, data: new Date().toLocaleString('pt-BR') });
         filtrarClassificacao('all');
         renderPagina(1);
@@ -5195,6 +5248,7 @@ async function buscar() {
         document.getElementById('count-badge').innerText = `${todosLeads.length} leads`;
         salvarNoHistorico(nicho, local, maxLeads, todosLeads.length);
         marcarNovidadesDaBusca(nicho, local, _leadsBase);
+        marcarPlanoUsadoPorBusca(nicho, local);
         // Salva leads no localStorage para recuperar após reload
         userSet('ultimosLeads', { leads: todosLeads, nicho, local, maxLeads, buscaId: _ultimaBuscaInfo?.id || null, data: new Date().toLocaleString('pt-BR') });
         // Reset filtros/busca ao fazer nova busca
@@ -11623,6 +11677,334 @@ function pintarBairros() {
         if (bt) { const n = _naoContatar.length + _optOutTels.size; bt.textContent = '🚫 Não contatar' + (n ? ` (${n})` : ''); }
     };
 })();
+
+// ====================================================================
+// PLANO INTELIGENTE: "hoje" em 1 clique, plano montado pelo que responde, placar de cada
+// combinação, aviso de cidade esgotada, reagendamento automático e arquivo do plano antigo.
+// ====================================================================
+var _placarPlano = {};          // "nicho|local" -> { env, hum, int, ganhos, valor }
+var _taxaNichoPlano = {};       // "nicho" -> { nome, env, hum }
+var _cidadesPlano = [];         // cidades das suas campanhas, da mais usada para a menos
+var _previaPlano = [];
+var _nichosPlanoSel = null;     // Map nome -> ligado
+const CIDADES_VIZINHAS_SP = ['Guarulhos', 'São Paulo', 'Osasco', 'Santo André', 'São Bernardo do Campo', 'São Caetano do Sul', 'Mogi das Cruzes', 'Barueri', 'Diadema', 'Arujá', 'Itaquaquecetuba', 'Suzano', 'Taboão da Serra', 'Cotia'];
+
+function _plChave(n, l) { return _normNicho(String(n || '').split(',')[0]) + '|' + _normNicho(l); }
+function _hojeISO() { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+function _isoLocal(d) { return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); }
+// n dias úteis (seg-sex) a partir de hoje (inclui hoje se for dia útil)
+function proximosDiasUteis(n) {
+    const out = [], d = new Date();
+    d.setHours(12, 0, 0, 0);
+    while (out.length < n) {
+        if (d.getDay() !== 0 && d.getDay() !== 6) out.push(_isoLocal(d));
+        d.setDate(d.getDate() + 1);
+    }
+    return out;
+}
+
+// Placar de cada nicho+cidade e taxa de cada nicho (vem das campanhas que você já mandou)
+async function carregarPlacarPlano() {
+    if (!currentUser || typeof prBuscarTudo !== 'function') return;
+    try {
+        const uid = currentUser.id;
+        const [leads, camps, interesses, pipeline] = await Promise.all([
+            prBuscarTudo(() => supabaseClient.from('leads').select('campanha_id,phone,respondeu,resposta_suspeita_bot').eq('user_id', uid).not('enviado_em', 'is', null).order('id')),
+            prBuscarTudo(() => supabaseClient.from('campanhas').select('id,nicho,local').eq('user_id', uid).order('id')),
+            prBuscarTudo(() => supabaseClient.from('fila_sugestoes').select('phone,campanha_id').eq('user_id', uid).in('classificacao', ['quente', 'duvida']).order('id')),
+            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('phone,col,valor').eq('user_id', uid).order('id')),
+        ]);
+        const campInfo = {}, cidadeCont = {};
+        camps.forEach(c => {
+            if (!c.nicho || !c.local) return;
+            campInfo[c.id] = { chave: _plChave(c.nicho, c.local), nicho: String(c.nicho).split(',')[0].trim() };
+            const k = _normNicho(c.local); (cidadeCont[k] = cidadeCont[k] || { nome: String(c.local).trim(), n: 0 }).n++;
+        });
+        const placar = {}, taxa = {}, telChave = {};
+        leads.forEach(l => {
+            const ci = campInfo[l.campanha_id];
+            if (!ci) return;
+            const hum = !!(l.respondeu && !l.resposta_suspeita_bot);
+            const p = placar[ci.chave] || (placar[ci.chave] = { env: 0, hum: 0, int: new Set(), ganhos: 0, valor: 0 });
+            p.env++; if (hum) p.hum++;
+            const tn = _normNicho(ci.nicho);
+            const t = taxa[tn] || (taxa[tn] = { nome: ci.nicho, env: 0, hum: 0 });
+            t.env++; if (hum) t.hum++;
+            telChave[prTel(l.phone)] = ci.chave;
+        });
+        interesses.forEach(i => { const ci = campInfo[i.campanha_id]; if (ci && placar[ci.chave]) placar[ci.chave].int.add(prTel(i.phone)); });
+        pipeline.forEach(pp => {
+            const k = telChave[prTel(pp.phone)];
+            if (!k || !placar[k]) return;
+            if (pp.col === 'negociando' || pp.col === 'fechado') placar[k].int.add(prTel(pp.phone));
+            if (pp.col === 'fechado') { placar[k].ganhos++; placar[k].valor += Number(pp.valor) || 0; }
+        });
+        _placarPlano = placar;
+        _taxaNichoPlano = taxa;
+        _cidadesPlano = Object.values(cidadeCont).sort((a, b) => b.n - a.n).map(c => c.nome);
+    } catch (e) { console.warn('[PLANO] placar:', e && e.message); }
+    try { renderizarPlanoProspeccao(); } catch (e) {}
+    pintarHojePlano();
+}
+function _taxaGeralPlano() {
+    let e = 0, h = 0;
+    Object.values(_taxaNichoPlano).forEach(t => { e += t.env; h += t.hum; });
+    return e ? h / e : 0;
+}
+// Quantas empresas desta busca você já viu e quantas já receberam mensagem
+function saturacaoPlano(nicho, local) {
+    const vistas = (userGet('buscasVistas', {})[_normNicho(nicho) + '|' + _normNicho(local)] || {}).ids;
+    const p = _placarPlano[_plChave(nicho, local)];
+    const total = vistas ? vistas.length : 0, env = p ? p.env : 0;
+    return { total, env, esgotada: total >= 10 && env / total >= 0.7 };
+}
+function infoItemPlano(item) {
+    const p = _placarPlano[_plChave(item.nicho, item.local)];
+    let h = '';
+    if (p && p.env) {
+        const tx = p.hum / p.env, geral = _taxaGeralPlano();
+        const cls = p.env >= 10 ? (tx >= geral * 1.2 ? ' bom' : tx < geral * 0.7 ? ' ruim' : '') : '';
+        h += `<div class="pl-placar${cls}">📊 ${p.env} enviadas · ${p.hum} responderam (${prPctTxt(p.hum, p.env)}) · ${p.int.size} interessado${p.int.size === 1 ? '' : 's'}${p.ganhos ? ` · ${p.ganhos} ganho${p.ganhos === 1 ? '' : 's'} (${_brl(p.valor)})` : ''}</div>`;
+    } else if (item.status === 'usado') {
+        h += `<div class="pl-placar">📊 Buscado, mas ainda sem envio registrado desta combinação.</div>`;
+    }
+    if (item.status !== 'usado') {
+        const s = saturacaoPlano(item.nicho, item.local);
+        if (s.esgotada) h += `<div class="pl-esgotada">⚠️ Esgotada: você já mandou para ${s.env} de ${s.total} empresas desta busca. Troque a cidade.</div>`;
+        const t = _taxaNichoPlano[_normNicho(String(item.nicho).split(',')[0])];
+        if (t && t.env >= 15) h += `<div class="pl-placar">Este nicho costuma responder ${prPctTxt(t.hum, t.env)}.</div>`;
+    }
+    return h;
+}
+
+// Cartão "Hoje" no topo do plano
+function itemDeHojePlano() {
+    const pend = (_planoCache || []).filter(p => p.status !== 'usado').sort((a, b) => (a.data_planejada || '9').localeCompare(b.data_planejada || '9') || (a.dia - b.dia));
+    return pend[0] || null;
+}
+function pintarHojePlano() {
+    const box = document.getElementById('pl-hoje');
+    if (!box) return;
+    const it = itemDeHojePlano();
+    box.innerHTML = '';
+    if (!it) { box.hidden = true; return; }
+    const hoje = _hojeISO();
+    const quando = !it.data_planejada || it.data_planejada <= hoje ? 'Hoje' : 'Próximo: ' + formatarDataPlano(it.data_planejada);
+    box.appendChild(prEl('h3', '', quando)).id = 'pl-hoje-t';
+    box.appendChild(prEl('div', 'pl-alvo', `${it.nicho} em ${it.local}`));
+    const t = _taxaNichoPlano[_normNicho(String(it.nicho).split(',')[0])];
+    box.appendChild(prEl('div', 'pl-info', t && t.env >= 15
+        ? `Este nicho costuma responder ${prPctTxt(t.hum, t.env)} (${t.env} envios).`
+        : 'Nicho ainda sem histórico suficiente: vale como teste.'));
+    const s = saturacaoPlano(it.nicho, it.local);
+    if (s.esgotada) box.appendChild(prEl('div', 'pl-alerta', `⚠️ Você já mandou para ${s.env} de ${s.total} empresas desta busca. Melhor trocar a cidade antes.`));
+    const linha = prEl('div', 'pl-linha');
+    const b1 = prEl('button', 'ps-acao principal', '🚀 Buscar e montar campanha'); b1.type = 'button';
+    b1.addEventListener('click', () => executarItemPlano(it.id, true));
+    const b2 = prEl('button', 'ps-acao', '🔍 Só buscar'); b2.type = 'button';
+    b2.addEventListener('click', () => executarItemPlano(it.id, false));
+    linha.append(b1, b2);
+    box.appendChild(linha);
+    box.hidden = false;
+}
+// Busca a combinação na aba Prospecção (mesma busca do botão "Buscar Leads": API oficial, reserva se falhar)
+async function executarItemPlano(id, montarCampanha) {
+    const it = (_planoCache || []).find(p => p.id === id);
+    if (!it) return;
+    document.getElementById('nicho').value = it.nicho;
+    document.getElementById('local').value = it.local;
+    trocarAba('prospeccao', document.querySelector(".nav-item[onclick*=\"trocarAba('prospeccao'\"]"));
+    showToast(`🔍 Buscando "${it.nicho}" em "${it.local}"…`, 'ok');
+    await new Promise(r => setTimeout(r, 300));
+    await buscar();            // ao terminar, a própria busca marca o item como usado
+    if (montarCampanha && _leadsBase && _leadsBase.length && _normNicho(document.getElementById('nicho').value) === _normNicho(it.nicho)) {
+        if (melhoresParaCampanha().length) campanhaComMelhores();
+        else showToast('Nenhum lead novo e bom nesta busca para campanha', 'err');
+    }
+}
+// Qualquer busca concluída (pelo plano ou direto na Prospecção) marca o item do plano como usado
+async function marcarPlanoUsadoPorBusca(nicho, local) {
+    if (!currentUser) return;
+    try {
+        const termos = new Set(String(nicho || '').split(',').map(_normNicho).filter(Boolean));
+        const loc = _normNicho(local);
+        if (!_planoCache || !_planoCache.length) {
+            const { data } = await supabaseClient.from('plano_prospeccao').select('*').eq('user_id', currentUser.id);
+            _planoCache = data || [];
+        }
+        const alvo = _planoCache.filter(p => p.status !== 'usado' && _normNicho(p.local) === loc && termos.has(_normNicho(p.nicho)));
+        if (!alvo.length) return;
+        const agora = new Date().toISOString();
+        await supabaseClient.from('plano_prospeccao').update({ status: 'usado', usado_em: agora }).in('id', alvo.map(p => p.id));
+        alvo.forEach(p => { p.status = 'usado'; p.usado_em = agora; });
+        try { renderizarPlanoProspeccao(); pintarHojePlano(); } catch (e) {}
+    } catch (e) { console.warn('[PLANO] marcar usado:', e && e.message); }
+}
+// Itens atrasados vão para os próximos dias úteis, mantendo a ordem
+async function reagendarAtrasadosPlano() {
+    const hoje = _hojeISO();
+    const pend = (_planoCache || []).filter(p => p.status !== 'usado')
+        .sort((a, b) => (a.data_planejada || '').localeCompare(b.data_planejada || '') || (a.dia - b.dia));
+    const atrasados = pend.filter(p => !p.data_planejada || p.data_planejada < hoje);
+    const fimDeSemana = pend.filter(p => p.data_planejada && [0, 6].includes(new Date(p.data_planejada + 'T12:00:00').getDay()));
+    if (!atrasados.length && !fimDeSemana.length) return;
+    const datas = proximosDiasUteis(pend.length);
+    const mudou = [];
+    pend.forEach((p, i) => { if (p.data_planejada !== datas[i]) { p.data_planejada = datas[i]; mudou.push(p); } });
+    if (!mudou.length) return;
+    for (let i = 0; i < mudou.length; i += 200) {
+        const { error } = await supabaseClient.from('plano_prospeccao').upsert(mudou.slice(i, i + 200).map(p => ({
+            id: p.id, user_id: p.user_id, dia: p.dia, nicho: p.nicho, local: p.local, status: p.status, data_planejada: p.data_planejada
+        })));
+        if (error) throw error;
+    }
+    if (atrasados.length) showToast(`📅 ${atrasados.length} item(ns) atrasado(s) foram para os próximos dias úteis`, 'ok');
+}
+async function repetirItemPlano(id) {
+    const it = (_planoCache || []).find(p => p.id === id);
+    if (!it || !currentUser) return;
+    const sug = (_cidadesPlano.concat(CIDADES_VIZINHAS_SP)).find(c => !saturacaoPlano(it.nicho, c).esgotada && _normNicho(c) !== _normNicho(it.local)
+        && !(_planoCache || []).some(p => _plChave(p.nicho, p.local) === _plChave(it.nicho, c))) || '';
+    const cidade = (prompt(`Repetir "${it.nicho}" em qual cidade?`, sug) || '').trim();
+    if (!cidade) return;
+    const pend = (_planoCache || []).filter(p => p.status !== 'usado');
+    const datas = proximosDiasUteis(pend.length + 1);
+    const maiorDia = (_planoCache || []).reduce((m, p) => Math.max(m, p.dia || 0), 0);
+    const { data, error } = await supabaseClient.from('plano_prospeccao').insert({
+        user_id: currentUser.id, dia: maiorDia + 1, nicho: it.nicho, local: cidade, status: 'pendente', data_planejada: datas[datas.length - 1]
+    }).select();
+    if (error) { showToast('❌ ' + error.message, 'err'); return; }
+    if (data && data[0]) _planoCache.push(data[0]);
+    renderizarPlanoProspeccao(); pintarHojePlano();
+    showToast(`✅ "${it.nicho}" em ${cidade} entrou no plano (${formatarDataPlano(datas[datas.length - 1])})`, 'ok');
+}
+
+// Arquiva o plano atual em "Meus Modelos" e limpa o calendário
+async function _arquivarComoModelo(itens, nome) {
+    if (!itens.length) return;
+    const { error } = await supabaseClient.from('planos_modelo').insert({ user_id: currentUser.id, nome_modelo: nome, itens: itens.map(p => ({ nicho: p.nicho, local: p.local })) });
+    if (error) throw error;
+}
+async function arquivarPlanoAtual() {
+    if (!currentUser) return;
+    if (!_planoCache.length) { showToast('O plano já está vazio', 'err'); return; }
+    if (!confirm(`Arquivar as ${_planoCache.length} combinações do plano atual?\n\nElas vão para "Meus Modelos" (dá para reaplicar depois) e o calendário fica livre para um plano novo.`)) return;
+    try {
+        await _arquivarComoModelo(_planoCache, `Plano arquivado em ${new Date().toLocaleDateString('pt-BR')} (${_planoCache.length} combinações)`);
+        const { error } = await supabaseClient.from('plano_prospeccao').delete().eq('user_id', currentUser.id);
+        if (error) throw error;
+        showToast('🗄️ Plano arquivado em Meus Modelos', 'ok');
+        await carregarPlanoProspeccao(); carregarModelosPlano();
+    } catch (e) { showToast('❌ Não consegui arquivar: ' + (e && e.message), 'err'); }
+}
+
+// Montar plano pelo que responde
+async function abrirMontarPlano() {
+    const box = document.getElementById('pl-montar');
+    if (!Object.keys(_taxaNichoPlano).length) await carregarPlacarPlano();
+    const cid = document.getElementById('pl-cidades');
+    if (!cid.value.trim()) {
+        const lista = [];
+        _cidadesPlano.concat(CIDADES_VIZINHAS_SP.slice(0, 6)).forEach(c => { if (!lista.some(x => _normNicho(x) === _normNicho(c))) lista.push(c); });
+        cid.value = lista.slice(0, 8).join(', ');
+    }
+    if (!_nichosPlanoSel) {
+        _nichosPlanoSel = new Map();
+        const geral = _taxaGeralPlano();
+        Object.values(_taxaNichoPlano).filter(t => t.env >= 15).sort((a, b) => b.hum / b.env - a.hum / a.env)
+            .forEach(t => _nichosPlanoSel.set(t.nome, t.hum / t.env >= geral * 0.9));
+    }
+    pintarNichosPlano();
+    box.hidden = false;
+    box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+function pintarNichosPlano() {
+    const box = document.getElementById('pl-nichos');
+    box.innerHTML = '';
+    if (!_nichosPlanoSel.size) { box.appendChild(prEl('span', 'ph-mudo', 'Ainda sem nichos com histórico: adicione abaixo.')); return; }
+    _nichosPlanoSel.forEach((ligado, nome) => {
+        const t = _taxaNichoPlano[_normNicho(nome)];
+        const b = prEl('button', 'ps-sug sin', nome); b.type = 'button';
+        if (t && t.env) b.appendChild(prEl('small', '', prPctTxt(t.hum, t.env)));
+        b.setAttribute('aria-pressed', String(ligado));
+        b.addEventListener('click', () => { _nichosPlanoSel.set(nome, !_nichosPlanoSel.get(nome)); pintarNichosPlano(); });
+        box.appendChild(b);
+    });
+}
+function adicionarNichoPlano() {
+    const inp = document.getElementById('pl-nicho-extra');
+    const v = inp.value.trim();
+    if (!v) return;
+    _nichosPlanoSel.set(v, true);
+    inp.value = '';
+    pintarNichosPlano();
+}
+function previaPlano() {
+    const cidades = document.getElementById('pl-cidades').value.split(',').map(c => c.trim()).filter(Boolean);
+    const nichos = Array.from(_nichosPlanoSel.entries()).filter(([, on]) => on).map(([n]) => n);
+    const dias = parseInt(document.getElementById('pl-dias').value, 10) || 20;
+    const prev = document.getElementById('pl-previa');
+    prev.innerHTML = '';
+    if (!cidades.length || !nichos.length) { prev.appendChild(prEl('div', 'ph-mudo', 'Escolha pelo menos um nicho e uma cidade.')); document.getElementById('pl-salvar').disabled = true; return; }
+    // o que já foi feito: plano usado, campanhas e buscas anteriores
+    const feito = new Set(Object.keys(_placarPlano));
+    (_planoCache || []).filter(p => p.status === 'usado').forEach(p => feito.add(_plChave(p.nicho, p.local)));
+    (userGet('searchHistory', []) || []).forEach(h => feito.add(_plChave(h.nicho, h.local)));
+    // nichos que mais respondem aparecem mais vezes (peso 1 a 3)
+    const taxaDe = n => { const t = _taxaNichoPlano[_normNicho(n)]; return t && t.env >= 15 ? t.hum / t.env : _taxaGeralPlano() || 0.1; };
+    const menor = Math.min(...nichos.map(taxaDe)) || 0.01;
+    const roda = [];
+    nichos.slice().sort((a, b) => taxaDe(b) - taxaDe(a)).forEach(n => { const w = Math.max(1, Math.min(3, Math.round(taxaDe(n) / menor))); for (let i = 0; i < w; i++) roda.push(n); });
+    const ponteiro = {}, usados = new Set();
+    const datas = proximosDiasUteis(dias);
+    const out = [];
+    let i = 0, anterior = null, tentativas = 0;
+    while (out.length < dias && tentativas < dias * roda.length * 3) {
+        tentativas++;
+        const n = roda[i++ % roda.length];
+        if (n === anterior && nichos.length > 1) continue;
+        let achou = null;
+        for (let k = 0; k < cidades.length; k++) {
+            const c = cidades[((ponteiro[n] || 0) + k) % cidades.length];
+            const ch = _plChave(n, c);
+            if (!feito.has(ch) && !usados.has(ch) && !saturacaoPlano(n, c).esgotada) { achou = c; ponteiro[n] = ((ponteiro[n] || 0) + k + 1) % cidades.length; break; }
+        }
+        if (!achou) continue;
+        usados.add(_plChave(n, achou));
+        out.push({ nicho: n, local: achou, data_planejada: datas[out.length], taxa: taxaDe(n) });
+        anterior = n;
+    }
+    _previaPlano = out;
+    if (!out.length) { prev.appendChild(prEl('div', 'ph-mudo', 'Todas as combinações destes nichos e cidades já foram feitas. Adicione cidades ou nichos.')); document.getElementById('pl-salvar').disabled = true; return; }
+    out.forEach(p => {
+        const c = prEl('div', 'pl-p', `${p.nicho} · ${p.local}`);
+        c.appendChild(prEl('small', '', formatarDataPlano(p.data_planejada) + ' · costuma responder ' + (p.taxa * 100).toFixed(0) + '%'));
+        prev.appendChild(c);
+    });
+    if (out.length < dias) prev.appendChild(prEl('div', 'ph-linha', `Só deu para montar ${out.length} dias sem repetir. Adicione mais cidades ou nichos para completar.`));
+    document.getElementById('pl-salvar').disabled = false;
+}
+async function salvarPlanoMontado() {
+    if (!_previaPlano.length || !currentUser) return;
+    const pend = (_planoCache || []).filter(p => p.status !== 'usado');
+    if (!confirm(`Salvar o plano novo com ${_previaPlano.length} dias?` + (pend.length ? `\n\nAs ${pend.length} combinações pendentes de hoje vão para "Meus Modelos" (arquivadas) e saem do calendário. As já usadas continuam.` : ''))) return;
+    try {
+        if (pend.length) {
+            await _arquivarComoModelo(pend, `Plano anterior até ${new Date().toLocaleDateString('pt-BR')} (${pend.length} combinações)`);
+            const { error } = await supabaseClient.from('plano_prospeccao').delete().in('id', pend.map(p => p.id));
+            if (error) throw error;
+        }
+        const maiorDia = (_planoCache || []).filter(p => p.status === 'usado').reduce((m, p) => Math.max(m, p.dia || 0), 0);
+        const { error } = await supabaseClient.from('plano_prospeccao').insert(_previaPlano.map((p, i) => ({
+            user_id: currentUser.id, dia: maiorDia + i + 1, nicho: p.nicho, local: p.local, status: 'pendente', data_planejada: p.data_planejada
+        })));
+        if (error) throw error;
+        showToast(`✅ Plano novo salvo: ${_previaPlano.length} dias úteis`, 'ok');
+        document.getElementById('pl-montar').hidden = true;
+        _previaPlano = [];
+        await carregarPlanoProspeccao(); carregarModelosPlano();
+    } catch (e) { showToast('❌ Não consegui salvar: ' + (e && e.message), 'err'); }
+}
 
 async function carregarMetricas() {
     const icon = document.getElementById('metricas-refresh-icon');
