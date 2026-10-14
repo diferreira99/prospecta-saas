@@ -349,6 +349,30 @@
         .ph-bola.vermelho { background: #dc2626; box-shadow: 0 0 0 4px rgba(220,38,38,.22); }
         .ph-sem strong { font-size: 1rem; }
         .ph-linha { font-size: 0.76rem; color: var(--muted, #64748b); line-height: 1.55; margin: 2px 0; }
+        .pr-bloco { margin-bottom: 22px; }
+        .pr-funil { display: flex; flex-direction: column; gap: 8px; }
+        .pr-etapa { display: grid; grid-template-columns: minmax(110px, 160px) 1fr auto; align-items: center; gap: 10px; font-size: 0.8rem; color: var(--text, #0f172a); }
+        .pr-barra { background: var(--surface2, #f1f5f9); border-radius: 99px; height: 14px; overflow: hidden; }
+        .pr-barra > span { display: block; height: 100%; border-radius: 99px; background: #165DFF; min-width: 3px; }
+        .pr-etapa.ganho .pr-barra > span { background: #16a34a; }
+        .pr-num { text-align: right; white-space: nowrap; font-weight: 700; }
+        .pr-num small { font-weight: 500; color: var(--muted, #64748b); margin-left: 4px; }
+        .pr-destaque { margin-top: 12px; padding: 9px 12px; border-radius: 10px; background: #FFF4EC; color: #9a3412; font-size: 0.78rem; line-height: 1.5; }
+        .pr-destaque.ok { background: #dcfce7; color: #166534; }
+        .pr-quente { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 9px 0; border-top: 1px solid var(--border, #e2e8f0); font-size: 0.8rem; color: var(--text, #0f172a); }
+        .pr-quente .pr-msg { grid-column: 1 / -1; color: var(--muted, #64748b); font-size: 0.74rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .pr-selo { font-size: 0.62rem; font-weight: 700; padding: 1px 7px; border-radius: 99px; margin-right: 6px; background: #fee2e2; color: #b91c1c; }
+        .pr-selo.duvida { background: #fef3c7; color: #92400e; }
+        .pr-bench { margin: -8px 0 22px; padding: 10px 14px; border-radius: 12px; font-family: 'Inter', sans-serif; font-size: 0.78rem; line-height: 1.5; border: 1.5px solid var(--border, #e2e8f0); }
+        .pr-bench.verde { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+        .pr-bench.amarelo { background: #fefce8; color: #854d0e; border-color: #fde68a; }
+        .pr-bench.vermelho { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+        .pr-tabela { width: 100%; border-collapse: collapse; font-size: 0.76rem; color: var(--text, #0f172a); }
+        .pr-tabela th { text-align: left; font-weight: 600; color: var(--muted, #64748b); font-size: 0.68rem; padding: 4px 0; }
+        .pr-tabela td { padding: 5px 0; border-top: 1px solid var(--border, #e2e8f0); }
+        .pr-tabela td:not(:first-child), .pr-tabela th:not(:first-child) { text-align: right; white-space: nowrap; padding-left: 8px; }
+        .pr-tabela tr.vence td { color: #166534; font-weight: 700; }
+        @media (max-width: 480px) { .pr-etapa { grid-template-columns: 96px 1fr auto; gap: 8px; font-size: 0.74rem; } }
         .ph-card details { margin-top: 10px; font-size: 0.74rem; color: var(--muted, #64748b); line-height: 1.55; }
         .ph-card summary { cursor: pointer; font-weight: 600; }
         @media (prefers-reduced-motion: no-preference) { .ph-bola { transition: background .3s, box-shadow .3s; } }
@@ -4080,12 +4104,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 <section class="ph-card" aria-labelledby="ph-t1">
                     <h3 id="ph-t1">Precisa de você agora</h3>
                     <div id="ph-acoes"><div class="ph-mudo">Carregando…</div></div>
+                    <div id="pr-quentes"></div>
                 </section>
                 <section class="ph-card" aria-labelledby="ph-t2">
                     <h3 id="ph-t2">Saúde do número <span class="ph-tag" title="Estimativa feita pelo Prospecta+ com sinais indiretos. Não é uma métrica oficial da Meta.">estimativa</span></h3>
                     <div id="ph-saude"><div class="ph-mudo">Carregando…</div></div>
                 </section>
             </div>
+            <!-- PAINEL: funil do envio até a venda -->
+            <section id="pr-funil" class="ph-card pr-bloco" aria-labelledby="pr-t-funil">
+                <h3 id="pr-t-funil">Do envio à venda <span class="ph-tag">desde o início</span></h3>
+                <div id="pr-funil-corpo"><div class="ph-mudo">Carregando…</div></div>
+            </section>
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
                 <div>
                     <h2 style="font-family:'Inter',sans-serif;font-size:1.4rem;color:var(--text);margin:0;">Métricas de Envio</h2>
@@ -4134,6 +4164,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="mc-sub" id="mc-sub-respostas">Carregando...</div>
                 </div>
             </div>
+            <div id="pr-bench" class="pr-bench" hidden></div>
 
             <!-- HORÁRIO IDEAL DE ENVIO -->
             <div id="mc-horario-ideal" style="background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:22px;">
@@ -4141,6 +4172,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div style="font-family:'Inter',sans-serif;font-size:0.8rem;font-weight:700;color:var(--text);">⏰ Horário Ideal de Envio</div>
                 </div>
                 <div id="mc-horario-conteudo" style="font-family:'Inter',sans-serif;font-size:0.72rem;color:var(--muted);">Analisando seus dados...</div>
+            </div>
+
+            <!-- PAINEL: onde prospectar, teste A/B e pipeline parado -->
+            <div class="ph-grid pr-grid">
+                <section class="ph-card" aria-labelledby="pr-t-nichos">
+                    <h3 id="pr-t-nichos">Onde prospectar</h3>
+                    <div id="pr-nichos"><div class="ph-mudo">Carregando…</div></div>
+                </section>
+                <section class="ph-card" aria-labelledby="pr-t-ab">
+                    <h3 id="pr-t-ab">Teste A/B das mensagens</h3>
+                    <div id="pr-ab"><div class="ph-mudo">Carregando…</div></div>
+                </section>
+                <section class="ph-card" aria-labelledby="pr-t-parado">
+                    <h3 id="pr-t-parado">Pipeline parado</h3>
+                    <div id="pr-parado"><div class="ph-mudo">Carregando…</div></div>
+                </section>
             </div>
 
             <!-- BOTÃO GERAR RELATÓRIO PDF -->
@@ -10490,6 +10537,422 @@ async function painelHojeCarregar() {
         return r;
     };
 })();
+// ====================================================================
+// PAINEL: resultados (funil até a venda, leads quentes, taxa de resposta, ranking por resultado,
+// onde prospectar, teste A/B e pipeline parado). Só lê as tabelas do próprio usuário; a única
+// escrita é o botão "Mover para Perdido", que passa pelo mesmo caminho do Pipeline (pkSave).
+// ====================================================================
+let _prDados = null;            // último resultado de prCarregar (usado pelo ranking)
+let _prRankingArgs = null;      // últimos argumentos do ranking, para redesenhar quando os dados chegarem
+let _prRodando = false;
+const PR_TOM = { A: 'Direto', B: 'Consultivo' };
+const PR_GATILHO = { urgencia: 'urgência', escassez: 'escassez', curiosidade: 'curiosidade' };
+const PR_DIAS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+
+function prTel(p) {                               // compara telefones de tabelas diferentes
+    let d = String(p || '').replace(/\D/g, '');
+    if (d.length >= 12 && d.startsWith('55')) d = d.slice(2);
+    return d.slice(-11);
+}
+function prPct(a, b) { return b ? Math.round(a / b * 100) : 0; }
+function prPctTxt(a, b) { return b ? (a / b * 100).toFixed(1).replace('.', ',').replace(',0', '') + '%' : '—'; }
+function prHumana(l) { return !!l.respondeu && !l.resposta_suspeita_bot; }
+function prHa(iso) {
+    const min = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+    if (min < 60) return 'há ' + min + ' min';
+    const h = Math.round(min / 60);
+    if (h < 48) return 'há ' + h + ' h';
+    return 'há ' + Math.round(h / 24) + ' dias';
+}
+function prEl(tag, cls, txt) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (txt !== undefined) e.textContent = txt;
+    return e;
+}
+// Traz todas as linhas (o Supabase devolve no máximo 1000 por vez).
+async function prBuscarTudo(montar) {
+    const tudo = [];
+    for (let de = 0; de < 20000; de += 1000) {
+        const { data, error } = await montar().range(de, de + 999);
+        if (error) throw error;
+        tudo.push(...(data || []));
+        if (!data || data.length < 1000) break;
+    }
+    return tudo;
+}
+
+async function prCarregar() {
+    if (_prRodando || typeof currentUser === 'undefined' || !currentUser || !document.getElementById('pr-funil-corpo')) return;
+    _prRodando = true;
+    try {
+        const uid = currentUser.id;
+        const [leads, campanhas, interesses, pipeline, followups] = await Promise.all([
+            prBuscarTudo(() => supabaseClient.from('leads')
+                .select('campanha_id,phone,enviado_em,respondeu,resposta_suspeita_bot,opt_out,variante_ab,gatilho_cta')
+                .eq('user_id', uid).not('enviado_em', 'is', null).order('id')),
+            prBuscarTudo(() => supabaseClient.from('campanhas').select('id,nome,nicho,sequencia').eq('user_id', uid).order('id')),
+            prBuscarTudo(() => supabaseClient.from('fila_sugestoes')
+                .select('id,phone,lead_nome,campanha_id,classificacao,mensagem_recebida,status,criado_em')
+                .eq('user_id', uid).in('classificacao', ['quente', 'duvida']).order('id')),
+            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('id,name,phone,col,valor,fechado_em,moved_at').eq('user_id', uid).order('id')),
+            prBuscarTudo(() => supabaseClient.from('fila_followups').select('phone,status').eq('user_id', uid).eq('status', 'pendente').order('id')),
+        ]);
+        _prDados = { leads, campanhas, interesses, pipeline, followups };
+        const partes = [prDesenharFunil, prDesenharQuentes, prDesenharNichos, prDesenharAB, prDesenharParado];
+        partes.forEach(f => { try { f(_prDados); } catch (e) { console.warn('Painel (' + f.name + '):', e && e.message); } });
+        if (_prRankingArgs) _renderRankingCampanhas(_prRankingArgs[0], _prRankingArgs[1]);
+    } catch (e) {
+        console.warn('Painel: não consegui carregar os resultados:', e && e.message);
+        ['pr-funil-corpo', 'pr-nichos', 'pr-ab', 'pr-parado'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) { el.innerHTML = ''; el.appendChild(prEl('div', 'ph-mudo', 'Não consegui carregar agora. Clique em Atualizar em instantes.')); }
+        });
+    } finally { _prRodando = false; }
+}
+
+// 1) Funil: enviados → pessoas responderam → interessados → negociação → ganhos (R$)
+function prDesenharFunil(d) {
+    const box = document.getElementById('pr-funil-corpo');
+    if (!box) return;
+    const enviados = d.leads.length;
+    const humanas = d.leads.filter(prHumana).length;
+    const interessados = new Set(d.interesses.map(r => prTel(r.phone)));
+    d.pipeline.forEach(p => { if (p.col === 'negociando' || p.col === 'fechado') interessados.add(prTel(p.phone)); });
+    interessados.delete('');
+    const negociacao = d.pipeline.filter(p => p.col === 'negociando' || p.col === 'fechado').length;
+    const ganhos = d.pipeline.filter(p => p.col === 'fechado');
+    const totalGanho = ganhos.reduce((s, p) => s + (Number(p.valor) || 0), 0);
+    const ini = new Date(); ini.setDate(1); ini.setHours(0, 0, 0, 0);
+    const ganhoMes = ganhos.filter(p => p.fechado_em && new Date(p.fechado_em) >= ini).reduce((s, p) => s + (Number(p.valor) || 0), 0);
+
+    const etapas = [
+        { nome: 'Enviados', n: enviados },
+        { nome: 'Pessoas responderam', n: humanas },
+        { nome: 'Interessados', n: interessados.size },
+        { nome: 'Em negociação', n: negociacao },
+        { nome: 'Ganhos', n: ganhos.length, ganho: true },
+    ];
+    box.innerHTML = '';
+    if (!enviados) { box.appendChild(prEl('div', 'ph-mudo', 'Ainda não há envios. Os números aparecem depois da primeira campanha.')); return; }
+    const lista = prEl('div', 'pr-funil');
+    etapas.forEach((e, i) => {
+        const row = prEl('div', 'pr-etapa' + (e.ganho ? ' ganho' : ''));
+        row.appendChild(prEl('span', '', e.nome));
+        const barra = prEl('div', 'pr-barra');
+        const fill = prEl('span');
+        fill.style.width = Math.max(0, Math.min(100, enviados ? e.n / enviados * 100 : 0)) + '%';
+        barra.appendChild(fill);
+        row.appendChild(barra);
+        const num = prEl('span', 'pr-num', e.n.toLocaleString('pt-BR'));
+        if (i > 0) num.appendChild(prEl('small', '', prPctTxt(e.n, etapas[i - 1].n)));
+        row.appendChild(num);
+        lista.appendChild(row);
+    });
+    box.appendChild(lista);
+    box.appendChild(prEl('div', 'ph-linha', 'Ganho no mês: ' + _brl(ganhoMes) + ' · ganho total: ' + _brl(totalGanho) +
+        '. A porcentagem pequena ao lado de cada número é em relação à etapa anterior.'));
+
+    // Onde está a maior perda (só entre etapas com volume para comparar)
+    let pior = null;
+    for (let i = 1; i < etapas.length; i++) {
+        const de = etapas[i - 1].n, para = etapas[i].n;
+        if (de < 5) continue;
+        const taxa = para / de;
+        if (!pior || taxa < pior.taxa) pior = { i, taxa, de, para };
+    }
+    const dica = {
+        1: 'Poucas pessoas respondem. Vale testar outros nichos (veja "Onde prospectar") e mandar para celular.',
+        2: 'Muitas respostas não viram interesse. Confira se a mensagem deixa claro o que você oferece.',
+        3: 'Interessados que não avançam: responda rápido os leads quentes e mova para Negociando quem pediu proposta.',
+        4: 'Negociações que não fecham: retome cada uma no Pipeline, e marque Ganho com o valor quando fechar.',
+    };
+    if (pior) {
+        const dest = prEl('div', 'pr-destaque');
+        dest.textContent = 'Maior perda: entre "' + etapas[pior.i - 1].nome + '" e "' + etapas[pior.i].nome +
+            '" (' + pior.para + ' de ' + pior.de + '). ' + dica[pior.i];
+        box.appendChild(dest);
+    }
+}
+
+// 2) Leads quentes com nome, mensagem e há quanto tempo estão esperando
+function prDesenharQuentes(d) {
+    const box = document.getElementById('pr-quentes');
+    if (!box) return;
+    const porTel = {};
+    d.interesses.filter(r => r.status === 'pendente').forEach(r => {
+        const k = prTel(r.phone) || ('id' + r.id);
+        if (!porTel[k] || new Date(r.criado_em) > new Date(porTel[k].criado_em)) porTel[k] = r;
+        if (r.classificacao === 'quente') porTel[k]._quente = true;
+    });
+    const lista = Object.values(porTel).sort((a, b) => (b._quente ? 1 : 0) - (a._quente ? 1 : 0) || new Date(a.criado_em) - new Date(b.criado_em));
+    box.innerHTML = '';
+    if (!lista.length) return;
+    box.appendChild(prEl('div', 'ph-linha', 'Interessados esperando você responder:'));
+    lista.slice(0, 5).forEach(r => {
+        const row = prEl('div', 'pr-quente');
+        const nome = prEl('span');
+        nome.appendChild(prEl('span', 'pr-selo' + (r._quente ? '' : ' duvida'), r._quente ? 'Quente' : 'Dúvida'));
+        nome.appendChild(prEl('b', '', r.lead_nome || ('+' + String(r.phone || '').replace(/\D/g, ''))));
+        nome.appendChild(document.createTextNode(' · ' + prHa(r.criado_em)));
+        row.appendChild(nome);
+        const bt = prEl('button', 'ph-btn', 'Responder');
+        bt.type = 'button';
+        bt.addEventListener('click', () => phIr('respostas'));
+        row.appendChild(bt);
+        row.appendChild(prEl('div', 'pr-msg', '"' + String(r.mensagem_recebida || '').replace(/\s+/g, ' ').trim() + '"'));
+        box.appendChild(row);
+    });
+    if (lista.length > 5) box.appendChild(prEl('div', 'ph-linha', '+ ' + (lista.length - 5) + ' na aba Respostas.'));
+}
+
+// 3) Taxa de resposta real no card "Respostas" + comparação com o esperado para B2B
+function prDesenharBench(enviados, humanas) {
+    const el = document.getElementById('pr-bench');
+    if (!el) return;
+    if (!enviados) { el.hidden = true; return; }
+    const taxa = humanas / enviados * 100, t = prPctTxt(humanas, enviados);
+    let cor, msg;
+    if (enviados < 20) { cor = ''; msg = 'Taxa de resposta de pessoas: ' + t + '. Ainda são poucos envios (' + enviados + ') para comparar.'; }
+    else if (taxa >= 10) { cor = 'verde'; msg = '🚀 ' + t + ' das pessoas que receberam responderam. Bem acima do comum em prospecção B2B fria (5% a 10%). Vale aumentar o volume nesses nichos.'; }
+    else if (taxa >= 5) { cor = 'verde'; msg = '✅ ' + t + ' das pessoas que receberam responderam, dentro do esperado para prospecção B2B fria (5% a 10%).'; }
+    else if (taxa >= 3) { cor = 'amarelo'; msg = '⚠️ ' + t + ' responderam, um pouco abaixo do comum (5% a 10%). Teste outros nichos e o horário da manhã.'; }
+    else { cor = 'vermelho'; msg = '📝 Só ' + t + ' responderam, abaixo do comum (5% a 10%). Revise a mensagem e a lista de leads.'; }
+    el.className = 'pr-bench' + (cor ? ' ' + cor : '');
+    el.textContent = msg + ' Respostas de robô não contam.';
+    el.hidden = false;
+}
+
+// 4) Ranking por campanha ordenado pelo resultado (resposta de pessoas e interessados)
+function _renderRankingCampanhas(porCampanha, campanhaId) {
+    _prRankingArgs = [porCampanha, campanhaId];
+    const ranking = document.getElementById('mc-ranking-campanhas');
+    if (!ranking) return;
+    const res = {};
+    const nichoDe = {};
+    if (_prDados) {
+        _prDados.campanhas.forEach(c => { nichoDe[c.id] = c.nicho || ''; });
+        _prDados.leads.forEach(l => {
+            const r = res[l.campanha_id] || (res[l.campanha_id] = { env: 0, hum: 0, int: new Set() });
+            r.env++; if (prHumana(l)) r.hum++;
+        });
+        _prDados.interesses.forEach(i => { if (res[i.campanha_id]) res[i.campanha_id].int.add(prTel(i.phone)); });
+    }
+    const nota = cid => { const r = res[cid]; return r && r.env >= 10 ? r.hum / r.env : -1; };
+    const camps = Object.entries(porCampanha)
+        .sort((a, b) => (nota(b[0]) - nota(a[0])) || (b[1].enviados - a[1].enviados))
+        .slice(0, 10);
+    if (!camps.length) { ranking.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);">Nenhuma campanha encontrada</div>'; return; }
+    ranking.innerHTML = '';
+    camps.forEach(([cid, stats], idx) => {
+        const r = res[cid];
+        const isSel = cid === campanhaId;
+        const row = prEl('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px;border-bottom:1px solid var(--border);border-radius:8px;cursor:pointer;' + (isSel ? 'background:#FFF3E0;' : '');
+        row.addEventListener('click', () => selecionarCampanhaMetrica(cid));
+        const pos = prEl('span', '', '#' + (idx + 1));
+        pos.style.cssText = "font-family:'Inter',sans-serif;font-size:0.7rem;font-weight:700;color:var(--muted);width:22px;";
+        const meio = prEl('div'); meio.style.cssText = 'flex:1;min-width:0;';
+        const tit = prEl('div', '', _rotuloCampanha(cid));
+        tit.style.cssText = "font-size:0.75rem;font-weight:600;font-family:'Inter',sans-serif;color:" + (isSel ? '#FF6A00' : 'var(--text)') + ';';
+        const sub = prEl('div', '', [nichoDe[cid], stats.data ? stats.data.slice(0, 10) : ''].filter(Boolean).join(' · '));
+        sub.style.cssText = "font-family:'Inter',sans-serif;font-size:0.58rem;color:var(--muted);margin-top:2px;";
+        const barra = prEl('div', 'pr-barra'); barra.style.cssText = 'height:6px;margin-top:6px;';
+        const fill = prEl('span'); fill.style.width = (r && r.env ? Math.min(100, r.hum / r.env * 100 * 4) : 0) + '%';
+        fill.style.background = isSel ? '#FF6A00' : '#165DFF';
+        barra.appendChild(fill);
+        meio.append(tit, sub, barra);
+        const dir = prEl('div'); dir.style.cssText = "text-align:right;flex-shrink:0;font-family:'Inter',sans-serif;";
+        const l1 = prEl('div', '', r && r.env ? prPctTxt(r.hum, r.env) + ' responderam' : stats.enviados + ' env.');
+        l1.style.cssText = 'font-size:0.75rem;font-weight:700;color:#165DFF;';
+        const l2 = prEl('div', '', r ? r.int.size + ' interessado' + (r.int.size === 1 ? '' : 's') : '');
+        l2.style.cssText = 'font-size:0.65rem;color:#16a34a;';
+        const l3 = prEl('div', '', stats.enviados + ' env. · ' + stats.erros + ' erros');
+        l3.style.cssText = 'font-size:0.6rem;color:var(--muted);';
+        dir.append(l1, l2, l3);
+        row.append(pos, meio, dir);
+        ranking.appendChild(row);
+    });
+    const leg = prEl('div', 'ph-linha', 'Ordenado por taxa de resposta de pessoas (campanhas com 10 envios ou mais primeiro).');
+    leg.style.padding = '8px 10px 0';
+    ranking.appendChild(leg);
+}
+
+// 5) Onde prospectar: nichos, celular x fixo e dia da semana
+function prDesenharNichos(d) {
+    const box = document.getElementById('pr-nichos');
+    if (!box) return;
+    box.innerHTML = '';
+    if (d.leads.length < 20) { box.appendChild(prEl('div', 'ph-mudo', 'Com 20 envios ou mais aparece aqui quais nichos, tipos de número e dias respondem melhor.')); return; }
+    const nichoDe = {};
+    d.campanhas.forEach(c => { nichoDe[c.id] = String(c.nicho || '').trim(); });
+    const grupos = {}, tipo = { cel: { env: 0, hum: 0 }, fixo: { env: 0, hum: 0 } }, dias = {};
+    d.leads.forEach(l => {
+        const n = nichoDe[l.campanha_id];
+        if (n) { const k = n.toLowerCase(); const g = grupos[k] || (grupos[k] = { nome: n, env: 0, hum: 0 }); g.env++; if (prHumana(l)) g.hum++; }
+        const t = ehCelularBR(l.phone) ? tipo.cel : tipo.fixo; t.env++; if (prHumana(l)) t.hum++;
+        const dia = new Date(new Date(l.enviado_em).toLocaleString('en-US', { timeZone: 'America/Sao_Paulo' })).getDay();
+        const g2 = dias[dia] || (dias[dia] = { env: 0, hum: 0 }); g2.env++; if (prHumana(l)) g2.hum++;
+    });
+    const MIN = 15;
+    const nichos = Object.values(grupos).filter(g => g.env >= MIN).sort((a, b) => b.hum / b.env - a.hum / a.env);
+    if (nichos.length) {
+        const tab = prEl('table', 'pr-tabela');
+        const cab = prEl('tr'); ['Nicho', 'Envios', 'Responderam'].forEach(h => cab.appendChild(prEl('th', '', h)));
+        tab.appendChild(cab);
+        nichos.slice(0, 6).forEach((g, i) => {
+            const tr = prEl('tr', i === 0 ? 'vence' : '');
+            tr.append(prEl('td', '', g.nome), prEl('td', '', String(g.env)), prEl('td', '', prPctTxt(g.hum, g.env)));
+            tab.appendChild(tr);
+        });
+        box.appendChild(tab);
+        if (nichos.length >= 2) {
+            const ult = nichos[nichos.length - 1];
+            box.appendChild(prEl('div', 'pr-destaque ok', 'Prospecte mais: ' + nichos.slice(0, 2).map(g => g.nome).join(' e ') +
+                '. ' + ult.nome + ' responde menos (' + prPctTxt(ult.hum, ult.env) + ').'));
+        }
+    } else {
+        box.appendChild(prEl('div', 'ph-linha', 'Nenhum nicho com ' + MIN + ' envios ainda para comparar.'));
+    }
+    if (tipo.cel.env >= 10 && tipo.fixo.env >= 10) {
+        const rc = tipo.cel.hum / tipo.cel.env, rf = tipo.fixo.hum / tipo.fixo.env;
+        let txt = 'Celular: ' + prPctTxt(tipo.cel.hum, tipo.cel.env) + ' responderam · fixo: ' + prPctTxt(tipo.fixo.hum, tipo.fixo.env) + '.';
+        if (rf > 0 && rc / rf >= 1.2) txt += ' Celular responde ' + (rc / rf).toFixed(1).replace('.', ',') + 'x mais (as campanhas já mandam primeiro para celular).';
+        box.appendChild(prEl('div', 'ph-linha', txt));
+    }
+    const ds = Object.keys(dias).map(Number).filter(k => dias[k].env >= MIN).map(k => ({ k, ...dias[k], t: dias[k].hum / dias[k].env }));
+    if (ds.length >= 2) {
+        ds.sort((a, b) => b.t - a.t);
+        const m = ds[0], p = ds[ds.length - 1];
+        box.appendChild(prEl('div', 'ph-linha', 'Melhor dia: ' + PR_DIAS[m.k] + ' (' + prPctTxt(m.hum, m.env) + '). Pior: ' + PR_DIAS[p.k] + ' (' + prPctTxt(p.hum, p.env) + ').'));
+    }
+}
+
+// 6) Teste A/B: tom x gatilho, com a mesma conta que o n8n usa para escolher a vencedora
+function prDesenharAB(d) {
+    const box = document.getElementById('pr-ab');
+    if (!box) return;
+    box.innerHTML = '';
+    const g = {};
+    let total = 0;
+    d.leads.forEach(l => {
+        if (!l.variante_ab || !l.gatilho_cta) return;
+        total++;
+        const k = l.variante_ab + '|' + l.gatilho_cta;
+        const r = g[k] || (g[k] = { tom: l.variante_ab, gat: l.gatilho_cta, env: 0, hum: 0 });
+        r.env++; if (prHumana(l)) r.hum++;
+    });
+    const linhas = Object.values(g).filter(r => r.env >= 5);
+    if (!linhas.length) { box.appendChild(prEl('div', 'ph-mudo', 'Ainda não há envios suficientes de cada versão da mensagem para comparar.')); return; }
+    linhas.forEach(r => { r.nota = (r.hum + 1) / (r.env + 10); });   // suavizada, igual à do n8n
+    linhas.sort((a, b) => b.nota - a.nota);
+    const tab = prEl('table', 'pr-tabela');
+    const cab = prEl('tr'); ['Tom + gatilho', 'Envios', 'Responderam'].forEach(h => cab.appendChild(prEl('th', '', h)));
+    tab.appendChild(cab);
+    linhas.forEach((r, i) => {
+        const tr = prEl('tr', i === 0 && total >= 60 ? 'vence' : '');
+        tr.append(prEl('td', '', (PR_TOM[r.tom] || r.tom) + ' + ' + (PR_GATILHO[r.gat] || r.gat)), prEl('td', '', String(r.env)), prEl('td', '', prPctTxt(r.hum, r.env)));
+        tab.appendChild(tr);
+    });
+    box.appendChild(tab);
+    const v = linhas[0];
+    if (total >= 60) {
+        box.appendChild(prEl('div', 'pr-destaque ok', 'Vencedora: ' + (PR_TOM[v.tom] || v.tom) + ' + ' + (PR_GATILHO[v.gat] || v.gat) +
+            '. A IA já usa essa combinação em 80% das mensagens e continua testando as outras em 20%.'));
+    } else {
+        box.appendChild(prEl('div', 'ph-linha', 'Faltam ' + (60 - total) + ' envios para a IA começar a priorizar a combinação que mais funciona.'));
+    }
+}
+
+// 7) Pipeline parado: quem vai receber follow-up e quem já pode ir para Perdido
+const PR_DIAS_PERDIDO = 10;
+function prParados(d) {
+    // primeiro dia de follow-up de cada campanha (null = campanha sem follow-up programado)
+    const diaFU = {};
+    d.campanhas.forEach(c => {
+        const passos = Array.isArray(c.sequencia) ? c.sequencia.filter(x => x && x.tipo === 'followup' && Number(x.dia) > 0) : [];
+        diaFU[c.id] = passos.length ? Math.min(...passos.map(x => Number(x.dia))) : null;
+    });
+    const ultimo = {}, respondeu = new Set(), pendenteFU = new Set(d.followups.map(f => prTel(f.phone)));
+    d.leads.forEach(l => {
+        const k = prTel(l.phone);
+        if (!ultimo[k] || new Date(l.enviado_em) > new Date(ultimo[k].enviado_em)) ultimo[k] = l;
+        if (prHumana(l)) respondeu.add(k);            // resposta só de robô conta como sem resposta
+    });
+    const agora = Date.now(), dia = 86400000;
+    const contatados = d.pipeline.filter(p => p.col === 'contatado');
+    const comFollowup = [], esperando = [], perdidos = [], responderam = [];
+    contatados.forEach(p => {
+        const k = prTel(p.phone);
+        if (respondeu.has(k)) { responderam.push(p); return; }
+        if (pendenteFU.has(k)) return;
+        const l = ultimo[k];
+        const env = l ? new Date(l.enviado_em).getTime() : (p.moved_at ? new Date(p.moved_at).getTime() : agora);
+        const idade = (agora - env) / dia;
+        const fu = l ? diaFU[l.campanha_id] : null;
+        if (idade >= PR_DIAS_PERDIDO) perdidos.push(p);
+        else if (fu && idade < fu) comFollowup.push(p);
+        else esperando.push(p);
+    });
+    return { contatados: contatados.length, responderam, comFollowup, esperando, perdidos, fuPendentes: d.followups.length };
+}
+function prDesenharParado(d) {
+    const box = document.getElementById('pr-parado');
+    if (!box) return;
+    box.innerHTML = '';
+    const r = prParados(d);
+    if (!r.contatados) { box.appendChild(prEl('div', 'ph-mudo', 'Nenhum lead parado em "Contatado".')); return; }
+    box.appendChild(prEl('div', 'ph-linha', r.contatados + ' leads estão em "Contatado". Respostas só de robô contam como sem resposta.'));
+    const itens = [
+        [r.responderam.length, 'já responderam (pessoa), mas continuam em "Contatado"', 'Mover para Respondeu', () => r.responderam, 'respondeu'],
+        [r.comFollowup.length, 'vão receber follow-up (passa pela sua aprovação)'],
+        [r.fuPendentes, 'follow-ups já estão na fila esperando você aprovar', 'Ver follow-ups'],
+        [r.esperando.length, 'aguardando resposta, sem follow-up programado (campanhas antigas, robô ou follow-up já enviado)'],
+        [r.perdidos.length, 'sem resposta há ' + PR_DIAS_PERDIDO + ' dias ou mais', 'Mover para Perdido', () => r.perdidos, 'descartado'],
+    ];
+    itens.forEach(([n, t, rotulo, lista, col]) => {
+        const row = prEl('div', 'ph-item');
+        const s = prEl('span'); s.appendChild(prEl('b', '', String(n))); s.appendChild(document.createTextNode(' ' + t));
+        row.appendChild(s);
+        if (n && rotulo) {
+            const bt = prEl('button', 'ph-btn', rotulo); bt.type = 'button';
+            if (lista) bt.addEventListener('click', () => prMoverColuna(lista().map(p => String(p.id)), col, bt));
+            else bt.addEventListener('click', () => phIr('respostas'));
+            row.appendChild(bt);
+        }
+        box.appendChild(row);
+    });
+    box.appendChild(prEl('div', 'ph-linha', 'Tirar quem não responde deixa o funil e o pipeline com números reais. Dá para voltar o card no Pipeline se a pessoa responder depois.'));
+}
+async function prMoverColuna(ids, col, bt) {
+    if (!ids.length) return;
+    const nomeCol = (PK_COLS.find(c => c.id === col) || {}).label || col;
+    const rotulo = bt.textContent;
+    if (!confirm('Mover ' + ids.length + ' lead(s) de "Contatado" para "' + nomeCol + '" no Pipeline?')) return;
+    bt.disabled = true; bt.textContent = 'Movendo…';
+    try {
+        pkLoad();
+        await pkSincronizarDaNuvem();                     // parte do Pipeline mais recente, seja de qual aparelho for
+        const alvo = new Set(ids);
+        let n = 0;
+        pkLeads.forEach(l => { if (alvo.has(String(l.id)) && l.col === 'contatado') { l.col = col; l.movedAt = Date.now(); n++; } });
+        pkSave();
+        showToast('✅ ' + n + ' lead(s) movidos para ' + nomeCol, 'ok');
+        setTimeout(prCarregar, 1500);
+    } catch (e) {
+        showToast('❌ Não consegui mover: ' + (e && e.message), 'err');
+        bt.disabled = false; bt.textContent = rotulo;
+    }
+}
+// roda sempre que o Painel carrega as métricas
+(function () {
+    const original = carregarMetricas;
+    carregarMetricas = async function () {
+        const r = await original.apply(this, arguments);
+        try { prCarregar(); } catch (e) { /* o Painel original não pode quebrar */ }
+        return r;
+    };
+})();
 
 async function carregarMetricas() {
     const icon = document.getElementById('metricas-refresh-icon');
@@ -10733,10 +11196,28 @@ async function atualizarCardRespostas() {
         const humanas = total - suspeitasBot;
 
         if (valEl) valEl.textContent = humanas.toLocaleString('pt-BR');
+
+        // Taxa: das pessoas que RECEBERAM no filtro (data do envio), quantas responderam (sem robô).
+        let taxaTxt = '';
+        try {
+            const enviadosNoFiltro = await prBuscarTudo(() => {
+                let q = supabaseClient.from('leads').select('respondeu,resposta_suspeita_bot')
+                    .eq('user_id', currentUser.id).not('enviado_em', 'is', null).order('id');
+                if (campanhaId !== 'all') q = q.eq('campanha_id', campanhaId);
+                if (intervalo && intervalo.start) q = q.gte('enviado_em', intervalo.start);
+                if (intervalo && intervalo.end) q = q.lt('enviado_em', intervalo.end);
+                return q;
+            });
+            const envN = enviadosNoFiltro.length, humN = enviadosNoFiltro.filter(prHumana).length;
+            if (envN) taxaTxt = prPctTxt(humN, envN) + ' de quem recebeu respondeu';
+            prDesenharBench(envN, humN);
+        } catch (e) { prDesenharBench(0, 0); }
+
         if (subEl) {
-            subEl.textContent = suspeitasBot > 0
-                ? `+ ${suspeitasBot} suspeita(s) de auto-resposta`
-                : (total > 0 ? 'Todas parecem humanas' : 'Nenhuma resposta ainda');
+            const partes = [];
+            if (taxaTxt) partes.push(taxaTxt);
+            if (suspeitasBot > 0) partes.push(`+ ${suspeitasBot} de robô (não contam)`);
+            subEl.textContent = partes.length ? partes.join(' · ') : (total > 0 ? 'Todas parecem humanas' : 'Nenhuma resposta ainda');
         }
     } catch (e) {
         console.warn('[CARD RESPOSTAS]', e);
@@ -10765,8 +11246,6 @@ function _renderizarMetricas(rows, porCampanha, campanhaId, config) {
         if (status === 'enviado' && datRow.startsWith(hoje.substring(0,5))) enviadosHoje++;
     });
 
-    const totalRespostas = 0; // será cruzado com followup futuramente
-    const taxa = totalEnviados > 0 ? ((totalRespostas / totalEnviados) * 100).toFixed(1) : '0.0';
     const limiteDiario = (config?.uazapi?.limiteDiario) || (userGet('prospectaConfig', {})?.uazapi?.limiteDiario) || 30;
 
     // Badge de filtro ativo (campanha + período)
@@ -10806,35 +11285,6 @@ function _renderizarMetricas(rows, porCampanha, campanhaId, config) {
     document.getElementById('mc-ultima-atualizacao').textContent =
         new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
 
-    // Benchmark
-    const taxaNum = parseFloat(taxa);
-    const benchEl     = document.getElementById('mc-benchmark-indicator');
-    const benchEmoji  = document.getElementById('mc-bench-emoji');
-    const benchTitulo = document.getElementById('mc-bench-titulo');
-    const benchDesc   = document.getElementById('mc-bench-desc');
-    if (benchEl) {
-        if (taxaNum >= 10) {
-            benchEl.style.background = '#f0fdf4'; if(benchEmoji) benchEmoji.textContent = '🚀';
-            if(benchTitulo) { benchTitulo.textContent = 'Excelente! Escale a campanha!'; benchTitulo.style.color = '#16a34a'; }
-            if(benchDesc) benchDesc.textContent = `${taxa}% de taxa — muito acima da média B2B`;
-        } else if (taxaNum >= 5) {
-            benchEl.style.background = '#f0fdf4'; if(benchEmoji) benchEmoji.textContent = '✅';
-            if(benchTitulo) { benchTitulo.textContent = 'Bom resultado!'; benchTitulo.style.color = '#16a34a'; }
-            if(benchDesc) benchDesc.textContent = `${taxa}% de taxa — dentro do esperado para B2B`;
-        } else if (taxaNum >= 3) {
-            benchEl.style.background = '#fefce8'; if(benchEmoji) benchEmoji.textContent = '⚠️';
-            if(benchTitulo) { benchTitulo.textContent = 'Razoável — há margem para melhora'; benchTitulo.style.color = '#d97706'; }
-            if(benchDesc) benchDesc.textContent = `${taxa}% de taxa — tente refinar o roteiro da IA`;
-        } else if (totalEnviados > 0) {
-            benchEl.style.background = '#fef2f2'; if(benchEmoji) benchEmoji.textContent = '📝';
-            if(benchTitulo) { benchTitulo.textContent = 'Revise o roteiro da IA'; benchTitulo.style.color = '#dc2626'; }
-            if(benchDesc) benchDesc.textContent = `${taxa}% de taxa — abaixo da média B2B (5%+)`;
-        } else {
-            benchEl.style.background = '#f8fafc'; if(benchEmoji) benchEmoji.textContent = '📊';
-            if(benchTitulo) { benchTitulo.textContent = 'Aguardando dados...'; benchTitulo.style.color = 'var(--text)'; }
-            if(benchDesc) benchDesc.textContent = 'Carregue as métricas para ver o benchmark';
-        }
-    }
 
     // Tabela últimas linhas
     const tbody = document.getElementById('mc-tabela-body');
@@ -10860,38 +11310,7 @@ function _renderizarMetricas(rows, porCampanha, campanhaId, config) {
         }).join('');
     }
 
-    // Ranking por campanha
-    const ranking = document.getElementById('mc-ranking-campanhas');
-    const camps = Object.entries(porCampanha)
-        .sort((a,b) => b[1].enviados - a[1].enviados)
-        .slice(0, 10);
-
-    if (camps.length === 0) {
-        ranking.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);">Nenhuma campanha encontrada</div>';
-    } else {
-        ranking.innerHTML = camps.map(([cid, stats], idx) => {
-            const w = stats.enviados > 0 ? Math.round((stats.enviados / (camps[0][1].enviados||1))*100) : 0;
-            const dataLabel = stats.data ? stats.data.slice(0,10) : '';
-            const isSelected = cid === campanhaId;
-            return `<div onclick="selecionarCampanhaMetrica('${cid}')" style="display:flex;align-items:center;gap:12px;padding:10px;border-bottom:1px solid var(--border);border-radius:8px;cursor:pointer;transition:background 0.15s;${isSelected ? 'background:#FFF3E0;border-color:#FFD6B0;' : ''}" onmouseover="this.style.background='${isSelected?'#FFF3E0':'var(--surface2)'}'" onmouseout="this.style.background='${isSelected?'#FFF3E0':'transparent'}'">
-                <span style="font-family:'Inter',sans-serif;font-size:0.7rem;font-weight:700;color:var(--muted);width:22px;">#${idx+1}</span>
-                <div style="flex:1;min-width:0;">
-                    <div style="font-size:0.75rem;font-weight:600;color:${isSelected?'#FF6A00':'var(--text)'};font-family:'Inter',sans-serif;">${_rotuloCampanha(cid)}</div>
-                    <div style="font-family:'Inter',sans-serif;font-size:0.58rem;color:var(--muted);margin-top:2px;">${dataLabel}</div>
-                    <div style="display:flex;align-items:center;gap:8px;margin-top:5px;">
-                        <div style="flex:1;background:#E0E6EF;border-radius:99px;height:5px;overflow:hidden;">
-                            <div style="width:${w}%;height:100%;background:${isSelected?'#FF6A00':'#FF6A0088'};border-radius:99px;"></div>
-                        </div>
-                    </div>
-                </div>
-                <div style="text-align:right;flex-shrink:0;">
-                    <div style="font-family:'Inter',sans-serif;font-size:0.75rem;font-weight:700;color:#16a34a;">${stats.enviados} env.</div>
-                    <div style="font-family:'Inter',sans-serif;font-size:0.65rem;color:#dc2626;">${stats.erros} erros</div>
-                    <div style="font-family:'Inter',sans-serif;font-size:0.6rem;color:#d97706;">${stats.pulados} pulados</div>
-                </div>
-            </div>`;
-        }).join('');
-    }
+    _renderRankingCampanhas(porCampanha, campanhaId);
 }
 
 function selecionarCampanhaMetrica(cid) {
