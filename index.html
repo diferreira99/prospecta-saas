@@ -1172,6 +1172,37 @@
 .ps-acoes-dica { font-family:'Inter',sans-serif; font-size:0.62rem; color:var(--muted); }
 /* o atributo hidden precisa vencer o display:flex destas classes */
 .ps-sugestoes[hidden], .ps-acoes[hidden], .ps-aviso[hidden], .nc-modal[hidden], .ps-chip[hidden], .ps-acao[hidden], .pr-bench[hidden] { display:none !important; }
+.pk-busca, .pk-sel { font-family:'Inter',sans-serif; font-size:0.7rem; padding:6px 10px; border:1.5px solid var(--border); border-radius:8px; background:var(--surface); color:var(--text); }
+.pk-busca { min-width:160px; flex:0 1 220px; }
+#tab-pipeline .pk-topbar { flex-wrap:wrap; row-gap:8px; justify-content:flex-start; }
+#tab-pipeline .pk-topbar .pk-busca, #tab-pipeline .pk-topbar .pk-sel { width:auto; flex:0 1 190px; min-width:140px; margin:0; }
+#tab-pipeline .pk-filter-btn { white-space:nowrap; }
+@media (max-width: 700px) { .pk-busca, .pk-sel { flex:1 1 45%; min-width:0; } }
+.pk-resumo { display:flex; flex-wrap:wrap; align-items:center; gap:4px 10px; padding:10px 16px; background:var(--surface); border-bottom:1px solid var(--border); font-family:'Inter',sans-serif; font-size:0.74rem; color:var(--text); }
+.pk-res-sep { color:var(--muted); } .pk-res-dica { color:var(--muted); font-size:0.66rem; }
+.pk-chips { display:flex; flex-wrap:wrap; gap:4px; margin:6px 0 2px; }
+.pk-chip { font-family:'Inter',sans-serif; font-size:0.56rem; font-weight:700; padding:2px 6px; border-radius:20px; background:var(--surface2); color:var(--muted); white-space:nowrap; }
+.pk-chip-alerta { background:#FFF4EC; color:#C2410C; } .pk-chip-reuniao { background:#ede9fe; color:#6d28d9; } .pk-chip-valor { background:#dcfce7; color:#15803d; }
+.pk-card-msg { font-family:'Inter',sans-serif; font-size:0.62rem; color:var(--muted); font-style:italic; margin:4px 0; line-height:1.4; }
+.pk-card-footer { display:flex; align-items:center; justify-content:space-between; gap:6px; }
+.pk-card-rapidos { display:flex; gap:5px; }
+.pk-rapido { width:26px; height:26px; }
+.pk-avancar { border:1.5px solid #C2D8FF; background:#EFF6FF; color:#1d4ed8; border-radius:8px; font-weight:800; cursor:pointer; font-size:0.8rem; line-height:1; }
+.pk-avancar:hover { background:#dbeafe; }
+.pk-card.pk-card-acao { box-shadow:0 0 0 2px #FF6A00; }
+.pk-perdido-resumo { font-family:'Inter',sans-serif; font-size:0.7rem; color:var(--text); display:flex; flex-direction:column; gap:6px; padding:6px 2px; }
+.pk-perdido-tit { font-weight:700; color:var(--muted); font-size:0.62rem; text-transform:uppercase; }
+.pk-perdido-lin { display:flex; justify-content:space-between; }
+.pk-motivos { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+.pk-acao-atual { font-family:'Inter',sans-serif; font-size:0.72rem; font-weight:700; padding:6px 10px; border-radius:8px; background:var(--surface2); margin-bottom:6px; }
+.pk-acao-atual.atrasada, .pk-acao-atual.hoje { background:#FFF4EC; color:#C2410C; }
+.pk-acao-linha { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
+.pk-acao-linha input { flex:1 1 140px; padding:7px 9px; border:1.5px solid var(--border); border-radius:8px; font-family:'Inter',sans-serif; font-size:0.72rem; background:var(--surface); color:var(--text); }
+.pk-btn-sec { background:transparent !important; color:var(--text) !important; border:1.5px solid var(--border) !important; }
+.pk-conversa { display:flex; flex-direction:column; gap:6px; max-height:280px; overflow-y:auto; padding:6px; background:var(--surface2); border-radius:10px; }
+.pk-bolha { max-width:88%; padding:7px 10px; border-radius:12px; font-family:'Inter',sans-serif; font-size:0.72rem; line-height:1.45; color:var(--text); background:var(--surface); border:1px solid var(--border); align-self:flex-start; overflow-wrap:anywhere; }
+.pk-bolha.eu { align-self:flex-end; background:#dcfce7; border-color:#bbf7d0; }
+.pk-bolha small { display:block; margin-top:3px; font-size:0.58rem; color:var(--muted); }
 .pl-hoje { background:linear-gradient(135deg,#0D1330,#165DFF); color:#fff; border-radius:16px; padding:18px 20px; margin-bottom:14px; font-family:'Inter',sans-serif; }
 .pl-hoje h3 { margin:0 0 4px; font-size:0.7rem; text-transform:uppercase; letter-spacing:.5px; color:#C7D3FF; }
 .pl-hoje .pl-alvo { font-size:1.15rem; font-weight:800; margin-bottom:4px; }
@@ -2109,12 +2140,21 @@ function iniciarAppPosLogin() {
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
             Importar leads
         </button>
+        <input id="pk-busca" class="pk-busca" type="search" placeholder="Buscar lead..." aria-label="Buscar lead no pipeline" oninput="_pkFiltro.q=this.value;pkRender()">
+        <select id="pk-f-nicho" class="pk-sel" aria-label="Filtrar por nicho" onchange="_pkFiltro.nicho=this.value;pkRender()"><option value="">Todos os nichos</option></select>
+        <select id="pk-f-camp" class="pk-sel" aria-label="Filtrar por campanha" onchange="_pkFiltro.camp=this.value;pkRender()"><option value="">Todas as campanhas</option></select>
+        <select id="pk-f-ordem" class="pk-sel" aria-label="Ordenar" onchange="_pkFiltro.ordem=this.value;pkRender()">
+            <option value="quente">Mais quentes primeiro</option>
+            <option value="parado">Parados há mais tempo</option>
+            <option value="recente">Mais recentes</option>
+        </select>
         <button class="pk-filter-btn" onclick="pkToggleFunil()" id="pk-funil-toggle-btn" style="margin-left:auto;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>
             Funil de Conversão
         </button>
     </div>
     <div id="pk-funil-painel" style="display:none;padding:14px 16px;background:var(--surface);border-bottom:1px solid var(--border);"></div>
+    <div id="pk-resumo" class="pk-resumo" aria-live="polite"></div>
     <div id="pk-esfriando-alerta" style="display:none;"></div>
     <div class="pk-board-wrap" id="pk-board-wrap">
         <!-- colunas geradas por JS -->
@@ -2557,10 +2597,13 @@ function pkSave() { userSet('pk_leads', pkLeads); pkSincronizarParaNuvem(); }
 // Espelha o Pipeline/CRM no Supabase (tabela pipeline_leads), pra não depender só do
 // navegador. Full-mirror simples: sobe tudo que existe localmente, e apaga na nuvem
 // o que não existe mais localmente (cobre o caso de remoção de card).
-let _pkSyncEmAndamento = false;
+let _pkSyncEmAndamento = false, _pkSyncPendente = false;
 async function pkSincronizarParaNuvem() {
-    if (!currentUser || _pkSyncEmAndamento) return;
+    if (!currentUser) return;
+    // Se já está sincronizando, marca para rodar de novo no fim (antes a mudança feita nesse meio-tempo se perdia)
+    if (_pkSyncEmAndamento) { _pkSyncPendente = true; return; }
     _pkSyncEmAndamento = true;
+    _pkSyncPendente = false;
     try {
         const rows = pkLeads.map(l => ({
             id: String(l.id), user_id: currentUser.id, name: l.name || '', cat: l.cat || '',
@@ -2568,7 +2611,11 @@ async function pkSincronizarParaNuvem() {
             col: l.col || 'novo', nota: l.nota || '', moved_at: l.movedAt ? new Date(l.movedAt).toISOString() : new Date().toISOString(),
             reuniao_marcada: !!l.reuniaoMarcada,
             valor: (l.valor === 0 || l.valor) ? Number(l.valor) : null,
-            fechado_em: l.fechadoEm ? new Date(l.fechadoEm).toISOString() : null
+            fechado_em: l.fechadoEm ? new Date(l.fechadoEm).toISOString() : null,
+            proxima_acao_em: l.proximaAcaoEm ? new Date(l.proximaAcaoEm).toISOString() : null,
+            proxima_acao_txt: l.proximaAcaoTxt || null,
+            reuniao_em: l.reuniaoEm ? new Date(l.reuniaoEm).toISOString() : null,
+            motivo_perda: l.col === 'descartado' ? (l.motivoPerda || null) : null
         }));
         const idsAtuais = rows.map(r => r.id);
 
@@ -2588,6 +2635,7 @@ async function pkSincronizarParaNuvem() {
         console.warn('Erro ao sincronizar pipeline na nuvem:', e.message);
     } finally {
         _pkSyncEmAndamento = false;
+        if (_pkSyncPendente) { _pkSyncPendente = false; setTimeout(pkSincronizarParaNuvem, 0); }
     }
 }
 
@@ -2605,7 +2653,11 @@ async function pkSincronizarDaNuvem() {
                 dias: 0, movedAt: r.moved_at ? new Date(r.moved_at).getTime() : Date.now(),
                 reuniaoMarcada: !!r.reuniao_marcada, ultimaClassificacao: r.ultima_classificacao || null,
                 valor: r.valor === null || r.valor === undefined ? null : Number(r.valor),
-                fechadoEm: r.fechado_em ? new Date(r.fechado_em).getTime() : null
+                fechadoEm: r.fechado_em ? new Date(r.fechado_em).getTime() : null,
+                proximaAcaoEm: r.proxima_acao_em ? new Date(r.proxima_acao_em).getTime() : null,
+                proximaAcaoTxt: r.proxima_acao_txt || '',
+                reuniaoEm: r.reuniao_em ? new Date(r.reuniao_em).getTime() : null,
+                motivoPerda: r.motivo_perda || null
             }));
             userSet('pk_leads', pkLeads); // mantém o cache local coerente com a nuvem
             if (document.getElementById('tab-pipeline')?.classList.contains('active') && typeof pkRender === 'function') pkRender();
@@ -2889,14 +2941,15 @@ function pkRender() {
     const painelFunil = document.getElementById('pk-funil-painel');
     if (painelFunil && painelFunil.style.display !== 'none') renderizarFunilConversao();
 
+    pkPintarResumo();
     PK_COLS.forEach(col => {
-        const colLeads = pkLeads.filter(l => l.col === col.id);
+        const colLeads = pkOrdenar(pkLeads.filter(l => l.col === col.id && pkPassaFiltro(l)));
 
         const colEl = document.createElement('div');
         colEl.className = 'pk-col';
         colEl.innerHTML = `
             <div class="pk-col-header" style="border-bottom-color:${col.color}">
-                <span class="pk-col-title">${col.label}${col.id === 'fechado' && colLeads.some(l => l.valor > 0) ? ` <span style="font-weight:800;color:#16a34a;">· ${_brl(colLeads.reduce((a, l) => a + (Number(l.valor) || 0), 0))}</span>` : ''}</span>
+                <span class="pk-col-title">${col.label}${col.id === 'negociando' && colLeads.some(l => l.valor > 0) ? ` <span style="font-weight:800;color:#7c3aed;">· ${_brl(colLeads.reduce((a, l) => a + (Number(l.valor) || 0), 0))}</span>` : ''}${col.id === 'fechado' && colLeads.some(l => l.valor > 0) ? ` <span style="font-weight:800;color:#16a34a;">· ${_brl(colLeads.reduce((a, l) => a + (Number(l.valor) || 0), 0))}</span>` : ''}</span>
                 <div style="display:flex;align-items:center;gap:6px;">
                     <span class="pk-col-count">${colLeads.length}</span>
                     ${colLeads.length ? `<button onclick="pkLimparColuna('${col.id}')" title="Remover todos os leads dessa coluna" style="background:transparent;border:none;color:#dc2626;font-size:0.7rem;cursor:pointer;padding:2px;opacity:0.6;">🗑️</button>` : ''}
@@ -2916,31 +2969,38 @@ function pkRender() {
             if(pkDragId !== null) {
                 pkLoad();
                 const lead = pkLeads.find(l => l.id === pkDragId);
-                if(lead) { lead.col = col.id; lead.dias = 0; lead.movedAt = Date.now(); pkSave(); pkRender(); }
+                if(lead && lead.col !== col.id) { pkMoverEtapa(lead.id, col.id); }
             }
         });
 
-        if(colLeads.length === 0) {
+        if (col.id === 'descartado' && !_pkPerdidoAberto && colLeads.length) {
+            const box = document.createElement('div');
+            box.className = 'pk-perdido-resumo';
+            box.innerHTML = pkResumoMotivos(colLeads);
+            const bt = document.createElement('button');
+            bt.type = 'button'; bt.className = 'pk-filter-btn'; bt.textContent = `Mostrar os ${colLeads.length} perdidos`;
+            bt.addEventListener('click', () => { _pkPerdidoAberto = true; pkRender(); });
+            box.appendChild(bt);
+            body.appendChild(box);
+        } else if(colLeads.length === 0) {
             const empty = document.createElement('div');
             empty.style.cssText = 'text-align:center;color:#b0b8cc;font-size:0.7rem;padding:20px 0;font-family:Inter,sans-serif;';
             empty.textContent = 'Nenhum lead aqui';
             body.appendChild(empty);
         } else {
             colLeads.forEach(lead => {
-                const dc = pkDaysClass(lead.dias||0, lead.col);
+                const dc = pkDaysClass(pkDiasNaEtapa(lead), lead.col);
                 const card = document.createElement('div');
                 card.className = 'pk-card';
                 card.draggable = true;
                 card.dataset.id = lead.id;
                 card.style.borderLeftColor = col.color;
 
-                // progress bar 0-100
-                const prog = Math.min(100, Math.round(((lead.rating||0)/5)*100));
-                const barColor = prog > 70 ? '#22c55e' : prog > 40 ? '#f59e0b' : '#ef4444';
-
                 const initials = pkInitials(lead.name||lead.title||'?');
                 const avatarColor = pkAvatarColor(lead.name||lead.title||'');
-
+                const dias = pkDiasNaEtapa(lead);
+                const acao = pkAcaoStatus(lead);
+                if (acao && acao.tipo !== 'futura') card.classList.add('pk-card-acao');
                 card.innerHTML = `
                     <div class="pk-card-top">
                         <div class="pk-avatars">
@@ -2948,17 +3008,27 @@ function pkRender() {
                         </div>
                         <div style="display:flex;align-items:center;gap:6px;">
                             <span title="Score de prioridade" style="font-size:0.6rem;font-weight:800;padding:2px 7px;border-radius:20px;background:${pkScoreCor(pkCalcularScore(lead))};color:#fff;">${pkCalcularScore(lead)}</span>
-                            <button class="pk-edit-btn" onclick="event.stopPropagation();pkAbrirDetail(${lead.id})">✏️</button>
+                            <button class="pk-edit-btn" type="button" aria-label="Abrir detalhes">✏️</button>
                         </div>
                     </div>
-                    <div class="pk-card-bar"><div class="pk-card-bar-fill" style="width:${prog}%;background:${barColor}"></div></div>
-                    <div class="pk-card-name">${lead.name||lead.title||'—'}</div>
-                    <div class="pk-card-sub">${lead.cat||lead.category||''}</div>
+                    <div class="pk-card-name">${escapeHtml(lead.name||lead.title||'—')}</div>
+                    <div class="pk-card-sub">${escapeHtml(lead.cat||lead.category||'')}</div>
+                    ${pkChipsCard(lead, acao)}
+                    ${pkTrechoConversa(lead)}
                     <div class="pk-card-footer">
-                        ${lead.phone ? '<span class="pk-card-tag" style="background:#dcfce7;color:#16a34a;">WA</span>' : '<span class="pk-card-tag" style="background:var(--surface2);color:var(--muted);">sem tel.</span>'}
-                        <span class="pk-card-days" style="background:${dc.bg};color:${dc.color};padding:2px 6px;border-radius:5px;font-size:0.55rem;font-weight:700;">${lead.dias||0}d</span>
+                        <span class="pk-card-days" title="Dias nesta etapa" style="background:${dc.bg};color:${dc.color};padding:2px 6px;border-radius:5px;font-size:0.55rem;font-weight:700;">${dias}d</span>
+                        <span class="pk-card-rapidos">
+                            ${lead.phone ? `<button type="button" class="tag-rede tag-zap pk-rapido" data-acao="wa" title="Abrir conversa no WhatsApp" aria-label="Abrir conversa no WhatsApp">${_LOGO_REDE.whatsapp}</button>` : ''}
+                            ${pkProximaEtapa(lead.col) ? `<button type="button" class="pk-rapido pk-avancar" data-acao="avancar" title="Mover para ${PK_COLS.find(c => c.id === pkProximaEtapa(lead.col)).label}" aria-label="Mover para a próxima etapa">→</button>` : ''}
+                        </span>
                     </div>
                 `;
+                card.querySelectorAll('.pk-rapido').forEach(b => b.addEventListener('click', e => {
+                    e.stopPropagation();
+                    if (b.dataset.acao === 'wa') pkOpenWA(lead.id);
+                    else pkMoverEtapa(lead.id, pkProximaEtapa(lead.col));
+                }));
+                card.querySelector('.pk-edit-btn').addEventListener('click', e => { e.stopPropagation(); pkAbrirDetail(lead.id); });
 
                 card.addEventListener('dragstart', () => { pkDragId = lead.id; card.classList.add('dragging'); });
                 card.addEventListener('dragend',   () => { pkDragId = null;    card.classList.remove('dragging'); });
@@ -3033,20 +3103,21 @@ function pkAbrirDetail(id) {
             <div class="pk-detail-section">Etapa</div>
             <select class="pk-stage-select" onchange="pkMoverEtapa(${id},this.value)">${opts}</select>
         </div>
+        ${pkBlocoMotivo(lead)}
+        ${pkBlocoProximaAcao(lead)}
+        ${pkBlocoConversa(lead)}
         <div>
             <div class="pk-detail-section">Informações</div>
             <div class="pk-detail-row"><span>Telefone</span><span>${lead.phone?lead.phone.replace(/(\d{2})(\d{5})(\d{4})/,'($1) $2-$3'):'—'}</span></div>
             <div class="pk-detail-row"><span>Rating</span><span>${lead.rating?lead.rating+'★':'—'}</span></div>
             <div class="pk-detail-row"><span>Site</span><span>${lead.website?'<a href="'+lead.website+'" target="_blank" style="color:#FF6A00">Abrir</a>':'—'}</span></div>
-            <div class="pk-detail-row"><span>Dias na etapa</span><span>${lead.dias||0}d</span></div>
+            <div class="pk-detail-row"><span>Dias na etapa</span><span>${pkDiasNaEtapa(lead)}d</span></div>
             <div class="pk-detail-row"><span>Score de prioridade</span><span style="font-weight:800;color:${pkScoreCor(pkCalcularScore(lead))};">${pkCalcularScore(lead)}</span></div>
         </div>
         <div>
             <div class="pk-detail-section">Ações</div>
             ${lead.phone?'<button class="pk-wa-btn" onclick="pkOpenWA('+id+')">💬 Abrir no WhatsApp</button>':''}
-            <button onclick="pkToggleReuniao(${id})" style="width:100%;margin-top:8px;padding:8px;border-radius:8px;border:1.5px solid ${lead.reuniaoMarcada ? '#16a34a' : 'var(--border)'};background:${lead.reuniaoMarcada ? '#dcfce7' : 'transparent'};color:${lead.reuniaoMarcada ? '#16a34a' : 'var(--text)'};font-family:'Inter',sans-serif;font-weight:700;font-size:0.72rem;cursor:pointer;">
-                ${lead.reuniaoMarcada ? '✅ Reunião marcada' : '📅 Marcar reunião'}
-            </button>
+            ${pkBlocoReuniao(lead)}
         </div>
         <div>
             <div class="pk-detail-section">Valor do negócio</div>
@@ -3078,8 +3149,14 @@ function pkMoverEtapa(id,col) {
         l.col = col; l.dias = 0; l.movedAt = Date.now();
         if (col === 'fechado' && !l.fechadoEm) l.fechadoEm = Date.now();
         if (col !== 'fechado') l.fechadoEm = null;
+        if (col !== 'descartado') l.motivoPerda = null;
+        if (col === 'fechado' || col === 'descartado') { l.proximaAcaoEm = null; l.proximaAcaoTxt = ''; }   // negócio encerrado: sem lembrete
     }
     pkSave(); pkRender();
+    if (l && col === 'descartado') { pkPedirMotivoPerda(id); return; }
+    if (l && col === 'negociando' && !(l.valor > 0)) {   // negociação sem valor: pede a estimativa (vira previsão em R$)
+        setTimeout(() => { pkAbrirDetail(id); document.getElementById('pk-valor-' + id)?.focus(); showToast('💰 Quanto vale este negócio? Uma estimativa já entra na previsão.', 'ok'); }, 150);
+    }
     if (l && col === 'fechado' && !(l.valor > 0)) {   // ganho sem valor: abre o card para preencher
         setTimeout(() => { pkAbrirDetail(id); document.getElementById('pk-valor-' + id)?.focus(); showToast('🎉 Negócio ganho! Informe o valor para entrar no relatório de receita.', 'ok'); }, 150);
     }
@@ -3265,6 +3342,259 @@ async function pkLimparColuna(colId) {
 
 function pkRemoverLead(id) { if(!confirm('Remover este lead?')) return; pkLoad(); pkLeads=pkLeads.filter(l=>String(l.id)!==String(id)); pkSave(); pkFecharDetail(); pkRender(); }
 function pkOpenWA(id) { const l=pkLeads.find(x=>String(x.id)===String(id)); const wa=formatPhoneBR(l&&l.phone); if(wa) window.open('https://wa.me/'+wa,'_blank'); }
+
+// ===================== PIPELINE: conversa, próxima ação, reunião, filtros, motivo e previsão =====================
+let _pkConversas = {};          // telefone -> [{ direcao, mensagem, criado_em }]
+let _pkCampanhaDoTel = {};      // telefone -> campanha_id do último envio
+let _pkConversasEm = 0;
+let _pkFiltro = { q: '', nicho: '', camp: '', ordem: 'quente' };
+let _pkPerdidoAberto = false;
+const PK_MOTIVOS = [['sem_interesse', 'Sem interesse'], ['tem_fornecedor', 'Já tem fornecedor'], ['preco', 'Preço'], ['nao_responde', 'Não responde'], ['robo', 'Só robô'], ['momento', 'Não é o momento'], ['outro', 'Outro']];
+const PK_CLASSIF = { quente: ['🔥 Quente', '#fee2e2', '#b91c1c'], duvida: ['❓ Dúvida', '#fef3c7', '#92400e'], morno: ['🙂 Morno', '#e0f2fe', '#075985'], frio: ['❄️ Frio', '#f1f5f9', '#475569'], menu: ['🤖 Robô', '#f1f5f9', '#475569'], pare: ['🛑 Pediu para parar', '#fee2e2', '#991b1b'] };
+function pkDiasNaEtapa(l) { return Math.max(0, Math.floor((Date.now() - (l.movedAt || Date.now())) / 86400000)); }
+function pkTel(p) { let d = String(p || '').replace(/\D/g, ''); if (d.length >= 12 && d.startsWith('55')) d = d.slice(2); return d.slice(-11); }
+function pkProximaEtapa(col) { const ord = ['novo', 'contatado', 'respondeu', 'negociando', 'fechado']; const i = ord.indexOf(col); return i >= 0 && i < ord.length - 1 ? ord[i + 1] : null; }
+function _pkFimDoDia(d) { const x = new Date(d); x.setHours(23, 59, 59, 999); return x.getTime(); }
+function _pkDataCurta(ms) { return new Date(ms).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }); }
+
+// Conversa de cada lead (o que ele respondeu e o que você mandou pela fila) + campanha de origem
+async function pkCarregarConversas(forcar) {
+    if (!currentUser || typeof prBuscarTudo !== 'function') return;
+    if (!forcar && Date.now() - _pkConversasEm < 2 * 60 * 1000) return;
+    _pkConversasEm = Date.now();
+    try {
+        const [hist, envios, camps] = await Promise.all([
+            prBuscarTudo(() => supabaseClient.from('respostas_historico').select('phone,direcao,mensagem,criado_em').eq('user_id', currentUser.id).order('id')),
+            prBuscarTudo(() => supabaseClient.from('leads').select('campanha_id,phone,title').eq('user_id', currentUser.id).not('enviado_em', 'is', null).order('id')),
+            prBuscarTudo(() => supabaseClient.from('campanhas').select('id,nicho').eq('user_id', currentUser.id).order('id')),
+        ]);
+        const conv = {};
+        hist.forEach(h => { const k = pkTel(h.phone); if (k) (conv[k] = conv[k] || []).push(h); });
+        Object.values(conv).forEach(v => v.sort((a, b) => new Date(a.criado_em) - new Date(b.criado_em)));
+        _pkConversas = conv;
+        const camp = {}, titulo = {}, nichoCamp = {};
+        camps.forEach(c => { if (c.nicho) nichoCamp[c.id] = String(c.nicho).split(',')[0].trim(); });
+        envios.forEach(e => { const k = pkTel(e.phone); if (e.campanha_id) camp[k] = e.campanha_id; if (e.title) titulo[k] = e.title; });
+        _pkCampanhaDoTel = camp;
+        // Cards que entraram sozinhos (quando o lead respondeu) costumam ter só o telefone como nome
+        pkLoad();
+        let corrigidos = 0;
+        pkLeads.forEach(l => {
+            const k = pkTel(l.phone);
+            const soNumero = !String(l.name || '').trim() || /^[+\d\s().-]+$/.test(String(l.name).trim());
+            if (soNumero && titulo[k]) { l.name = titulo[k]; corrigidos++; }
+            if (!String(l.cat || '').trim() && nichoCamp[camp[k]]) { l.cat = nichoCamp[camp[k]]; corrigidos++; }
+        });
+        if (corrigidos) pkSave();
+        pkPintarFiltros();
+        if (document.getElementById('tab-pipeline')?.classList.contains('active')) {
+            pkRender();
+            if (pkSelectedId !== null && document.getElementById('pk-detail')?.classList.contains('open')) pkAbrirDetail(pkSelectedId);
+        }
+    } catch (e) { console.warn('[PIPELINE] conversas:', e && e.message); }
+}
+function pkUltimaRecebida(l) {
+    const c = _pkConversas[pkTel(l.phone)];
+    if (!c) return null;
+    for (let i = c.length - 1; i >= 0; i--) if (c[i].direcao === 'recebida' && String(c[i].mensagem || '').trim()) return c[i];
+    return null;
+}
+function pkTrechoConversa(l) {
+    const m = pkUltimaRecebida(l);
+    if (!m) return '';
+    const t = String(m.mensagem).replace(/\s+/g, ' ').trim();
+    return `<div class="pk-card-msg" title="${escapeHtml(t)}">“${escapeHtml(t.length > 70 ? t.slice(0, 70) + '…' : t)}”</div>`;
+}
+function pkAcaoStatus(l) {
+    if (!l.proximaAcaoEm) return null;
+    const hoje = _pkFimDoDia(Date.now()), ini = new Date(); ini.setHours(0, 0, 0, 0);
+    if (l.proximaAcaoEm < ini.getTime()) return { tipo: 'atrasada', texto: '⏰ Atrasada (' + _pkDataCurta(l.proximaAcaoEm) + ')' };
+    if (l.proximaAcaoEm <= hoje) return { tipo: 'hoje', texto: '⏰ Retomar hoje' };
+    return { tipo: 'futura', texto: '⏰ ' + _pkDataCurta(l.proximaAcaoEm) };
+}
+function pkChipsCard(l, acao) {
+    const out = [];
+    const c = PK_CLASSIF[l.ultimaClassificacao];
+    if (c) out.push(`<span class="pk-chip" style="background:${c[1]};color:${c[2]};">${c[0]}</span>`);
+    if (acao) out.push(`<span class="pk-chip ${acao.tipo === 'futura' ? '' : 'pk-chip-alerta'}" title="${escapeHtml(l.proximaAcaoTxt || '')}">${acao.texto}</span>`);
+    if (l.reuniaoEm) out.push(`<span class="pk-chip pk-chip-reuniao">📅 ${new Date(l.reuniaoEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>`);
+    if (l.valor > 0) out.push(`<span class="pk-chip pk-chip-valor">${_brl(l.valor)}</span>`);
+    if (l.col === 'descartado' && l.motivoPerda) { const m = PK_MOTIVOS.find(x => x[0] === l.motivoPerda); if (m) out.push(`<span class="pk-chip">${m[1]}</span>`); }
+    return out.length ? `<div class="pk-chips">${out.join('')}</div>` : '';
+}
+
+// Filtro e ordem do quadro
+function pkPassaFiltro(l) {
+    const f = _pkFiltro;
+    if (f.q) { const q = _normNicho(f.q); if (!_normNicho(l.name || l.title).includes(q) && !pkTel(l.phone).includes(q.replace(/\D/g, '') || '§')) return false; }
+    if (f.nicho && _normNicho(l.cat || l.category) !== f.nicho) return false;
+    if (f.camp && _pkCampanhaDoTel[pkTel(l.phone)] !== f.camp) return false;
+    return true;
+}
+function pkOrdenar(lista) {
+    const urg = l => { const a = pkAcaoStatus(l); return a && a.tipo !== 'futura' ? 1 : 0; };
+    if (_pkFiltro.ordem === 'parado') return lista.sort((a, b) => (a.movedAt || 0) - (b.movedAt || 0));
+    if (_pkFiltro.ordem === 'recente') return lista.sort((a, b) => (b.movedAt || 0) - (a.movedAt || 0));
+    return lista.sort((a, b) => (urg(b) - urg(a)) || (pkCalcularScore(b) - pkCalcularScore(a)) || ((b.movedAt || 0) - (a.movedAt || 0)));
+}
+function pkPintarFiltros() {
+    const sn = document.getElementById('pk-f-nicho'), sc = document.getElementById('pk-f-camp');
+    if (sn) {
+        const nichos = {};
+        pkLeads.forEach(l => { const n = String(l.cat || l.category || '').trim(); if (n) nichos[_normNicho(n)] = n; });
+        const atual = _pkFiltro.nicho;
+        sn.innerHTML = '<option value="">Todos os nichos</option>' + Object.entries(nichos).sort((a, b) => a[1].localeCompare(b[1])).map(([k, v]) => `<option value="${escapeHtml(k)}"${k === atual ? ' selected' : ''}>${escapeHtml(v)}</option>`).join('');
+    }
+    if (sc) {
+        const ids = Array.from(new Set(pkLeads.map(l => _pkCampanhaDoTel[pkTel(l.phone)]).filter(Boolean)));
+        const atual = _pkFiltro.camp;
+        sc.innerHTML = '<option value="">Todas as campanhas</option>' + ids.map(id => `<option value="${escapeHtml(id)}"${id === atual ? ' selected' : ''}>${escapeHtml(typeof _rotuloCampanhaCurto === 'function' ? _rotuloCampanhaCurto(id) : id)}</option>`).join('');
+    }
+}
+// Resumo no topo: previsão em R$, ganho do mês, ações e reuniões de hoje
+function pkPintarResumo() {
+    const el = document.getElementById('pk-resumo');
+    if (!el) return;
+    const neg = pkLeads.filter(l => l.col === 'negociando');
+    const emNeg = neg.reduce((a, l) => a + (Number(l.valor) || 0), 0), semValor = neg.filter(l => !(l.valor > 0)).length;
+    const ini = new Date(); ini.setDate(1); ini.setHours(0, 0, 0, 0);
+    const ganhoMes = pkLeads.filter(l => l.col === 'fechado' && l.fechadoEm && l.fechadoEm >= ini.getTime()).reduce((a, l) => a + (Number(l.valor) || 0), 0);
+    const acoes = pkLeads.filter(l => { const a = pkAcaoStatus(l); return a && a.tipo !== 'futura'; }).length;
+    const hojeIni = new Date(); hojeIni.setHours(0, 0, 0, 0);
+    const reunioes = pkLeads.filter(l => l.reuniaoEm && l.reuniaoEm >= hojeIni.getTime() && l.reuniaoEm <= _pkFimDoDia(Date.now())).length;
+    const partes = [
+        `<b>${_brl(emNeg)}</b> em negociação${semValor ? ` <span class="pk-res-dica">(${semValor} sem valor)</span>` : ''}`,
+        `<b>${_brl(ganhoMes)}</b> ganho no mês`,
+        `<b>${acoes}</b> ${acoes === 1 ? 'lead para retomar hoje' : 'leads para retomar hoje'}`,
+    ];
+    if (reunioes) partes.push(`<b>${reunioes}</b> ${reunioes === 1 ? 'reunião hoje' : 'reuniões hoje'}`);
+    el.innerHTML = partes.join('<span class="pk-res-sep">·</span>');
+}
+function pkResumoMotivos(lista) {
+    const cont = {};
+    lista.forEach(l => { const k = l.motivoPerda || 'sem_motivo'; cont[k] = (cont[k] || 0) + 1; });
+    const nome = k => (PK_MOTIVOS.find(x => x[0] === k) || [k, 'Sem motivo anotado'])[1];
+    const top = Object.entries(cont).sort((a, b) => b[1] - a[1]).slice(0, 4);
+    return `<div class="pk-perdido-tit">Por que perdeu</div>` + top.map(([k, n]) => `<div class="pk-perdido-lin"><span>${nome(k)}</span><b>${n}</b></div>`).join('');
+}
+
+// Detalhe: motivo da perda, próxima ação, reunião e conversa
+function pkBlocoMotivo(l) {
+    if (l.col !== 'descartado') return '';
+    return `<div><div class="pk-detail-section">Por que perdeu</div><div class="pk-motivos">${PK_MOTIVOS.map(([k, n]) =>
+        `<button type="button" class="ps-sug sin" aria-pressed="${l.motivoPerda === k}" onclick="pkSalvarMotivo('${String(l.id).replace(/'/g, '')}','${k}')">${n}</button>`).join('')}</div></div>`;
+}
+function pkSalvarMotivo(id, motivo) {
+    pkLoad();
+    const l = pkLeads.find(x => String(x.id) === String(id));
+    if (!l) return;
+    l.motivoPerda = motivo;
+    pkSave(); pkRender();
+    const m = document.getElementById('pk-motivo-modal'); if (m) m.hidden = true;
+    if (document.getElementById('pk-detail')?.classList.contains('open') && String(pkSelectedId) === String(id)) pkAbrirDetail(id);
+}
+function pkPedirMotivoPerda(id) {
+    pkLoad();
+    const l = pkLeads.find(x => String(x.id) === String(id));
+    if (!l) return;
+    let m = document.getElementById('pk-motivo-modal');
+    if (!m) {
+        m = document.createElement('div'); m.id = 'pk-motivo-modal'; m.className = 'nc-modal';
+        m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true');
+        m.addEventListener('click', e => { if (e.target === m) m.hidden = true; });
+        document.body.appendChild(m);
+    }
+    m.innerHTML = `<div class="nc-caixa"><h3>Por que ${escapeHtml(l.name || 'este lead')} foi perdido?</h3>
+        <p class="ph-linha">Um clique. O Painel mostra a objeção mais comum para você ajustar a abordagem.</p>
+        <div class="pk-motivos">${PK_MOTIVOS.map(([k, n]) => `<button type="button" class="ps-sug sin" onclick="pkSalvarMotivo('${String(l.id).replace(/'/g, '')}','${k}')">${n}</button>`).join('')}</div>
+        <button type="button" class="ps-acao" style="margin-top:12px;" onclick="document.getElementById('pk-motivo-modal').hidden=true">Pular</button></div>`;
+    m.hidden = false;
+    m.querySelector('.ps-sug').focus();
+}
+function pkBlocoProximaAcao(l) {
+    if (l.col === 'fechado' || l.col === 'descartado') return '';
+    const id = String(l.id).replace(/'/g, '');
+    const a = pkAcaoStatus(l);
+    const dataVal = l.proximaAcaoEm ? new Date(l.proximaAcaoEm - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10) : '';
+    return `<div><div class="pk-detail-section">Próxima ação</div>
+        ${a ? `<div class="pk-acao-atual ${a.tipo}">${a.texto}${l.proximaAcaoTxt ? ' · ' + escapeHtml(l.proximaAcaoTxt) : ''}</div>` : '<div class="ph-linha">Quando retomar este lead? No dia, ele aparece no Painel.</div>'}
+        <div class="pk-motivos">
+            <button type="button" class="ps-sug sin" onclick="pkDefinirAcao('${id}',1)">Amanhã</button>
+            <button type="button" class="ps-sug sin" onclick="pkDefinirAcao('${id}',3)">3 dias</button>
+            <button type="button" class="ps-sug sin" onclick="pkDefinirAcao('${id}',7)">1 semana</button>
+        </div>
+        <div class="pk-acao-linha">
+            <input type="date" id="pk-acao-data-${id}" value="${dataVal}" aria-label="Data da próxima ação">
+            <input type="text" id="pk-acao-txt-${id}" value="${escapeHtml(l.proximaAcaoTxt || '')}" placeholder="O quê? (ex.: mandar proposta)" aria-label="O que fazer">
+        </div>
+        <div class="pk-acao-linha">
+            <button type="button" class="pk-nota-save" onclick="pkDefinirAcao('${id}',null)">Salvar</button>
+            ${l.proximaAcaoEm ? `<button type="button" class="pk-nota-save pk-btn-sec" onclick="pkConcluirAcao('${id}')">✓ Feito</button>` : ''}
+        </div></div>`;
+}
+function pkDefinirAcao(id, dias) {
+    pkLoad();
+    const l = pkLeads.find(x => String(x.id) === String(id));
+    if (!l) return;
+    const txt = document.getElementById('pk-acao-txt-' + id)?.value.trim() || '';
+    let quando;
+    if (dias) { const d = new Date(); d.setDate(d.getDate() + dias); d.setHours(9, 0, 0, 0); quando = d.getTime(); }
+    else { const v = document.getElementById('pk-acao-data-' + id)?.value; if (!v) { showToast('Escolha a data', 'err'); return; } quando = new Date(v + 'T09:00:00').getTime(); }
+    l.proximaAcaoEm = quando; l.proximaAcaoTxt = txt;
+    pkSave(); pkRender(); pkAbrirDetail(id);
+    showToast('⏰ Lembrete para ' + _pkDataCurta(quando), 'ok');
+}
+function pkConcluirAcao(id) {
+    pkLoad();
+    const l = pkLeads.find(x => String(x.id) === String(id));
+    if (!l) return;
+    l.proximaAcaoEm = null; l.proximaAcaoTxt = '';
+    pkSave(); pkRender(); pkAbrirDetail(id);
+    showToast('✓ Feito. Quer marcar a próxima?', 'ok');
+}
+function pkBlocoReuniao(l) {
+    const id = String(l.id).replace(/'/g, '');
+    const val = l.reuniaoEm ? new Date(l.reuniaoEm - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '';
+    return `<div class="pk-reuniao">
+        <label class="pk-detail-section" for="pk-reuniao-${id}" style="display:block;margin-top:10px;">📅 Reunião</label>
+        <div class="pk-acao-linha">
+            <input type="datetime-local" id="pk-reuniao-${id}" value="${val}">
+            <button type="button" class="pk-nota-save" onclick="pkSalvarReuniao('${id}')">${l.reuniaoEm ? 'Atualizar' : 'Marcar'}</button>
+            ${l.reuniaoEm || l.reuniaoMarcada ? `<button type="button" class="pk-nota-save pk-btn-sec" onclick="pkSalvarReuniao('${id}',true)">Desmarcar</button>` : ''}
+        </div></div>`;
+}
+function pkSalvarReuniao(id, desmarcar) {
+    pkLoad();
+    const l = pkLeads.find(x => String(x.id) === String(id));
+    if (!l) return;
+    if (desmarcar) { l.reuniaoEm = null; l.reuniaoMarcada = false; }
+    else {
+        const v = document.getElementById('pk-reuniao-' + id)?.value;
+        if (!v) { showToast('Escolha o dia e a hora', 'err'); return; }
+        l.reuniaoEm = new Date(v).getTime(); l.reuniaoMarcada = true;
+        if (l.col === 'novo' || l.col === 'contatado' || l.col === 'respondeu') { l.col = 'negociando'; l.movedAt = Date.now(); }
+    }
+    pkSave(); pkRender(); pkAbrirDetail(id);
+    showToast(desmarcar ? 'Reunião desmarcada' : '📅 Reunião marcada para ' + new Date(l.reuniaoEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }), 'ok');
+}
+function pkBlocoConversa(l) {
+    const c = _pkConversas[pkTel(l.phone)];
+    if (!c || !c.length) return `<div><div class="pk-detail-section">Conversa</div><div class="ph-linha">Nenhuma resposta registrada deste número ainda.</div></div>`;
+    const ult = c.slice(-15);
+    return `<div><div class="pk-detail-section">Conversa${c.length > 15 ? ` <small>(últimas 15 de ${c.length})</small>` : ''}</div><div class="pk-conversa">${ult.map(m => {
+        const quando = new Date(m.criado_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        return `<div class="pk-bolha ${m.direcao === 'enviada' ? 'eu' : 'ele'}"><div>${escapeHtml(String(m.mensagem || '')).replace(/\n/g, '<br>')}</div><small>${m.direcao === 'enviada' ? 'Você' : 'Lead'} · ${quando}</small></div>`;
+    }).join('')}</div></div>`;
+}
+// ao abrir o Pipeline: carrega conversas e campanhas (no máximo a cada 2 min)
+(function () {
+    const original = pkRender;
+    pkRender = function () {
+        const r = original.apply(this, arguments);
+        try { pkCarregarConversas(); } catch (e) {}
+        return r;
+    };
+})();
 
 document.addEventListener('DOMContentLoaded', () => {
     if(document.getElementById('tab-pipeline')?.classList.contains('active')) pkRender();
@@ -10543,6 +10873,8 @@ function phDesenharAcoes(a) {
     const itens = [];
     if (a.sugestoes) itens.push([a.sugestoes, a.sugestoes === 1 ? 'resposta esperando a sua aprovação' : 'respostas esperando a sua aprovação', 'respostas', 'Abrir respostas']);
     if (a.followups) itens.push([a.followups, a.followups === 1 ? 'follow-up pronto para aprovar' : 'follow-ups prontos para aprovar', 'respostas', 'Ver follow-ups']);
+    if (a.reunioes) itens.push([a.reunioes, a.reunioes === 1 ? 'reunião marcada para hoje' : 'reuniões marcadas para hoje', 'pipeline', 'Ver no pipeline']);
+    if (a.retomar) itens.push([a.retomar, a.retomar === 1 ? 'lead para retomar hoje (lembrete do Pipeline)' : 'leads para retomar hoje (lembretes do Pipeline)', 'pipeline', 'Abrir pipeline']);
     if (a.quentesParados) itens.push([a.quentesParados, a.quentesParados === 1 ? 'lead quente sem movimento há mais de 24 horas' : 'leads quentes sem movimento há mais de 24 horas', 'pipeline', 'Abrir pipeline']);
     if (a.zap === false) itens.push(['!', 'O WhatsApp está desconectado de verdade', 'integracoes', 'Reconectar']);
     if (a.ia === false) itens.push(['!', 'A chave da IA não está configurada', 'integracoes', 'Configurar']);
@@ -10661,10 +10993,14 @@ async function painelHojeCarregar() {
 
         // --- o que está esperando por você ---
         const iso24 = new Date(Date.now() - 24 * 3600000).toISOString();
-        const [sugestoes, followups, quentesParados] = await Promise.all([
+        const iniHoje = new Date(); iniHoje.setHours(0, 0, 0, 0);
+        const fimHoje = new Date(); fimHoje.setHours(23, 59, 59, 999);
+        const [sugestoes, followups, quentesParados, retomar, reunioes] = await Promise.all([
             phContar('fila_sugestoes', [['eq', 'status', 'pendente']]),
             phContar('fila_followups', [['eq', 'status', 'pendente']]),
             phContar('pipeline_leads', [['eq', 'col', 'negociando'], ['lt', 'moved_at', iso24]]),
+            phContar('pipeline_leads', [['lte', 'proxima_acao_em', fimHoje.toISOString()]]),
+            phContar('pipeline_leads', [['gte', 'reuniao_em', iniHoje.toISOString()], ['lte', 'reuniao_em', fimHoje.toISOString()]]),
         ]);
 
         // --- WhatsApp conectado de verdade (o selo "Conectado" das Integrações só confere se há endereço e token) ---
@@ -10684,7 +11020,7 @@ async function painelHojeCarregar() {
         }
         const temIA = (cfg.iaProvider || 'openai') === 'gemini' ? !!(cfg.gemini && cfg.gemini.key) : !!(cfg.openai && cfg.openai.key);
 
-        phDesenharAcoes({ incerto: [sugestoes, followups, quentesParados].some(v => v === null), sugestoes: sugestoes || 0, followups: followups || 0, quentesParados: quentesParados || 0, zap, ia: cfg.openai || cfg.gemini ? temIA : null });
+        phDesenharAcoes({ incerto: [sugestoes, followups, quentesParados].some(v => v === null), sugestoes: sugestoes || 0, followups: followups || 0, quentesParados: quentesParados || 0, retomar: retomar || 0, reunioes: reunioes || 0, zap, ia: cfg.openai || cfg.gemini ? temIA : null });
         phDesenharSaude(phCalcularSaude({ enviados7, erros7, hoje, mediaAnterior, humanas7, robo7, pare7 }), { enviados7, erros7, hoje, humanas7, robo7, pare7 }, zapTxt);
     } catch (e) {
         console.warn('Painel: não consegui montar os cartões:', e && e.message);
@@ -10757,7 +11093,7 @@ async function prCarregar() {
             prBuscarTudo(() => supabaseClient.from('fila_sugestoes')
                 .select('id,phone,lead_nome,campanha_id,classificacao,mensagem_recebida,status,criado_em')
                 .eq('user_id', uid).in('classificacao', ['quente', 'duvida']).order('id')),
-            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('id,name,phone,col,valor,fechado_em,moved_at').eq('user_id', uid).order('id')),
+            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('id,name,phone,col,valor,fechado_em,moved_at,motivo_perda').eq('user_id', uid).order('id')),
             prBuscarTudo(() => supabaseClient.from('fila_followups').select('phone,status').eq('user_id', uid).eq('status', 'pendente').order('id')),
         ]);
         _prDados = { leads, campanhas, interesses, pipeline, followups };
@@ -10812,8 +11148,15 @@ function prDesenharFunil(d) {
         lista.appendChild(row);
     });
     box.appendChild(lista);
+    const emNeg = d.pipeline.filter(p => p.col === 'negociando');
+    const prev = emNeg.reduce((s, p) => s + (Number(p.valor) || 0), 0), semValor = emNeg.filter(p => !(Number(p.valor) > 0)).length;
     box.appendChild(prEl('div', 'ph-linha', 'Ganho no mês: ' + _brl(ganhoMes) + ' · ganho total: ' + _brl(totalGanho) +
-        '. A porcentagem pequena ao lado de cada número é em relação à etapa anterior.'));
+        ' · em negociação: ' + _brl(prev) + (semValor ? ` (${semValor} sem valor)` : '') + '. A porcentagem pequena ao lado de cada número é em relação à etapa anterior.'));
+    const motivos = {};
+    d.pipeline.filter(p => p.col === 'descartado' && p.motivo_perda).forEach(p => { motivos[p.motivo_perda] = (motivos[p.motivo_perda] || 0) + 1; });
+    const nomesMot = { sem_interesse: 'sem interesse', tem_fornecedor: 'já tem fornecedor', preco: 'preço', nao_responde: 'não responde', robo: 'só robô', momento: 'não é o momento', outro: 'outro' };
+    const topMot = Object.entries(motivos).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    if (topMot.length) box.appendChild(prEl('div', 'ph-linha', 'Por que perde: ' + topMot.map(([k, n]) => (nomesMot[k] || k) + ' ' + n).join(' · ') + '.'));
 
     // Onde está a maior perda (só entre etapas com volume para comparar)
     let pior = null;
@@ -11097,7 +11440,7 @@ async function prMoverColuna(ids, col, bt) {
         await pkSincronizarDaNuvem();                     // parte do Pipeline mais recente, seja de qual aparelho for
         const alvo = new Set(ids);
         let n = 0;
-        pkLeads.forEach(l => { if (alvo.has(String(l.id)) && l.col === 'contatado') { l.col = col; l.movedAt = Date.now(); n++; } });
+        pkLeads.forEach(l => { if (alvo.has(String(l.id)) && l.col === 'contatado') { l.col = col; l.movedAt = Date.now(); if (col === 'descartado' && !l.motivoPerda) l.motivoPerda = 'nao_responde'; n++; } });
         pkSave();
         showToast('✅ ' + n + ' lead(s) movidos para ' + nomeCol, 'ok');
         setTimeout(prCarregar, 1500);
