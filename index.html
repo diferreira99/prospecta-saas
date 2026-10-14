@@ -1534,6 +1534,7 @@ function aplicarDadosUsuario(nome, email) {
             if (countBadge) countBadge.innerText = `${todosLeads.length} leads`;
             renderPagina(1);
             showToast(`📋 ${todosLeads.length} leads restaurados!`, 'ok');
+            completarRedesDosRestaurados(ultimosLeads);
         }, 600);
     }
 
@@ -4584,6 +4585,27 @@ async function buscarRedesEmFundo(buscaId, leads) {
     }
 }
 
+// Leads restaurados do aparelho: se vieram da API oficial e ainda não têm redes, busca agora.
+// Leads salvos antes de existir o buscaId: acha a busca pelo nome ("nicho · cidade"); só junta
+// redes de empresas com o mesmo place_id, então uma busca errada não estraga nada.
+async function completarRedesDosRestaurados(u) {
+    try {
+        const leads = _leadsBase.slice();
+        if (!leads.some(l => l.fonte === 'oficial') || leads.some(l => l.instagram || l.facebook || l.linkedin)) return;
+        let id = u.buscaId;
+        if (!id) {
+            const norm = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+            const nicho = norm(u.nicho), cidade = norm((u.local || '').split(',')[0]);
+            const lista = (await _apiOficial('/leads/buscas')).buscas || [];
+            const achada = lista
+                .filter(b => b.status === 'pronta' && norm(b.nome).includes(nicho) && norm(b.nome).includes(cidade))
+                .sort((a, b) => String(b.criada_em).localeCompare(String(a.criada_em)))[0];
+            id = achada && achada.id;
+        }
+        if (id) buscarRedesEmFundo(id, leads);
+    } catch (e) { console.warn('[redes] restaurados:', e); }
+}
+
 // Info da última busca oficial (reaproveitada do cache? quanto tempo levou?) para o aviso no fim.
 let _ultimaBuscaInfo = null;
 let _forcarNovaBusca = false;
@@ -4859,7 +4881,7 @@ async function retomarBuscaOficial() {
         document.getElementById('stats-text').innerText = `${p.nicho} · ${p.local}`;
         document.getElementById('count-badge').innerText = `${todosLeads.length} leads`;
         salvarNoHistorico(p.nicho, p.local, p.maxLeads, todosLeads.length);
-        userSet('ultimosLeads', { leads: todosLeads, nicho: p.nicho, local: p.local, maxLeads: p.maxLeads, data: new Date().toLocaleString('pt-BR') });
+        userSet('ultimosLeads', { leads: todosLeads, nicho: p.nicho, local: p.local, maxLeads: p.maxLeads, buscaId: p.id, data: new Date().toLocaleString('pt-BR') });
         filtrarClassificacao('all');
         renderPagina(1);
         avisarBuscaPronta(todosLeads.length, p.nicho, p.local);
@@ -4932,7 +4954,7 @@ async function buscar() {
         document.getElementById('count-badge').innerText = `${todosLeads.length} leads`;
         salvarNoHistorico(nicho, local, maxLeads, todosLeads.length);
         // Salva leads no localStorage para recuperar após reload
-        userSet('ultimosLeads', { leads: todosLeads, nicho, local, maxLeads, data: new Date().toLocaleString('pt-BR') });
+        userSet('ultimosLeads', { leads: todosLeads, nicho, local, maxLeads, buscaId: _ultimaBuscaInfo?.id || null, data: new Date().toLocaleString('pt-BR') });
         // Reset filtros/busca ao fazer nova busca
         _filtroClass = 'all';
         _filtroSite = 'all';
