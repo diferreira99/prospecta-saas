@@ -5125,7 +5125,8 @@ function calcScore(l) {
     let s = 0;
     // Presença Digital
     if (l.phone) {
-        s += l.is_whatsapp === true ? 35 : 20; // WhatsApp verificado vale mais
+        // WhatsApp confirmado vale mais; confirmado que NÃO tem, a campanha nem chega
+        s += l.is_whatsapp === true ? 35 : l.is_whatsapp === false ? 10 : 20;
     }
     if (l.website) s += 15;
     if (l.email)   s += 10;
@@ -5144,9 +5145,34 @@ function calcScore(l) {
     const timing = calcTiming(l);
     if (timing >= 70) s += 10;
     else if (timing >= 40) s += 5;
+    // Sinais da API oficial: empresa ativa (avaliação recente) e dor visível (avaliações negativas)
+    if (_diasDesdeUltimaAvaliacao(l) <= 120) s += 5;
+    if ((Number(l.avaliacoes_negativas) || 0) > 0) s += 5;
     // Penalizar ausência de telefone (sem canal de contato direto)
     if (!l.phone) s = Math.max(s - 10, 0);
     return Math.min(s, 100);
+}
+function _diasDesdeUltimaAvaliacao(l) {
+    const datas = (Array.isArray(l.ultimas_avaliacoes) ? l.ultimas_avaliacoes : [])
+        .map(r => r && r.data ? Date.parse(r.data + 'T12:00:00') : NaN).filter(t => !isNaN(t));
+    return datas.length ? Math.floor((Date.now() - Math.max(...datas)) / 86400000) : Infinity;
+}
+// Por que este lead é bom (ou não): aparece no detalhe do lead, em linguagem simples.
+function sinaisLead(l) {
+    const out = [];
+    if (l.is_whatsapp === true) out.push(['✅', 'WhatsApp confirmado: a mensagem chega']);
+    else if (l.is_whatsapp === false) out.push(['⛔', 'Sem WhatsApp neste número: a campanha não chega']);
+    else if (l.phone) out.push(['❔', 'WhatsApp ainda não conferido']);
+    const neg = Number(l.avaliacoes_negativas) || 0;
+    if (neg) out.push(['⚠️', `${neg} ${neg === 1 ? 'avaliação negativa' : 'avaliações negativas'}: pode ter um problema que você resolve`]);
+    const dias = _diasDesdeUltimaAvaliacao(l);
+    if (dias <= 120) out.push(['🟢', dias <= 30 ? 'Avaliada este mês: empresa ativa' : `Última avaliação há ${dias} dias: empresa ativa`]);
+    else if (dias !== Infinity) out.push(['💤', `Última avaliação há ${dias} dias: pode estar parada`]);
+    const rev = parseInt(l.reviews) || 0;
+    if (l.fonte === 'oficial' && rev > 0 && rev < 15) out.push(['🌱', `Só ${rev} avaliações: empresa pequena ou nova, costuma decidir rápido`]);
+    if (l.instagram) out.push(['📸', 'Tem Instagram: dá para conhecer antes de chamar']);
+    if (!l.website) out.push(['🌐', 'Sem site']);
+    return out;
 }
 
 function calcTiming(l) {
@@ -5425,6 +5451,16 @@ function buscarLeadsTabela(termo) {
 }
 
 // ── Expand Score ──
+function blocoSinais(l) {
+    const sinais = sinaisLead(l);
+    if (!sinais.length) return '';
+    return `
+            <div style="margin-top:14px;padding-top:12px;border-top:1px solid #EBF0FF;font-family:'Inter',sans-serif;">
+                <div style="font-size:0.6rem;color:var(--muted);letter-spacing:0.5px;text-transform:uppercase;font-weight:700;margin-bottom:6px;">Sinais deste lead</div>
+                ${sinais.map(([ic, t]) => `<div style="display:flex;gap:6px;font-size:0.7rem;line-height:1.45;color:var(--text);padding:2px 0;"><span>${ic}</span><span>${escapeHtml(t)}</span></div>`).join('')}
+            </div>`;
+}
+
 // Avaliações do Google (só a API oficial traz): negativas e as 5 mais recentes, sem nome de quem avaliou.
 function blocoAvaliacoes(l) {
     const revs = Array.isArray(l.ultimas_avaliacoes) ? l.ultimas_avaliacoes.filter(r => r && (r.texto || r.nota)) : [];
@@ -5532,6 +5568,7 @@ function toggleExpandScore(realIdx, btn) {
                     </div>
                 </div>
             </div>
+            ${blocoSinais(l)}
             ${blocoAvaliacoes(l)}`;
 
         expandRow.style.display = '';
