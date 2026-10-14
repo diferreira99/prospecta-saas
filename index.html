@@ -1738,7 +1738,7 @@ function iniciarAppPosLogin() {
                 <div class="fields">
                     <div>
                         <label class="field-label" for="nicho">Nicho</label>
-                        <input id="nicho" placeholder="Ex: Dentistas, Advogados" autocomplete="off">
+                        <input id="nicho" placeholder="Ex: contabilidade, contador (separe por vírgula)" autocomplete="off">
                     </div>
                     <div>
                         <label class="field-label" for="local">Localidade</label>
@@ -4622,7 +4622,12 @@ let _ultimaBuscaInfo = null;
 let _forcarNovaBusca = false;
 
 async function buscarViaApiOficial(nicho, local, maxLeads) {
-    const pedido = { busca: nicho, cidade: local, profundidade: 10, tempo_limite_min: 15 };
+    // Vários termos separados por vírgula viram uma busca só (ex.: "contabilidade, contador"):
+    // o Google mostra ~120 empresas por termo, então sinônimos trazem bem mais empresas.
+    const termos = nicho.split(',').map(t => t.trim()).filter(Boolean).slice(0, 5);
+    const pedido = termos.length > 1
+        ? { buscas: termos, cidade: local, profundidade: 10, tempo_limite_min: 25 }
+        : { busca: termos[0] || nicho, cidade: local, profundidade: 10, tempo_limite_min: 15 };
     if (_forcarNovaBusca) pedido.forcar_nova = true;
     _forcarNovaBusca = false;
     const criada = await _apiOficial('/leads/buscas', {
@@ -4756,7 +4761,28 @@ async function acompanharBuscaOficial(p) {
                 await _esperar(5000);
                 continue;
             }
-            if (!resumo) throw new Error('a busca não existe mais no servidor (pode ter sido apagada)');
+            if (!resumo) {
+                // Depois de um reinício o servidor refaz a busca sozinho com outro id; o id antigo leva à nova.
+                let nova = null;
+                try { nova = await _apiOficial('/leads/buscas/' + encodeURIComponent(p.id)); } catch {}
+                if (nova && nova.id && nova.id !== p.id) {
+                    p.id = nova.id; p._interrompidaDesde = null;
+                    userSet('buscaOficialPendente', p);
+                    showToast('🔄 O servidor reiniciou e refez sua busca sozinho. Continuando…', 'ok');
+                    continue;
+                }
+                throw new Error('a busca não existe mais no servidor (pode ter sido apagada)');
+            }
+            if (resumo.status === 'interrompida') {
+                // O servidor refaz buscas cortadas por reinício em até ~2 minutos: espera antes de desistir.
+                p._interrompidaDesde = p._interrompidaDesde || Date.now();
+                if (Date.now() - p._interrompidaDesde < 5 * 60 * 1000) {
+                    const st = document.getElementById('status');
+                    if (st) { st.className = 'status'; st.innerText = '// o servidor reiniciou: retomando sua busca…'; }
+                    await _esperar(10000);
+                    continue;
+                }
+            }
             atualizarMinerando(p, resumo.status);
             // Enquanto minera, a cada 10 s mostra na tabela o que o motor já gravou.
             if (resumo.status === 'buscando' && Date.now() - ultimaParcial >= 10000) {
@@ -5451,6 +5477,18 @@ function buscarLeadsTabela(termo) {
 }
 
 // ── Expand Score ──
+// Mesmo contexto que o n8n usa na campanha: um elogio real e a regra de nunca citar as negativas.
+function contextoAvaliacoesIA(lead) {
+    const revs = Array.isArray(lead.ultimas_avaliacoes) ? lead.ultimas_avaliacoes : [];
+    const elogio = revs.find(r => r && r.nota >= 4 && String(r.texto || '').length >= 25);
+    const neg = Number(lead.avaliacoes_negativas) || 0;
+    if (!elogio && !neg) return '';
+    let t = '';
+    if (elogio) t += `\n- Um cliente escreveu no Google (nota ${elogio.nota}): "${String(elogio.texto).replace(/\s+/g, ' ').slice(0, 240)}"`;
+    if (neg) t += `\n- Avaliações negativas (1 e 2 estrelas): ${neg}`;
+    return t + '\n- SOBRE AS AVALIAÇÕES: pode citar o ponto elogiado de forma natural e curta, sem copiar o texto e sem dizer quem escreveu. Nunca mencione avaliações negativas nem critique a empresa.';
+}
+
 function blocoSinais(l) {
     const sinais = sinaisLead(l);
     if (!sinais.length) return '';
@@ -8647,7 +8685,7 @@ DADOS DO LEAD (do Google Maps):
 - Nome/Empresa: ${lead.title || lead.name || 'Empresa'}
 - Categoria: ${lead.category || 'Negócio local'}
 - Endereço: ${lead.address || 'Não informado'}
-- Avaliação: ${lead.rating ? `${lead.rating} estrelas (${lead.reviews || '?'} avaliações)` : 'Não informado'}
+- Avaliação: ${lead.rating ? `${lead.rating} estrelas (${lead.reviews || '?'} avaliações)` : 'Não informado'}${contextoAvaliacoesIA(lead)}
 - Site: ${lead.website || 'Não informado'}
 
 Crie UMA mensagem de primeiro contato para WhatsApp seguindo as instruções acima.
@@ -8790,7 +8828,7 @@ DADOS DO LEAD (prospectado do Google Maps):
 - Nome/Empresa: ${lead.title || 'Empresa'}
 - Categoria/Segmento: ${lead.category || 'Negócio local'}
 - Endereço: ${lead.address || 'Não informado'}
-- Avaliação Google: ${lead.rating ? `${lead.rating} estrelas com ${lead.reviews || '?'} avaliações` : 'Não informado'}
+- Avaliação Google: ${lead.rating ? `${lead.rating} estrelas com ${lead.reviews || '?'} avaliações` : 'Não informado'}${contextoAvaliacoesIA(lead)}
 - Tem site: ${lead.website ? 'Sim (' + lead.website + ')' : 'Não'}
 
 INSTRUÇÕES:
