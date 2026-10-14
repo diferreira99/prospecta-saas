@@ -1172,6 +1172,17 @@
 .ps-acoes-dica { font-family:'Inter',sans-serif; font-size:0.62rem; color:var(--muted); }
 /* o atributo hidden precisa vencer o display:flex destas classes */
 .ps-sugestoes[hidden], .ps-acoes[hidden], .ps-aviso[hidden], .nc-modal[hidden], .ps-chip[hidden], .ps-acao[hidden], .pr-bench[hidden] { display:none !important; }
+.cad-caixa { max-width:560px; }
+.cad-etapa { border:1.5px solid var(--border); border-radius:12px; padding:10px 12px; margin-top:10px; display:flex; flex-direction:column; gap:6px; }
+.cad-linha { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.cad-dia { font-family:'Inter',sans-serif; font-weight:800; font-size:0.8rem; color:var(--text); display:flex; align-items:center; gap:4px; }
+.cad-dia input { width:64px; padding:6px 8px; border:1.5px solid var(--border); border-radius:8px; font-weight:700; background:var(--surface); color:var(--text); }
+.cad-linha .pk-sel { width:auto; }
+.cad-linha .ph-btn { margin-left:auto; }
+.cad-texto { width:100%; min-height:62px; padding:8px 10px; border:1.5px solid var(--border); border-radius:8px; font-family:'Inter',sans-serif; font-size:0.74rem; background:var(--surface); color:var(--text); resize:vertical; }
+.cad-opcoes { display:flex; flex-direction:column; gap:6px; margin:12px 0 4px; }
+.cad-ck { font-family:'Inter',sans-serif; font-size:0.74rem; color:var(--text); display:flex; align-items:center; gap:6px; cursor:pointer; }
+.cad-ck input { width:auto; margin:0; accent-color:#165DFF; }
 .cp-topo { display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:10px; margin-bottom:14px; font-family:'Inter',sans-serif; }
 .cp-titulo { margin:0; font-size:1.2rem; color:var(--text); }
 .cp-subtitulo { font-family:'Inter',sans-serif; font-size:0.9rem; color:var(--muted); margin:24px 0 10px; }
@@ -3662,6 +3673,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <option value="valor">Mais R$ ganho</option>
                         <option value="recente">Mais recentes</option>
                     </select>
+                    <button type="button" class="pk-filter-btn" onclick="cpAbrirCadencia(null)">⏱ Cadência padrão</button>
                     <button type="button" class="pk-filter-btn" onclick="cpCarregar(true)">Atualizar</button>
                 </div>
             </div>
@@ -6496,11 +6508,23 @@ campanhas = userGet('campanhas', []);
 
 function salvarCampanhas() { userSet('campanhas', campanhas); }
 
-// Toda campanha nasce com 1 follow-up (dia 3). Antes nenhuma tinha sequência e quem não respondia ficava sem 2º contato.
-const SEQUENCIA_FOLLOWUP_PADRAO = [{
-    id: 1, dia: 3, tipo: 'followup', status: 'pendente', modoIA: true, mensagem: 'Oi! Passando para retomar minha mensagem de alguns dias atrás. Faz sentido conversarmos rapidinho?',
-    contextoIA: 'Retome o contato em 1 ou 2 frases curtas, lembrando de leve a mensagem anterior, sem repetir a apresentação inteira e sem pressionar. Termine com uma pergunta simples de sim ou não.'
-}];
+// Cadência de follow-up: cada campanha nasce com a cadência padrão (3, 7 e 14 dias), que você muda em
+// Campanhas → "Cadência padrão". O servidor coloca cada etapa na fila de aprovação, uma de cada vez.
+const CADENCIA_PRESETS = {
+    3: { tipo: 'followup', modoIA: true, mensagem: 'Oi! Passando para retomar minha mensagem de alguns dias atrás. Faz sentido conversarmos rapidinho?',
+         contextoIA: 'Retome o contato em 1 ou 2 frases curtas, lembrando de leve a mensagem anterior, sem repetir a apresentação inteira e sem pressionar. Termine com uma pergunta simples de sim ou não.' },
+    7: { tipo: 'followup', modoIA: true, mensagem: 'Oi! Sei que a rotina é corrida. Separei uma ideia rápida que costuma ajudar empresas como a sua. Posso te mandar?',
+         contextoIA: 'Traga um ângulo novo e concreto: um benefício ou um exemplo rápido para esse tipo de empresa, em 2 frases curtas. Não repita a primeira mensagem. Termine perguntando se faz sentido.' },
+    14: { tipo: 'followup', modoIA: true, mensagem: 'Oi! Vou parar de te chamar por aqui para não incomodar. Se em algum momento fizer sentido, é só responder esta mensagem. Abraço!',
+          contextoIA: 'Mensagem de despedida educada: diga que é o último contato por aqui, deixe a porta aberta e não pressione. 1 ou 2 frases.' },
+};
+function _etapaPreset(dia, id) { const p = CADENCIA_PRESETS[dia] || { tipo: 'personalizado', modoIA: true, mensagem: '', contextoIA: '' }; return { id: id || dia, dia, status: 'pendente', ...p }; }
+const CADENCIA_PADRAO_ORIGINAL = [_etapaPreset(3, 1), _etapaPreset(7, 2), _etapaPreset(14, 3)];
+function cadenciaPadrao() {
+    const c = userGet('cadenciaPadrao', null);
+    return Array.isArray(c) ? c : CADENCIA_PADRAO_ORIGINAL;
+}
+const SEQUENCIA_FOLLOWUP_PADRAO = CADENCIA_PADRAO_ORIGINAL;   // compatibilidade com código antigo
 
 // ── LEADS/CAMPANHAS EM TABELAS REAIS (Supabase) ──────────────
 // Escreve a campanha e os leads dela nas tabelas `campanhas` e `leads`
@@ -8011,7 +8035,7 @@ async function iniciarEnvioNoServidor({ min, max, typing, batchSize, batchPause 
                     local: _localAtual || null,
                     // Follow-up automático: 3 dias depois, quem não respondeu entra na fila de
                     // follow-ups com uma retomada curta escrita pela IA. Só sai com a sua aprovação.
-                    sequencia: SEQUENCIA_FOLLOWUP_PADRAO
+                    sequencia: cadenciaPadrao()
                 }).then(({ error }) => { if (error) console.warn('[SALVAR NOME CAMPANHA NUVEM]', error); });
             }
         } catch(e) {}
@@ -12442,7 +12466,7 @@ async function cpCarregar(forcar) {
         const uid = currentUser.id;
         const [leads, camps, interesses, pipeline, fila, fuEnv] = await Promise.all([
             prBuscarTudo(() => supabaseClient.from('leads').select('campanha_id,phone,title,enviado_em,respondeu,resposta_suspeita_bot,opt_out').eq('user_id', uid).not('enviado_em', 'is', null).order('id')),
-            prBuscarTudo(() => supabaseClient.from('campanhas').select('id,nome,nicho,local,criada_em').eq('user_id', uid).order('id')),
+            prBuscarTudo(() => supabaseClient.from('campanhas').select('id,nome,nicho,local,criada_em,sequencia,seq_config').eq('user_id', uid).order('id')),
             prBuscarTudo(() => supabaseClient.from('fila_sugestoes').select('phone,campanha_id').eq('user_id', uid).in('classificacao', ['quente', 'duvida']).order('id')),
             prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('phone,col,valor').eq('user_id', uid).order('id')),
             prBuscarTudo(() => supabaseClient.from('fila_followups').select('phone,campanha_id,status').eq('user_id', uid).order('id')),
@@ -12469,11 +12493,13 @@ function cpMontarGrupos() {
     _cpIdsComEnvio = new Set();
     d.leads.forEach(l => {
         const c = campInfo[l.campanha_id] || {};
-        _cpIdsComEnvio.add(String(l.campanha_id));
+        if (l.campanha_id) _cpIdsComEnvio.add(String(l.campanha_id));
         const nicho = String(c.nicho || '').split(',')[0].trim(), local = String(c.local || '').trim();
-        const k = nicho && local ? _normNicho(nicho) + '|' + _normNicho(local) : 'c|' + l.campanha_id;
-        const g = grupos[k] || (grupos[k] = { k, nicho, local, nome: nicho && local ? `${nicho} · ${local}` : (c.nome || ''), ids: new Set(), leads: [], ini: null, fim: null });
-        g.ids.add(String(l.campanha_id));
+        const semCampanha = !l.campanha_id;   // envios de 18 e 19/09, de quando o app não registrava a campanha
+        const k = semCampanha ? 'sem-campanha' : nicho && local ? _normNicho(nicho) + '|' + _normNicho(local) : 'c|' + l.campanha_id;
+        const g = grupos[k] || (grupos[k] = { k, nicho: semCampanha ? '' : nicho, local: semCampanha ? '' : local, semCampanha,
+            nome: semCampanha ? 'Primeiros envios (sem campanha registrada)' : nicho && local ? `${nicho} · ${local}` : (c.nome || ''), ids: new Set(), leads: [], ini: null, fim: null });
+        if (l.campanha_id) g.ids.add(String(l.campanha_id));
         g.leads.push(l);
         if (!g.ini || l.enviado_em < g.ini) g.ini = l.enviado_em;
         if (!g.fim || l.enviado_em > g.fim) g.fim = l.enviado_em;
@@ -12527,7 +12553,9 @@ function cpCard(g, media, vivo) {
     else if (g.env >= 15 && media && tx <= media * 0.7) h.appendChild(prEl('span', 'cp-selo baixo', '⚠️ Abaixo da média'));
     if (vivo && g.ids.has(String(vivo))) h.appendChild(prEl('span', 'cp-selo vivo', '● Rodando'));
     card.appendChild(h);
-    card.appendChild(prEl('div', 'cp-sub', `${_cpData(g.ini)}${g.fim && _cpData(g.fim) !== _cpData(g.ini) ? ' a ' + _cpData(g.fim) : ''} · ${g.disparos} ${g.disparos === 1 ? 'disparo' : 'disparos'}${g.fuPend ? ` · ${g.fuPend} follow-up(s) na fila` : ''}`));
+    const seq = cpSequenciaDoGrupo(g);
+    const dias = seq.filter(e => e.tipo !== 'apresentacao').map(e => parseInt(e.dia, 10)).filter(Boolean).sort((a, b) => a - b);
+    card.appendChild(prEl('div', 'cp-sub', `${_cpData(g.ini)}${g.fim && _cpData(g.fim) !== _cpData(g.ini) ? ' a ' + _cpData(g.fim) : ''} · ${g.semCampanha ? 'sem campanha' : g.disparos + ' ' + (g.disparos === 1 ? 'disparo' : 'disparos')}${g.fuPend ? ` · ${g.fuPend} follow-up(s) na fila` : ''}`));
     const nums = prEl('div', 'cp-nums');
     [[g.env, 'Enviados', ''], [prPctTxt(g.hum, g.env), 'Pessoas', 'azul'], [g.robo, 'Robô', ''], [g.int, 'Quentes', 'laranja'], [g.valor ? _brl(g.valor) : g.ganhos, 'Ganhos', 'verde']]
         .forEach(([v, r, c]) => { const n = prEl('div', 'cp-num ' + c); n.appendChild(prEl('b', '', String(v))); n.appendChild(prEl('span', '', r)); nums.appendChild(n); });
@@ -12539,9 +12567,16 @@ function cpCard(g, media, vivo) {
     const acoes = prEl('div', 'cp-acoes');
     const bt = (txt, fn, cls) => { const b = prEl('button', 'ps-acao' + (cls ? ' ' + cls : ''), txt); b.type = 'button'; b.addEventListener('click', fn); acoes.appendChild(b); return b; };
     bt(_cpAberto === g.k ? 'Fechar' : '👥 Ver leads e mensagens', () => { _cpAberto = _cpAberto === g.k ? null : g.k; _cpAba = 'leads'; cpRender(); }, _cpAberto === g.k ? '' : 'principal');
+    if (g.semCampanha) {
+        card.appendChild(acoes);
+        card.appendChild(prEl('div', 'ph-linha', 'Envios antigos sem campanha registrada: dá para ver os leads, mas não dá para ter cadência nem repescagem.'));
+        if (_cpAberto === g.k) card.appendChild(cpDetalhe(g));
+        return card;
+    }
     const eleg = cpElegiveisRepescagem(g).length;
     const br = bt(`🔁 Retomar quem não respondeu${eleg ? ` (${eleg})` : ''}`, () => cpRepescar(g));
     if (!eleg) { br.disabled = true; br.title = 'Ninguém elegível: precisa ter recebido há 3 dias ou mais, sem resposta de pessoa e sem follow-up.'; }
+    bt('⏱ Cadência: ' + (dias.length ? 'dias ' + dias.join(' · ') : 'nenhuma'), () => cpAbrirCadencia(g));
     if (g.nicho) bt('📍 Repetir em outra cidade', () => cpRepetir(g, 'cidade'));
     if (g.local) bt('🎯 Repetir com outro nicho', () => cpRepetir(g, 'nicho'));
     card.appendChild(acoes);
@@ -12693,7 +12728,7 @@ function cpAbaDisparos(g, corpo) {
 
 // Repescagem: quem recebeu há 3 dias ou mais, sem resposta de pessoa, sem follow-up e sem bloqueio
 function cpElegiveisRepescagem(g) {
-    if (!_cpDados) return [];
+    if (!_cpDados || g.semCampanha) return [];
     const ja = new Set(_cpDados.fila.map(f => prTel(f.phone)).concat(_cpDados.fuEnv.map(f => prTel(f.phone))));
     const pipe = {};
     _cpDados.pipeline.forEach(p => { pipe[prTel(p.phone)] = p.col; });
@@ -12704,7 +12739,7 @@ function cpElegiveisRepescagem(g) {
         if (!t || vistos.has(t)) return false; vistos.add(t);
         if (new Date(l.enviado_em).getTime() > limite) return false;
         if (l.respondeu && !l.resposta_suspeita_bot) return false;
-        if (l.opt_out || ja.has(t)) return false;
+        if (!l.campanha_id || l.opt_out || ja.has(t)) return false;
         if (['negociando', 'fechado', 'descartado'].includes(pipe[t])) return false;
         if (typeof bloqueadoLead === 'function' && bloqueadoLead({ phone: l.phone, title: l.title })) return false;
         return true;
@@ -12754,6 +12789,122 @@ async function cpPorNoPlano(nicho, local) {
         if (error) throw error;
         showToast(`📅 "${nicho}" em ${local} entrou no Plano (${formatarDataPlano(datas[datas.length - 1])})`, 'ok');
     } catch (e) { showToast('❌ ' + (e && e.message), 'err'); }
+}
+
+
+// ── Cadência de follow-up (3, 7, 14 dias e personalizado), por campanha ou padrão ──
+function cpSequenciaDoGrupo(g) {
+    if (!_cpDados) return [];
+    const c = _cpDados.camps.find(x => g.ids.has(String(x.id)) && Array.isArray(x.sequencia) && x.sequencia.length);
+    return c ? c.sequencia : [];
+}
+var _cadEdit = null;   // { grupo, etapas, filtro }
+function cpAbrirCadencia(g) {
+    const base = g ? cpSequenciaDoGrupo(g) : cadenciaPadrao();
+    const c0 = g && _cpDados ? _cpDados.camps.find(x => g.ids.has(String(x.id)) && x.seq_config) : null;
+    _cadEdit = { grupo: g, etapas: JSON.parse(JSON.stringify(base)).filter(e => e.tipo !== 'apresentacao'),
+        filtro: g ? ((c0 && c0.seq_config && c0.seq_config.filtro) || 'todos') : userGet('cadenciaFiltro', 'todos') };
+    cpPintarCadencia();
+}
+function cpPintarCadencia() {
+    const ed = _cadEdit;
+    let m = document.getElementById('cad-modal');
+    if (!m) {
+        m = prEl('div', 'nc-modal'); m.id = 'cad-modal';
+        m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true'); m.setAttribute('aria-labelledby', 'cad-tit');
+        m.addEventListener('click', e => { if (e.target === m) m.hidden = true; });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && !m.hidden) m.hidden = true; });
+        document.body.appendChild(m);
+    }
+    m.innerHTML = '';
+    const cx = prEl('div', 'nc-caixa cad-caixa');
+    const h = prEl('h3', '', ed.grupo ? '⏱ Cadência: ' + ed.grupo.nome : '⏱ Cadência padrão (próximas campanhas)'); h.id = 'cad-tit';
+    cx.appendChild(h);
+    cx.appendChild(prEl('div', 'ph-linha', 'Quem não responder recebe cada etapa no dia marcado (contando do primeiro envio). Uma etapa por vez, sempre passando pela sua aprovação na aba Respostas. Quem responde, pede para sair, está no Pipeline em Negociando/Ganho/Perdido ou em Não contatar sai da cadência.'));
+    ed.etapas.sort((a, b) => (parseInt(a.dia, 10) || 0) - (parseInt(b.dia, 10) || 0));
+    if (!ed.etapas.length) cx.appendChild(prEl('div', 'ph-mudo', 'Sem etapas: ninguém recebe follow-up nesta campanha.'));
+    ed.etapas.forEach((e, i) => {
+        const box = prEl('div', 'cad-etapa');
+        const top = prEl('div', 'cad-linha');
+        const lbl = prEl('label', 'cad-dia'); lbl.textContent = 'Dia ';
+        const dia = prEl('input'); dia.type = 'number'; dia.min = '1'; dia.max = '90'; dia.value = e.dia; dia.setAttribute('aria-label', 'Dia da etapa');
+        dia.addEventListener('change', () => { e.dia = Math.max(1, Math.min(90, parseInt(dia.value, 10) || 1)); cpPintarCadencia(); });
+        lbl.appendChild(dia); top.appendChild(lbl);
+        const modo = prEl('select', 'pk-sel'); modo.setAttribute('aria-label', 'Como escrever');
+        modo.innerHTML = `<option value="ia"${e.modoIA ? ' selected' : ''}>A IA escreve</option><option value="fixo"${!e.modoIA ? ' selected' : ''}>Texto fixo</option>`;
+        modo.addEventListener('change', () => { e.modoIA = modo.value === 'ia'; cpPintarCadencia(); });
+        top.appendChild(modo);
+        const rm = prEl('button', 'ph-btn', 'Remover'); rm.type = 'button';
+        rm.addEventListener('click', () => { ed.etapas.splice(i, 1); cpPintarCadencia(); });
+        top.appendChild(rm);
+        box.appendChild(top);
+        const ta = prEl('textarea', 'cad-texto');
+        ta.placeholder = e.modoIA ? 'O que a IA deve fazer nesta etapa (ex.: trazer um exemplo do nicho)' : 'Texto da mensagem. Use [Nome] para o nome da empresa.';
+        ta.value = e.modoIA ? (e.contextoIA || '') : (e.mensagem || '');
+        ta.setAttribute('aria-label', e.modoIA ? 'Instrução para a IA' : 'Texto da mensagem');
+        ta.addEventListener('input', () => { if (e.modoIA) e.contextoIA = ta.value; else e.mensagem = ta.value; });
+        box.appendChild(ta);
+        if (e.modoIA) box.appendChild(prEl('div', 'ph-linha', 'Se a IA falhar, vai o texto: "' + (e.mensagem || '—') + '"'));
+        cx.appendChild(box);
+    });
+    const add = prEl('div', 'pk-motivos');
+    const temDia = d => ed.etapas.some(e => parseInt(e.dia, 10) === d);
+    [3, 7, 14].forEach(d => {
+        const b = prEl('button', 'ps-sug sin', '+ Dia ' + d); b.type = 'button'; b.disabled = temDia(d);
+        b.addEventListener('click', () => { ed.etapas.push(_etapaPreset(d, Date.now())); cpPintarCadencia(); });
+        add.appendChild(b);
+    });
+    const bp = prEl('button', 'ps-sug sin', '+ Personalizado'); bp.type = 'button';
+    bp.addEventListener('click', () => {
+        const ult = ed.etapas.reduce((mx, e) => Math.max(mx, parseInt(e.dia, 10) || 0), 0);
+        let d = ult ? ult + 7 : 3; while (temDia(d)) d++;
+        ed.etapas.push(_etapaPreset(d, Date.now())); cpPintarCadencia();
+    });
+    add.appendChild(bp);
+    cx.appendChild(add);
+    const opc = prEl('div', 'cad-opcoes');
+    const ck = (id, txt, marcado) => { const l = prEl('label', 'cad-ck'); const i = prEl('input'); i.type = 'checkbox'; i.id = id; i.checked = !!marcado; l.appendChild(i); l.appendChild(document.createTextNode(' ' + txt)); opc.appendChild(l); return i; };
+    const ckWa = ck('cad-sowa', 'Só para leads com WhatsApp confirmado', ed.filtro === 'sowhatsapp');
+    const ckPadrao = ed.grupo ? ck('cad-padrao', 'Usar também como padrão das próximas campanhas', false) : null;
+    const ckAntigas = !ed.grupo ? ck('cad-antigas', 'Aplicar também às campanhas disparadas nos últimos 30 dias', false) : null;
+    cx.appendChild(opc);
+    const linha = prEl('div', 'pk-acao-linha');
+    const salvar = prEl('button', 'ps-acao principal', 'Salvar cadência'); salvar.type = 'button';
+    salvar.addEventListener('click', () => cpSalvarCadencia(ckWa.checked, ckPadrao && ckPadrao.checked, ckAntigas && ckAntigas.checked));
+    const fechar = prEl('button', 'ps-acao', 'Cancelar'); fechar.type = 'button'; fechar.addEventListener('click', () => { m.hidden = true; });
+    linha.append(salvar, fechar);
+    cx.appendChild(linha);
+    m.appendChild(cx);
+    m.hidden = false;
+}
+async function cpSalvarCadencia(soWa, tambemPadrao, aplicarAntigas) {
+    const ed = _cadEdit;
+    const dias = ed.etapas.map(e => parseInt(e.dia, 10));
+    if (new Set(dias).size !== dias.length) { showToast('Há duas etapas no mesmo dia', 'err'); return; }
+    const etapas = ed.etapas.map((e, i) => ({ ...e, id: i + 1, dia: parseInt(e.dia, 10), status: 'pendente', tipo: CADENCIA_PRESETS[parseInt(e.dia, 10)] ? 'followup' : (e.tipo === 'apresentacao' ? 'followup' : (e.tipo || 'personalizado')) }))
+        .sort((a, b) => a.dia - b.dia);
+    const vazias = etapas.filter(e => !e.modoIA && !String(e.mensagem || '').trim());
+    if (vazias.length) { showToast('Escreva o texto da etapa do dia ' + vazias[0].dia, 'err'); return; }
+    const seqConfig = { filtro: soWa ? 'sowhatsapp' : 'todos' };
+    try {
+        let ids = [];
+        if (ed.grupo) ids = Array.from(ed.grupo.ids);
+        if (!ed.grupo || tambemPadrao) { userSet('cadenciaPadrao', etapas); userSet('cadenciaFiltro', seqConfig.filtro); }
+        if (!ed.grupo && aplicarAntigas && _cpDados) {
+            const limite = Date.now() - 30 * 86400000;
+            const recentes = new Set(_cpDados.leads.filter(l => l.campanha_id && new Date(l.enviado_em).getTime() >= limite).map(l => String(l.campanha_id)));
+            ids = Array.from(recentes);
+        }
+        for (let i = 0; i < ids.length; i += 50) {
+            const { error } = await supabaseClient.from('campanhas').update({ sequencia: etapas, seq_config: seqConfig }).eq('user_id', currentUser.id).in('id', ids.slice(i, i + 50));
+            if (error) throw error;
+        }
+        if (_cpDados) _cpDados.camps.forEach(c => { if (ids.includes(String(c.id))) { c.sequencia = etapas; c.seq_config = seqConfig; } });
+        document.getElementById('cad-modal').hidden = true;
+        const txtDias = etapas.length ? 'dias ' + etapas.map(e => e.dia).join(', ') : 'sem follow-up';
+        showToast(ed.grupo ? `⏱ Cadência salva (${txtDias})` : `⏱ Cadência padrão: ${txtDias}` + (ids.length ? ` · aplicada a ${ids.length} disparo(s) recentes` : ''), 'ok');
+        cpRender();
+    } catch (e) { showToast('❌ Não consegui salvar: ' + (e && e.message), 'err'); }
 }
 
 // Campanha ao vivo: progresso, próximo envio (janela) e cancelar
