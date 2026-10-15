@@ -9194,14 +9194,14 @@ async function histCarregar() {
     await histMigrar().catch(() => {});
     const [{ data: buscas }, lds, pks, was] = await Promise.all([
         supabaseClient.from('buscas').select('id,nicho,local,origem,max_leads,total,criado_em,leads,dados_enriquecidos').eq('user_id', currentUser.id).order('criado_em', { ascending: false }).limit(300),
-        _histTodos('leads', 'phone,status_envio,respondeu'),
+        _histTodos('leads', 'phone,status_envio,respondeu,resposta_suspeita_bot'),
         _histTodos('pipeline_leads', 'phone,col,valor'),
         _histTodos('whatsapp_verificados', 'phone,is_whatsapp'),
         carregarNaoContatar().catch(() => {}),
         (typeof carregarLeadsEnviadosDaNuvem === 'function' ? carregarLeadsEnviadosDaNuvem() : Promise.resolve()).catch(() => {}),
     ]);
     const ld = {}, pk = {}, wa = {};
-    lds.forEach(r => { const k = pkTel(r.phone); if (!k) return; const x = ld[k] = ld[k] || {}; if (r.status_envio === 'enviado') x.env = true; if (r.respondeu) x.resp = true; });
+    lds.forEach(r => { const k = pkTel(r.phone); if (!k) return; const x = ld[k] = ld[k] || {}; if (r.status_envio === 'enviado') x.env = true; if (r.respondeu && !r.resposta_suspeita_bot) x.resp = true; if (r.respondeu && r.resposta_suspeita_bot) x.robo = true; });
     pks.forEach(r => { const k = pkTel(r.phone); if (k) pk[k] = { col: r.col, valor: Number(r.valor) || 0 }; });
     try { pkLoad(); (pkLeads || []).forEach(l => { const k = pkTel(l.phone); if (k && !pk[k]) pk[k] = { col: l.col, valor: Number(l.valor) || 0 }; }); } catch (e) {}
     was.forEach(r => { const k = pkTel(r.phone); if (k) wa[k] = r.is_whatsapp; });
@@ -9226,7 +9226,7 @@ function histGrupos() {
         g.ultima = new Date(b.criado_em).getTime();
     });
     return Object.values(grupos).map(g => {
-        const m = { encontrados: 0, comWa: 0, semWa: 0, enviados: 0, responderam: 0, pipeline: 0, ganhos: 0, valor: 0, faltam: [] };
+        const m = { encontrados: 0, comWa: 0, semWa: 0, enviados: 0, responderam: 0, robos: 0, pipeline: 0, ganhos: 0, valor: 0, faltam: [] };
         g.leads.forEach(l => {
             m.encontrados++;
             const k = pkTel(l.phone);
@@ -9236,7 +9236,7 @@ function histGrupos() {
             const env = !!x.env || (k && leadJaFoiEnviado(l.phone));
             const resp = !!x.resp || !!(p && ['respondeu', 'negociando', 'fechado'].includes(p.col));
             if (env) m.enviados++;
-            if (resp) m.responderam++;
+            if (resp) m.responderam++; else if (x.robo) m.robos = (m.robos || 0) + 1;
             if (p) m.pipeline++;
             if (p && p.col === 'fechado') { m.ganhos++; m.valor += p.valor || 0; }
             l._hist = { env, resp, col: p ? p.col : '', valor: p ? p.valor : 0, wa: waV, bloq: bloqueadoLead({ phone: l.phone, title: l.title || l.name }) };
@@ -9285,7 +9285,7 @@ function histPintarRanking(box, grupos) {
     if (!testados.length && !parados.length) return;
     const c = prEl('div', 'hist-rank');
     c.appendChild(prEl('div', 'hist-rank-tit', '🏆 Onde vale buscar'));
-    c.appendChild(prEl('div', 'hist-rank-sub', 'Taxa de resposta de cada busca (a partir de 5 mensagens enviadas)'));
+    c.appendChild(prEl('div', 'hist-rank-sub', 'Quantas pessoas de verdade responderam (sem contar resposta automática), a partir de 5 mensagens enviadas'));
     const max = Math.max(1, ...testados.map(g => g.taxa));
     testados.forEach((g, i) => {
         const r = prEl('div', 'hist-rank-linha');
@@ -9316,7 +9316,7 @@ function histCard(g) {
     const n = g.buscas.length;
     tt.appendChild(prEl('small', '', (n > 1 ? `buscado ${n}× · ` : '') + 'última ' + _histQuando(g.ultima) + ` · ${g.encontrados} empresas`));
     topo.appendChild(tt);
-    if (g.taxa !== null) topo.appendChild(prEl('span', 'hist-taxa' + (g.taxa >= 30 ? ' boa' : g.taxa < 10 ? ' fraca' : ''), g.taxa + '% resp.'));
+    if (g.taxa !== null) topo.appendChild(prEl('span', 'hist-taxa' + (g.taxa >= 15 ? ' boa' : g.taxa < 8 ? ' fraca' : ''), g.taxa + '% resp.'));
     card.appendChild(topo);
     // funil
     const fun = prEl('div', 'hist-funil');
@@ -9326,7 +9326,7 @@ function histCard(g) {
     if (verif && verif >= g.encontrados * 0.5) etapa(g.comWa, 'com WhatsApp');
     else etapa('—', verif ? `WhatsApp: só ${verif} verificadas` : 'WhatsApp não verificado', 'mudo');
     etapa(g.enviados, 'enviadas');
-    etapa(g.responderam, 'responderam');
+    etapa(g.responderam, g.robos ? `pessoas responderam (+${g.robos} robô)` : 'pessoas responderam');
     etapa(g.pipeline, 'no Pipeline');
     etapa(g.ganhos, g.valor ? 'ganhos · R$ ' + g.valor.toLocaleString('pt-BR') : 'ganhos', g.ganhos ? 'ganho' : '');
     card.appendChild(fun);
