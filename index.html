@@ -1421,6 +1421,7 @@
 
             <div style="text-align:center;margin-top:20px;padding-top:16px;border-top:1px solid #F0F1F5;font-size:0.65rem;color:#9aa2b1;">
                 🔒 Seus dados protegidos e sincronizados na nuvem
+                <div style="margin-top:6px;">Ao entrar, você concorda com os <a href="termos" target="_blank" rel="noopener" style="color:#165DFF;">Termos de uso</a> e a <a href="privacidade" target="_blank" rel="noopener" style="color:#165DFF;">Política de privacidade</a>.</div>
             </div>
         </div>
     </div>
@@ -1830,8 +1831,10 @@ function iniciarAppPosLogin() {
                     <div class="user-plan" id="sidebar-user-email" style="font-size:0.55rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;">—</div>
                 </div>
             </div>
+            <button id="btn-ajuda" onclick="pedirAjuda()" title="Fale com o suporte no WhatsApp" style="width:100%;font-family:'Inter',sans-serif;font-size:0.62rem;font-weight:800;padding:7px 10px;background:#16a34a;border:1px solid #16a34a;border-radius:8px;color:#fff;cursor:pointer;">🆘 Peça ajuda</button>
             <button id="btn-meus-dados" onclick="baixarMeusDados(this)" title="Leads, pipeline, conversas, campanhas e buscas numa planilha do Excel" style="width:100%;font-family:'Inter',sans-serif;font-size:0.6rem;font-weight:700;padding:6px 10px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);cursor:pointer;">📦 Baixar meus dados</button>
-            <button onclick="fazerLogout()" style="width:100%;font-family:'Inter',sans-serif;font-size:0.6rem;font-weight:700;padding:6px 10px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);cursor:pointer;margin-bottom:8px;">🚪 Sair da conta</button>
+            <button onclick="fazerLogout()" style="width:100%;font-family:'Inter',sans-serif;font-size:0.6rem;font-weight:700;padding:6px 10px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);cursor:pointer;margin-bottom:2px;">🚪 Sair da conta</button>
+            <div style="text-align:center;font-family:'Inter',sans-serif;font-size:0.55rem;margin-bottom:8px;"><a href="termos" target="_blank" rel="noopener" style="color:var(--muted);">Termos</a> · <a href="privacidade" target="_blank" rel="noopener" style="color:var(--muted);">Privacidade</a></div>
             <!-- Status de integrações -->
             <div style="display:flex;flex-direction:column;gap:4px;">
                 <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;">
@@ -3496,23 +3499,53 @@ function renderizarFilaFollowups() {
     }).join('');
 }
 
-async function enviarFollowup(filaId) {
+// Envia todos os follow-ups da fila, como estão na tela (com as suas edições), um a cada 20–40 s
+// para não parecer disparo em massa. Dá para parar no meio.
+var _fuEnviandoTodos = false, _fuParar = false;
+async function enviarTodosFollowups() {
+    const btn = document.getElementById('fu-todos');
+    if (_fuEnviandoTodos) { _fuParar = true; if (btn) btn.textContent = '⏳ Parando…'; return; }
+    const itens = _filaFollowupsCache.filter(i => (document.getElementById('fu-texto-' + i.id)?.value || '').trim());
+    if (!itens.length) { showToast('Nenhum follow-up com mensagem para enviar', 'err'); return; }
+    const min = Math.ceil(itens.length * 30 / 60);
+    if (!confirm('Enviar os ' + itens.length + ' follow-ups como estão na tela (com as suas edições)?\n\nVai um a cada 20 a 40 segundos (cerca de ' + min + ' min no total). Você pode parar no meio clicando no mesmo botão.')) return;
+    _fuEnviandoTodos = true; _fuParar = false;
+    const textos = {};
+    itens.forEach(i => { textos[i.id] = document.getElementById('fu-texto-' + i.id).value.trim(); });
+    let ok = 0, falhas = 0;
+    for (let k = 0; k < itens.length && !_fuParar; k++) {
+        if (btn) btn.textContent = '⏹ Parar (' + (k + 1) + '/' + itens.length + ')';
+        const enviou = await enviarFollowup(itens[k].id, textos[itens[k].id], true);
+        enviou ? ok++ : falhas++;
+        if (k < itens.length - 1 && !_fuParar) await new Promise(r => setTimeout(r, 20000 + Math.random() * 20000));
+    }
+    _fuEnviandoTodos = false;
+    if (btn) btn.textContent = '📤 Enviar todos';
+    showToast('📤 ' + ok + ' follow-up' + (ok === 1 ? '' : 's') + ' enviado' + (ok === 1 ? '' : 's') + (falhas ? ' · ' + falhas + ' com erro (continuam na fila)' : '') + (_fuParar ? ' · parado por você' : ''), falhas ? 'err' : 'ok');
+}
+async function enviarFollowup(filaId, textoPronto, silencioso) {
     const textarea = document.getElementById('fu-texto-' + filaId);
-    const texto = (textarea?.value || '').trim();
-    if (!texto) { showToast('A mensagem não pode ficar vazia', 'err'); return; }
+    const texto = (textoPronto || textarea?.value || '').trim();
+    if (!texto) { if (!silencioso) showToast('A mensagem não pode ficar vazia', 'err'); return false; }
     try {
         const res = await fetch(`${N8N_BASE}/responder-followup`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ filaId, userId: currentUser.id, acao: 'enviar', texto })
         });
         const data = await res.json();
-        if (!data.ok) { showToast('Erro ao enviar: ' + (data.erro || 'desconhecido'), 'err'); return; }
-        showToast('Follow-up enviado ✅', 'ok');
+        if (!data.ok) { if (!silencioso) showToast('Erro ao enviar: ' + (data.erro || 'desconhecido'), 'err'); return false; }
+        if (!silencioso) showToast('Follow-up enviado ✅', 'ok');
         _filaFollowupsCache = _filaFollowupsCache.filter(i => i.id !== filaId);
+        // guarda o que está escrito nos outros cartões antes de redesenhar
+        const rascunhos = {};
+        _filaFollowupsCache.forEach(i => { const t = document.getElementById('fu-texto-' + i.id); if (t) rascunhos[i.id] = t.value; });
         renderizarFilaFollowups();
+        Object.keys(rascunhos).forEach(id => { const t = document.getElementById('fu-texto-' + id); if (t) t.value = rascunhos[id]; });
         atualizarBadgeRespostas();
+        return true;
     } catch (e) {
-        showToast('Erro de conexão ao enviar follow-up', 'err');
+        if (!silencioso) showToast('Erro de conexão ao enviar follow-up', 'err');
+        return false;
     }
 }
 
@@ -4236,7 +4269,10 @@ document.addEventListener('DOMContentLoaded', () => {
         <div class="tab-content" id="tab-respostas">
             <div id="rs-topo" class="rs-topo"></div>
             <div id="fila-followups-secao" style="display:none;margin-bottom:22px;">
-                <h3 style="font-size:0.85rem;font-weight:800;color:#FF6A00;margin:0 0 10px;">📅 Follow-ups prontos pra disparar</h3>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:0 0 10px;">
+                    <h3 style="font-size:0.85rem;font-weight:800;color:#FF6A00;margin:0;">📅 Follow-ups prontos pra disparar</h3>
+                    <button id="fu-todos" type="button" onclick="enviarTodosFollowups()" style="padding:7px 14px;border-radius:8px;border:none;background:#FF6A00;color:#fff;font-size:0.75rem;font-weight:800;cursor:pointer;">📤 Enviar todos</button>
+                </div>
                 <div id="fila-followups-lista" style="display:flex;flex-direction:column;gap:14px;"></div>
             </div>
             <div id="fila-respostas-vazia" class="coming-soon" style="display:none;">
@@ -5649,6 +5685,11 @@ document.addEventListener('DOMContentLoaded', () => {
             <section id="pr-funil" class="ph-card pr-bloco" aria-labelledby="pr-t-funil">
                 <h3 id="pr-t-funil">Do envio à venda <span class="ph-tag">desde o início</span></h3>
                 <div id="pr-funil-corpo"><div class="ph-mudo">Carregando…</div></div>
+            </section>
+            <!-- PAINEL: resultado por produto (SDR com vários produtos) -->
+            <section id="pr-produtos" class="ph-card pr-bloco" aria-labelledby="pr-t-prod" hidden>
+                <h3 id="pr-t-prod">Por produto <span class="ph-tag">desde o início</span></h3>
+                <div id="pr-produtos-corpo"></div>
             </section>
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
                 <div>
@@ -7479,6 +7520,56 @@ function gerarXLS(headers, rows, filename) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
+// ---------- Registro de erros + Peça ajuda ----------
+// Erros do app vão para a tabela erros_app (só o painel admin lê). Máximo de 10 por sessão, sem repetir.
+const APP_VERSAO = '2026-10-15';
+const SUPORTE_WHATS = '5511915117743';
+var _errosRecentes = [], _errosEnviados = 0;
+function registrarErroApp(msg, detalhe) {
+    try {
+        msg = String(msg || '').slice(0, 1000);
+        if (!msg || /ResizeObserver|Script error\.?$|extension:\/\/|Non-Error promise rejection captured/i.test(msg)) return;
+        if (_errosRecentes.some(e => e.msg === msg)) return;
+        _errosRecentes.push({ msg, em: new Date().toISOString() });
+        if (_errosRecentes.length > 5) _errosRecentes.shift();
+        if (!currentUser || !supabaseClient || _errosEnviados >= 10) return;
+        _errosEnviados++;
+        supabaseClient.from('erros_app').insert({ user_email: currentUser.email || '', mensagem: msg, detalhe: String(detalhe || '').slice(0, 4000), tela: String(userGet('abaAtual', '') || '').slice(0, 60), versao: APP_VERSAO, navegador: navigator.userAgent.slice(0, 300) }).then(() => {}, () => {});
+    } catch (e) {}
+}
+window.addEventListener('error', ev => registrarErroApp(ev.message || (ev.error && ev.error.message), ev.error && ev.error.stack ? ev.error.stack : (ev.filename || '') + ':' + (ev.lineno || '')));
+window.addEventListener('unhandledrejection', ev => { const r = ev.reason; registrarErroApp(r && r.message ? r.message : String(r), r && r.stack); });
+
+function pedirAjuda() {
+    const NOMES_ABA = { prospeccao: 'Prospecção', plano: 'Plano', pipeline: 'Pipeline', campanhas: 'Campanhas', ia: 'Prospecção IA', respostas: 'Respostas', inbox: 'Inbox', historico: 'Histórico', meusleads: 'Meus leads', integracoes: 'Integrações', metricas: 'Painel' };
+    const fundo = prEl('div', 'modal-backdrop active');
+    const m = prEl('div', 'modal');
+    m.appendChild(prEl('div', 'modal-title', '🆘 Peça ajuda'));
+    m.appendChild(prEl('div', 'modal-sub', 'Conte o que aconteceu. A mensagem abre no WhatsApp do suporte já com a sua conta e a tela onde você está.'));
+    const ta = document.createElement('textarea');
+    ta.rows = 5; ta.placeholder = 'Ex.: cliquei em Enviar e a campanha não começou…';
+    ta.style.cssText = 'width:100%;box-sizing:border-box;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-family:Inter,sans-serif;font-size:0.85rem;background:var(--surface);color:var(--text);margin:10px 0;';
+    m.appendChild(ta);
+    const acoes = prEl('div', 'modal-actions');
+    const cancelar = prEl('button', 'modal-btn', 'Cancelar');
+    cancelar.onclick = () => fundo.remove();
+    const enviar = prEl('button', 'modal-btn primary', '💬 Abrir no WhatsApp');
+    enviar.onclick = () => {
+        const aba = userGet('abaAtual', '');
+        let txt = 'Olá! Preciso de ajuda no Prospecta+.\nConta: ' + ((currentUser && currentUser.email) || '—') + '\nTela: ' + (NOMES_ABA[aba] || aba || '—') + '\n\n' + (ta.value.trim() || '(sem descrição)');
+        if (_errosRecentes.length) txt += '\n\nErros que o app registrou: ' + _errosRecentes.map(e => e.msg.slice(0, 120)).join(' | ');
+        try { if (currentUser) supabaseClient.from('erros_app').insert({ user_email: currentUser.email || '', mensagem: 'Pediu ajuda: ' + (ta.value.trim() || '(sem descrição)').slice(0, 900), tela: String(aba).slice(0, 60), versao: APP_VERSAO, navegador: navigator.userAgent.slice(0, 300) }).then(() => {}, () => {}); } catch (e) {}
+        window.open('https://wa.me/' + SUPORTE_WHATS + '?text=' + encodeURIComponent(txt.slice(0, 1800)), '_blank', 'noopener');
+        fundo.remove();
+    };
+    acoes.append(cancelar, enviar);
+    m.appendChild(acoes);
+    fundo.appendChild(m);
+    fundo.onclick = e => { if (e.target === fundo) fundo.remove(); };
+    document.body.appendChild(fundo);
+    setTimeout(() => ta.focus(), 50);
+}
+
 // ---------- Baixar meus dados ----------
 // Tudo o que é da conta numa planilha do Excel, uma aba por assunto. Os dados são do cliente: ele baixa quando quiser.
 const MD_ABAS = [
@@ -14352,12 +14443,55 @@ async function painelHojeCarregar() {
         console.warn('Painel: não consegui montar os cartões:', e && e.message);
     } finally { _phRodando = false; }
 }
+// Resultado por produto: campanhas ligadas a cada produto -> envios, respostas de pessoas, negociando e ganhos.
+async function prProdutosCarregar() {
+    const sec = document.getElementById('pr-produtos'), box = document.getElementById('pr-produtos-corpo');
+    if (!sec || !box || !currentUser) return;
+    try {
+        const { data: cps } = await supabaseClient.from('campanhas_produto').select('campanha_id,produto_nome').eq('user_id', currentUser.id).limit(2000);
+        if (!cps || !cps.length) { sec.hidden = true; return; }
+        const prodDe = {}; cps.forEach(c => { prodDe[c.campanha_id] = c.produto_nome || 'Sem nome'; });
+        const ids = Object.keys(prodDe);
+        const [leads, pipe] = await Promise.all([
+            prBuscarTudo(() => supabaseClient.from('leads').select('campanha_id,phone,respondeu,resposta_suspeita_bot').eq('user_id', currentUser.id).in('campanha_id', ids).not('enviado_em', 'is', null).order('id')),
+            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('phone,col').eq('user_id', currentUser.id).order('id'))
+        ]);
+        const colDe = {}; (pipe || []).forEach(p => { colDe[prTel(p.phone)] = p.col; });
+        const g = {};
+        (leads || []).forEach(l => {
+            const n = prodDe[l.campanha_id]; if (!n) return;
+            const x = g[n] || (g[n] = { env: 0, hum: 0, neg: 0, ganho: 0, camps: new Set() });
+            x.env++; x.camps.add(l.campanha_id);
+            if (l.respondeu && !l.resposta_suspeita_bot) x.hum++;
+            const c = colDe[prTel(l.phone)];
+            if (c === 'negociando') x.neg++; else if (c === 'fechado') x.ganho++;
+        });
+        const linhas = Object.entries(g).sort((a, b) => b[1].env - a[1].env);
+        if (!linhas.length) { sec.hidden = true; return; }
+        box.innerHTML = '';
+        const tab = prEl('table', 'pr-tabela');
+        const cab = prEl('tr'); ['Produto', 'Enviadas', 'Responderam', 'Negociando', 'Ganhos'].forEach(h => cab.appendChild(prEl('th', '', h)));
+        tab.appendChild(cab);
+        linhas.forEach(([nome, x]) => {
+            const tr = prEl('tr');
+            tr.append(prEl('td', '', nome + ' (' + x.camps.size + (x.camps.size === 1 ? ' campanha)' : ' campanhas)')), prEl('td', '', String(x.env)), prEl('td', '', prPctTxt(x.hum, x.env)), prEl('td', '', String(x.neg)), prEl('td', '', String(x.ganho)));
+            tab.appendChild(tr);
+        });
+        box.appendChild(tab);
+        if (linhas.length > 1) {
+            const melhor = linhas.filter(([, x]) => x.env >= 20).sort((a, b) => (b[1].hum + 1) / (b[1].env + 10) - (a[1].hum + 1) / (a[1].env + 10))[0];
+            if (melhor) box.appendChild(prEl('div', 'ph-linha', '🏆 Quem mais traz resposta: ' + melhor[0] + ' (' + prPctTxt(melhor[1].hum, melhor[1].env) + ').'));
+        }
+        sec.hidden = false;
+    } catch (e) { sec.hidden = true; }
+}
 // roda sempre que o Painel carrega as métricas (sem alterar a função original)
 (function () {
     const original = carregarMetricas;
     carregarMetricas = async function () {
         const r = await original.apply(this, arguments);
         try { painelHojeCarregar(); } catch (e) { /* o Painel original não pode quebrar */ }
+        try { prProdutosCarregar(); } catch (e) {}
         return r;
     };
 })();

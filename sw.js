@@ -16,7 +16,7 @@ self.addEventListener('fetch', e => {
   if (req.mode === 'navigate') {
     // Sempre a versão nova da rede; sem rede, a última que funcionou
     e.respondWith(fetch(req, { cache: 'no-store' }).then(r => {
-      if (r.ok) { const copia = r.clone(); caches.open(CACHE).then(c => c.put('/', copia)); }
+      if (r.ok && url.pathname === '/') { const copia = r.clone(); caches.open(CACHE).then(c => c.put('/', copia)); }   // só a página do app (não Termos/Privacidade)
       return r;
     }).catch(() => caches.match('/').then(r => r || Response.error())));
     return;
