@@ -1,0 +1,24 @@
+{
+  "id": "/",
+  "name": "Prospecta+",
+  "short_name": "Prospecta+",
+  "description": "Sistema de prospecção B2B com IA",
+  "lang": "pt-BR",
+  "start_url": "/?origem=app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#165DFF",
+  "theme_color": "#165DFF",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Buscar leads", "short_name": "Buscar", "url": "/?tab=prospeccao", "description": "Extrair leads de nichos específicos", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Respostas", "short_name": "Respostas", "url": "/?tab=respostas", "description": "Responder quem está esperando", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Inbox", "short_name": "Inbox", "url": "/?tab=inbox", "description": "Conversas do WhatsApp", "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
