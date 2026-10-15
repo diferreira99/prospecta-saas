@@ -1821,6 +1821,7 @@ function iniciarAppPosLogin() {
                     <div class="user-plan" id="sidebar-user-email" style="font-size:0.55rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px;">—</div>
                 </div>
             </div>
+            <button id="btn-meus-dados" onclick="baixarMeusDados(this)" title="Leads, pipeline, conversas, campanhas e buscas numa planilha do Excel" style="width:100%;font-family:'Inter',sans-serif;font-size:0.6rem;font-weight:700;padding:6px 10px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);cursor:pointer;">📦 Baixar meus dados</button>
             <button onclick="fazerLogout()" style="width:100%;font-family:'Inter',sans-serif;font-size:0.6rem;font-weight:700;padding:6px 10px;background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted);cursor:pointer;margin-bottom:8px;">🚪 Sair da conta</button>
             <!-- Status de integrações -->
             <div style="display:flex;flex-direction:column;gap:4px;">
@@ -7328,6 +7329,56 @@ function gerarXLS(headers, rows, filename) {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 }
+// ---------- Baixar meus dados ----------
+// Tudo o que é da conta numa planilha do Excel, uma aba por assunto. Os dados são do cliente: ele baixa quando quiser.
+const MD_ABAS = [
+    ['Leads', 'leads'], ['Pipeline', 'pipeline_leads'], ['Conversas', 'respostas_historico'], ['Campanhas', 'campanhas'],
+    ['Buscas', 'buscas'], ['Follow-ups', 'fila_followups'], ['Não contatar', 'nao_contatar'],
+];
+function _mdTexto(v) {
+    if (v === null || v === undefined) return '';
+    const t = typeof v === 'object' ? JSON.stringify(v) : String(v);
+    return t.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').slice(0, 32000);   // Excel não aceita caractere de controle nem célula gigante
+}
+function gerarPlanilhaAbas(abas, filename) {
+    const esc = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const folhas = abas.map(aba => {
+        const head = `<Row>${aba.colunas.map(c => `<Cell ss:StyleID="header"><Data ss:Type="String">${esc(c)}</Data></Cell>`).join('')}</Row>`;
+        const corpo = aba.linhas.map(l => `<Row>${aba.colunas.map(c => `<Cell><Data ss:Type="String">${esc(_mdTexto(l[c]))}</Data></Cell>`).join('')}</Row>`).join('\n');
+        const nome = esc(aba.nome.replace(/[\[\]:*?\/\\]/g, ' ').slice(0, 31));
+        return `<Worksheet ss:Name="${nome}"><Table>${aba.colunas.map(() => '<Column ss:Width="140"/>').join('')}${head}${corpo}</Table></Worksheet>`;
+    }).join('');
+    const xml = `<?xml version="1.0" encoding="UTF-8"?><?mso-application progid="Excel.Sheet"?><Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet" xmlns:x="urn:schemas-microsoft-com:office:excel"><Styles><Style ss:ID="header"><Font ss:Bold="1" ss:Color="#FFFFFF" ss:Size="11"/><Interior ss:Color="#FF6A00" ss:Pattern="Solid"/></Style></Styles>${folhas}</Workbook>`;
+    const url = URL.createObjectURL(new Blob([xml], { type: 'application/vnd.ms-excel;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+async function baixarMeusDados(btn) {
+    if (!currentUser) return;
+    const antes = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Juntando seus dados…'; }
+    try {
+        const uid = currentUser.id, abas = [], falhas = [];
+        for (const [nome, tabela] of MD_ABAS) {
+            try {
+                const linhas = await prBuscarTudo(() => supabaseClient.from(tabela).select('*').eq('user_id', uid));
+                const colunas = [];
+                linhas.forEach(l => Object.keys(l).forEach(k => { if (k !== 'user_id' && !colunas.includes(k)) colunas.push(k); }));
+                abas.push({ nome: nome + ' (' + linhas.length + ')', colunas: colunas.length ? colunas : ['(vazio)'], linhas });
+            } catch (e) { falhas.push(nome); }
+        }
+        if (!abas.length) throw new Error('não consegui ler seus dados agora');
+        const total = abas.reduce((a, x) => a + x.linhas.length, 0);
+        gerarPlanilhaAbas(abas, 'prospecta-meus-dados-' + new Date().toISOString().slice(0, 10) + '.xls');
+        showToast('📦 Planilha baixada: ' + total + ' registros em ' + abas.length + ' abas' + (falhas.length ? ' (faltou: ' + falhas.join(', ') + ')' : ''), falhas.length ? 'err' : 'ok');
+    } catch (e) {
+        showToast('Não consegui baixar seus dados: ' + e.message, 'err');
+    }
+    if (btn) { btn.disabled = false; btn.textContent = antes; }
+}
+
 function exportarCSV() {
     // Usa lista filtrada atual (todosLeads) ou base completa
     const fonte = todosLeads.length ? todosLeads : _leadsBase;
