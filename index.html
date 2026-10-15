@@ -2054,6 +2054,13 @@ function iniciarAppPosLogin() {
 #tab-pipeline { display:none; flex-direction:column; width:100%; height:100%; overflow:hidden; padding:0 !important; }
 #tab-pipeline.active { display:flex !important; flex:1; min-height:0; }
 .content:has(#tab-pipeline.active) { padding:0!important; overflow:hidden!important; display:flex!important; flex-direction:column!important; }
+/* Inbox ocupa a tela inteira: sem margem nem rolagem da página (no celular a lista "flutuava") */
+.content:has(#tab-inbox.active) { padding:0!important; overflow:hidden!important; }
+@media (max-width: 900px) {
+  body:has(#tab-inbox.active) #export-mobile, body:has(#tab-inbox.active) #campanha-mobile, body:has(#tab-inbox.active) .topbar-btn.hide-mobile { display:none!important; }
+  #tab-inbox .inbox-wrap { box-shadow:none; }
+  #tab-inbox .inbox-list { padding-bottom:env(safe-area-inset-bottom); }
+}
 
 .pk-topbar {
     display:flex; align-items:center; justify-content:flex-end;
