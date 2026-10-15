@@ -2760,6 +2760,9 @@ async function carregarFilaSugestoes() {
         _filaSugestoesCache = [];
     }
     renderizarFilaSugestoes();
+    await rsCarregarContexto();
+    renderizarFilaSugestoes();
+    rsCarregarHistorico();
     atualizarBadgeRespostas();
     avisarInteressadosNovos();
 }
@@ -2784,8 +2787,9 @@ function avisarInteressadosNovos() {
 }
 
 function atualizarBadgeRespostas() {
-    const n = _filaSugestoesCache.length + _filaFollowupsCache.length;
-    const quentes = _filaSugestoesCache.filter(_interessado).length;
+    const conversas = new Set(_filaSugestoesCache.map(i => pkTel(i.phone) || i.id)).size;
+    const n = conversas + _filaFollowupsCache.length;
+    const quentes = new Set(_filaSugestoesCache.filter(_interessado).map(i => pkTel(i.phone) || i.id)).size;
     const badge = document.getElementById('nav-respostas-badge');
     if (badge) {
         badge.style.display = n > 0 ? 'inline-block' : 'none';
@@ -2811,49 +2815,471 @@ const CLASSIFICACAO_INFO = {
     menu:       { emoji: '🤖', label: 'Robô de atendimento', cor: '#0f766e', bg: '#ccfbf1' },
 };
 
+// ===================== RESPOSTAS: uma conversa por card, robôs à parte, histórico com desfazer =====================
+var _rsCtx = { hist: {}, leads: {}, camp: {}, enviada: {} };   // conversa, dados do lead, nome da campanha, 1ª mensagem
+var _rsAba = 'pendentes';
+var _rsAbertos = {};                                           // painéis de "retomar / reunião" abertos por card
+const RS_ESPERA_ALERTA_MIN = 30;
+const RS_STATUS = {
+    enviado: 'Respondida pelo app', respondido_fora: 'Respondida no WhatsApp', descartado: 'Descartada',
+    sem_interesse: 'Sem interesse', agrupado: 'Respondida junto', pendente: 'Na fila'
+};
+
+function rsTel(p) { return pkTel(p); }
+function rsTextoVazio(t) { return !String(t || '').replace(/[\s‎‏​]/g, ''); }
+// Robôs de atendimento: menus, transferências e boas-vindas automáticas.
+function rsEhRobo(t) {
+    const s = String(t || '').toLowerCase();
+    if (!s.trim()) return false;
+    return /escolha uma (das )?op[çc]|digite (o )?(n[uú]mero|op[çc])|selecione uma op|n[ãa]o escolheu uma das op|atendimento (est[aá] sendo )?transferido|algu[ée]m (da equipe )?(falar[aá]|atender[aá])|em breve (um|nossa|algu)|j[aá] conectei voc[êe]|encaminhei sua mensagem|n[ãa]o entendi a sua resposta|vamos iniciar o atendimento|mensagem autom[aá]tica|nosso hor[aá]rio de atendimento|fora do hor[aá]rio|agradecemos (o seu |seu |o )?contato|seja bem[- ]vindo|boas[- ]vindas [àa]|assistente virtual|sou (a|o) (assistente|atendente) virtual|selecione (alguma|uma)|agradecemos (a sua|sua) mensagem|no momento n[ãa]o (posso|podemos|estamos)|nos conte como foi|avalie (o |nosso )?atendimento|agradece (o seu |seu |a sua |sua )?(contato|mensagem)|retornaremos (o mais|assim que|em breve)|protocolo d[eo] atendimento|n[ãa]o encontrei a op|op[çc][ãa]o inv[aá]lida/.test(s)
+        || /(^|\n|\s)\*?1\*?\s*[-–.)]\s*\S[\s\S]*(^|\n|\s)\*?2\*?\s*[-–.)]\s*\S/.test(s);
+}
+// Agrupa a fila por número: um card por conversa.
+function rsGrupos() {
+    const por = {};
+    _filaSugestoesCache.forEach(i => {
+        const k = rsTel(i.phone) || ('id' + i.id);
+        (por[k] = por[k] || { k, itens: [] }).itens.push(i);
+    });
+    const ordem = { quente: 0, duvida: 1, pare: 2, morno: 3, frio: 4, indefinido: 5, menu: 6 };
+    return Object.values(por).map(g => {
+        g.itens.sort((a, b) => String(a.criado_em).localeCompare(String(b.criado_em)));
+        g.ultimo = g.itens[g.itens.length - 1];
+        g.desde = new Date(g.itens[0].criado_em).getTime();
+        g.classif = g.itens.map(i => i.classificacao || 'indefinido').sort((a, b) => (ordem[a] ?? 5) - (ordem[b] ?? 5))[0];
+        const info = _rsCtx.leads[g.k] || {};
+        g.nome = g.itens.map(i => i.lead_nome).find(Boolean) || info.title || formatPhoneBR(g.ultimo.phone);
+        g.campanha = _rsCtx.camp[g.ultimo.campanha_id || info.campanha_id] || '';
+        g.interessado = g.classif === 'quente' || g.classif === 'duvida';
+        g.vazio = g.itens.every(i => rsTextoVazio(i.mensagem_recebida));
+        const comTexto = g.itens.filter(i => !rsTextoVazio(i.mensagem_recebida));
+        const robosN = comTexto.filter(i => rsEhRobo(i.mensagem_recebida)).length;
+        // robô: todas as mensagens com texto são automáticas (ou o servidor já marcou como menu)
+        g.robo = !g.interessado && (g.classif === 'menu' || (robosN > 0 && robosN === comTexto.length) || (!!info.resposta_suspeita_bot && robosN > 0));
+        g.secao = g.interessado ? 'interessados' : g.robo ? 'robos' : 'pessoas';
+        return g;
+    }).sort((a, b) => (ordem[a.classif] ?? 5) - (ordem[b.classif] ?? 5) || a.desde - b.desde);
+}
+function rsEspera(ms) {
+    const min = Math.max(0, Math.round((Date.now() - ms) / 60000));
+    if (min < 60) return min + ' min';
+    const h = Math.floor(min / 60);
+    if (h < 24) return h + 'h' + (min % 60 ? String(min % 60).padStart(2, '0') : '');
+    const d = Math.floor(h / 24);
+    return d + (d === 1 ? ' dia' : ' dias');
+}
+
+// Conversa, nome do lead, campanha e a 1ª mensagem que mandamos (para o card ter contexto)
+async function rsCarregarContexto() {
+    if (!currentUser || !_filaSugestoesCache.length) return;
+    const fones = Array.from(new Set(_filaSugestoesCache.map(i => i.phone).filter(Boolean)));
+    const variantes = Array.from(new Set(fones.flatMap(f => { const d = String(f).replace(/\D/g, ''); const t = rsTel(d); return [d, t, '55' + t]; })));
+    try {
+        const [hist, leads, camps] = await Promise.all([
+            supabaseClient.from('respostas_historico').select('phone,direcao,mensagem,criado_em').eq('user_id', currentUser.id).in('phone', variantes).order('criado_em', { ascending: true }).limit(2000),
+            supabaseClient.from('leads').select('phone,title,campanha_id,resposta_suspeita_bot').eq('user_id', currentUser.id).in('phone', variantes).limit(2000),
+            supabaseClient.from('campanhas').select('id,nome').eq('user_id', currentUser.id).limit(2000),
+        ]);
+        const h = {}, l = {}, c = {};
+        (hist.data || []).forEach(m => { (h[rsTel(m.phone)] = h[rsTel(m.phone)] || []).push(m); });
+        (leads.data || []).forEach(x => { l[rsTel(x.phone)] = x; });
+        (camps.data || []).forEach(x => { c[x.id] = x.nome; });
+        _rsCtx.hist = h; _rsCtx.leads = l; _rsCtx.camp = c;
+    } catch (e) { console.warn('Respostas: contexto', e && e.message); }
+    try {
+        const st = await iaStatusGeral();
+        const e = {};
+        (st.rows || []).forEach(r => { if (r.status === 'enviado' && r.mensagem) e[rsTel(r.phone)] = r.mensagem; });
+        _rsCtx.enviada = e;
+    } catch (e) {}
+}
+
+function rsBolhas(g) {
+    const box = prEl('div', 'pk-conversa rs-conversa');
+    const primeira = _rsCtx.enviada[g.k];
+    if (primeira) {
+        const b = prEl('div', 'pk-bolha eu rs-primeira');
+        b.appendChild(prEl('div', '', primeira));
+        b.appendChild(prEl('small', '', 'Você · mensagem da campanha'));
+        box.appendChild(b);
+    }
+    let msgs = (_rsCtx.hist[g.k] || []).slice(-8);
+    if (!msgs.some(m => m.direcao === 'recebida')) msgs = g.itens.map(i => ({ direcao: 'recebida', mensagem: i.mensagem_recebida, criado_em: i.criado_em }));
+    msgs.forEach(m => {
+        const eu = m.direcao === 'enviada';
+        const b = prEl('div', 'pk-bolha ' + (eu ? 'eu' : 'ele'));
+        if (!eu && rsTextoVazio(m.mensagem)) b.appendChild(prEl('div', 'rs-midia', '🎤 Mandou áudio, foto ou figurinha. Veja no WhatsApp.'));
+        else b.appendChild(prEl('div', '', String(m.mensagem || '')));
+        b.appendChild(prEl('small', '', (eu ? 'Você' : 'Lead') + ' · ' + new Date(m.criado_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })));
+        box.appendChild(b);
+    });
+    setTimeout(() => { box.scrollTop = box.scrollHeight; }, 0);
+    return box;
+}
+
+// Trava: sugestão com [colchetes] não sai até alguém preencher
+function rsChecarTexto(ta, aviso, btn) {
+    const tem = /\[[^\]\n]{1,40}\]/.test(ta.value);
+    ta.classList.toggle('rs-alerta', tem);
+    aviso.hidden = !tem;
+    if (btn) btn.disabled = tem || !ta.value.trim();
+}
+
+function rsCard(g) {
+    const info = CLASSIFICACAO_INFO[g.classif] || CLASSIFICACAO_INFO.indefinido;
+    const card = prEl('div', 'fila-card rs-card' + (g.interessado ? ' quente' : ''));
+    const topo = prEl('div', 'rs-topo-card');
+    const quem = prEl('div', 'rs-quem');
+    quem.appendChild(prEl('strong', '', g.nome));
+    quem.appendChild(prEl('span', 'rs-tel', (g.nome === formatPhoneBR(g.ultimo.phone) ? 'sem nome' : formatPhoneBR(g.ultimo.phone)) + (g.campanha ? ' · ' + g.campanha : '') + (g.itens.length > 1 ? ' · ' + g.itens.length + ' mensagens' : '')));
+    const tags = prEl('div', 'rs-tags');
+    const tag = prEl('span', 'rs-classe', info.emoji + ' ' + info.label);
+    tag.style.background = info.bg; tag.style.color = info.cor;
+    const min = (Date.now() - g.desde) / 60000;
+    const espera = prEl('span', 'rs-espera' + (min > RS_ESPERA_ALERTA_MIN ? ' atrasado' : ''), '⏱ esperando há ' + rsEspera(g.desde));
+    tags.append(tag, espera);
+    topo.append(quem, tags);
+    card.appendChild(topo);
+    card.appendChild(rsBolhas(g));
+
+    if (g.classif === 'menu' || g.robo) card.appendChild(prEl('div', 'rs-dica', '🤖 Robô de atendimento da empresa. A sugestão tenta chegar no comercial ou no responsável.'));
+
+    const ta = document.createElement('textarea');
+    ta.id = 'fila-texto-' + g.ultimo.id;
+    ta.className = 'rs-texto';
+    ta.value = g.vazio ? '' : (g.ultimo.sugestao_ia || '');
+    ta.placeholder = g.vazio ? 'Ele mandou áudio, foto ou figurinha. Veja no WhatsApp e, se quiser, escreva a resposta aqui.' : 'Sugestão da IA…';
+    const aviso = prEl('div', 'rs-aviso', '✏️ Tem um trecho entre [colchetes] para preencher antes de enviar.');
+    aviso.hidden = true;
+    card.append(ta, aviso);
+
+    const acoes = prEl('div', 'rs-acoes');
+    const enviar = prEl('button', 'rs-btn verde', '✅ Enviar resposta');
+    enviar.onclick = () => rsEnviar(g, enviar);
+    if (g.interessado) {
+        const ja = prEl('button', 'rs-btn', '✓ Já respondi pelo WhatsApp');
+        ja.onclick = () => rsMarcar(g, 'respondido_fora');
+        const nao = prEl('button', 'rs-btn', 'Não tem interesse');
+        nao.onclick = () => rsSemInteresse(g);
+        acoes.append(ja, nao, enviar);
+    } else if (g.classif === 'pare') {
+        const nc = prEl('button', 'rs-btn vermelho', '🚫 Não contatar mais');
+        nc.onclick = () => rsNaoContatar(g, true);
+        acoes.append(nc, enviar);
+    } else {
+        const desc = prEl('button', 'rs-btn', 'Descartar');
+        desc.onclick = () => rsDescartar(g);
+        acoes.append(desc, enviar);
+    }
+    card.appendChild(acoes);
+    ta.oninput = () => rsChecarTexto(ta, aviso, enviar);
+    rsChecarTexto(ta, aviso, enviar);
+
+    // Ações rápidas
+    const rap = prEl('div', 'rs-rapidas');
+    const wa = prEl('a', 'rs-link', '💬 Abrir no WhatsApp');
+    wa.href = '#';
+    wa.onclick = e => { e.preventDefault(); window.open('https://wa.me/' + formatPhoneBR(g.ultimo.phone) + (ta.value.trim() ? '?text=' + encodeURIComponent(ta.value.trim()) : ''), '_blank'); };
+    const ret = prEl('button', 'rs-link', '⏰ Retomar depois');
+    const reu = prEl('button', 'rs-link', '📅 Marcar reunião');
+    rap.append(wa, ret, reu);
+    if (g.classif !== 'pare') { const nc = prEl('button', 'rs-link', '🚫 Não contatar'); nc.onclick = () => rsNaoContatar(g, false); rap.appendChild(nc); }
+    card.appendChild(rap);
+    const painel = prEl('div', 'rs-painel');
+    painel.hidden = !_rsAbertos[g.k];
+    const abrir = tipo => {
+        _rsAbertos[g.k] = _rsAbertos[g.k] === tipo ? null : tipo;
+        painel.hidden = !_rsAbertos[g.k];
+        rsPintarPainel(painel, g, _rsAbertos[g.k]);
+    };
+    ret.onclick = () => abrir('retomar');
+    reu.onclick = () => abrir('reuniao');
+    if (_rsAbertos[g.k]) rsPintarPainel(painel, g, _rsAbertos[g.k]);
+    card.appendChild(painel);
+    return card;
+}
+function rsPintarPainel(painel, g, tipo) {
+    painel.innerHTML = '';
+    if (!tipo) return;
+    if (tipo === 'retomar') {
+        painel.appendChild(prEl('div', 'rs-painel-tit', 'Quando retomar? No dia, ele aparece no Painel.'));
+        const linha = prEl('div', 'rs-painel-linha');
+        [[1, 'Amanhã'], [3, '3 dias'], [7, '1 semana']].forEach(([d, t]) => {
+            const b = prEl('button', 'ps-sug sin', t);
+            b.onclick = () => { const q = new Date(); q.setDate(q.getDate() + d); q.setHours(9, 0, 0, 0); rsPipeline(g, l => { l.proximaAcaoEm = q.getTime(); l.proximaAcaoTxt = l.proximaAcaoTxt || 'Retomar conversa'; }, '⏰ Lembrete para ' + q.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })); };
+            linha.appendChild(b);
+        });
+        painel.appendChild(linha);
+    } else {
+        painel.appendChild(prEl('div', 'rs-painel-tit', 'Dia e hora da reunião. O lead vai para Negociando no Pipeline.'));
+        const linha = prEl('div', 'rs-painel-linha');
+        const inp = document.createElement('input'); inp.type = 'datetime-local';
+        const ok = prEl('button', 'rs-btn verde', 'Marcar');
+        ok.onclick = () => {
+            if (!inp.value) { showToast('Escolha o dia e a hora', 'err'); return; }
+            const quando = new Date(inp.value).getTime();
+            rsPipeline(g, l => { l.reuniaoEm = quando; l.reuniaoMarcada = true; if (['novo', 'contatado', 'respondeu'].includes(l.col)) { l.col = 'negociando'; l.movedAt = Date.now(); } },
+                '📅 Reunião marcada para ' + new Date(quando).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }));
+        };
+        linha.append(inp, ok);
+        painel.appendChild(linha);
+    }
+}
+// Acha (ou cria) o lead no Pipeline e aplica a mudança, sempre partindo da versão da nuvem.
+async function rsPipeline(g, mudar, aviso) {
+    try {
+        await pkSincronizarDaNuvem();
+        pkLoad();
+        let l = pkLeads.find(x => pkTel(x.phone) === g.k);
+        if (!l) {
+            const info = _rsCtx.leads[g.k] || {};
+            l = { id: Date.now() + Math.random(), name: g.nome, cat: '', phone: formatPhoneBR(g.ultimo.phone), website: '', rating: 0, reviews: 0, col: 'respondeu', dias: 0, movedAt: Date.now(), nota: '' };
+            if (info.title && !l.name) l.name = info.title;
+            pkLeads.push(l);
+        }
+        mudar(l);
+        pkSave();
+        _rsAbertos[g.k] = null;
+        renderizarFilaSugestoes();
+        if (aviso) showToast(aviso, 'ok');
+    } catch (e) { showToast('❌ Não consegui salvar no Pipeline: ' + (e && e.message), 'err'); }
+}
+
+async function rsAtualizarStatus(ids, status) {
+    const { error } = await supabaseClient.from('fila_sugestoes').update({ status, respondido_em: status === 'pendente' ? null : new Date().toISOString() }).in('id', ids);
+    if (error) throw error;
+}
+function rsTirarDaFila(g) {
+    const ids = new Set(g.itens.map(i => i.id));
+    _filaSugestoesCache = _filaSugestoesCache.filter(i => !ids.has(i.id));
+    delete _rsAbertos[g.k];
+    renderizarFilaSugestoes();
+    atualizarBadgeRespostas();
+}
+async function rsEnviar(g, btn) {
+    const ta = document.getElementById('fila-texto-' + g.ultimo.id);
+    const texto = (ta?.value || '').trim();
+    if (!texto) { showToast('Escreva a resposta antes de enviar', 'err'); return; }
+    if (/\[[^\]\n]{1,40}\]/.test(texto)) { showToast('Preencha o trecho entre [colchetes] antes de enviar', 'err'); return; }
+    btn.disabled = true; btn.textContent = 'Enviando…';
+    try {
+        const res = await fetch(`${N8N_BASE}/responder-fila`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filaId: g.ultimo.id, userId: currentUser.id, acao: 'enviar', texto })
+        });
+        const data = await res.json();
+        if (!data.ok) throw new Error(data.erro || 'desconhecido');
+        const outros = g.itens.filter(i => i.id !== g.ultimo.id).map(i => i.id);
+        if (outros.length) await rsAtualizarStatus(outros, 'agrupado').catch(() => {});
+        showToast('Resposta enviada ✅', 'ok');
+        rsTirarDaFila(g);
+    } catch (e) {
+        showToast('Erro ao enviar: ' + (e && e.message), 'err');
+        btn.disabled = false; btn.textContent = '✅ Enviar resposta';
+    }
+}
+async function rsDescartar(g) {
+    await Promise.all(g.itens.map(i => fetch(`${N8N_BASE}/responder-fila`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filaId: i.id, userId: currentUser.id, acao: 'descartar' })
+    }).catch(() => {})));
+    rsTirarDaFila(g);
+    showToast('Descartado. Dá para desfazer em "Respondidas e descartadas".', 'ok');
+}
+async function rsMarcar(g, status) {
+    try {
+        await rsAtualizarStatus(g.itens.map(i => i.id), status);
+        rsTirarDaFila(g);
+        if (status === 'respondido_fora') rsPipeline(g, l => { if (['novo', 'contatado'].includes(l.col)) { l.col = 'respondeu'; l.movedAt = Date.now(); } }, '✓ Marcado como respondido no WhatsApp');
+    } catch (e) { showToast('❌ Não consegui salvar: ' + (e && e.message), 'err'); }
+}
+function rsSemInteresse(g) {
+    let m = document.getElementById('rs-motivo-modal');
+    if (!m) {
+        m = document.createElement('div'); m.id = 'rs-motivo-modal'; m.className = 'nc-modal';
+        m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true');
+        m.addEventListener('click', e => { if (e.target === m) m.hidden = true; });
+        document.body.appendChild(m);
+    }
+    m.innerHTML = '';
+    const cx = prEl('div', 'nc-caixa');
+    cx.appendChild(prEl('h3', '', 'Por que ' + g.nome + ' não tem interesse?'));
+    cx.appendChild(prEl('p', 'ph-linha', 'O lead vai para Perdido no Pipeline com esse motivo.'));
+    const lista = prEl('div', 'pk-motivos');
+    PK_MOTIVOS.forEach(([k, n]) => {
+        const b = prEl('button', 'ps-sug sin', n);
+        b.type = 'button';
+        b.onclick = async () => {
+            m.hidden = true;
+            try {
+                await rsAtualizarStatus(g.itens.map(i => i.id), 'sem_interesse');
+                rsTirarDaFila(g);
+                rsPipeline(g, l => { l.col = 'descartado'; l.motivoPerda = k; l.movedAt = Date.now(); }, 'Movido para Perdido: ' + n);
+            } catch (e) { showToast('❌ Não consegui salvar: ' + (e && e.message), 'err'); }
+        };
+        lista.appendChild(b);
+    });
+    cx.appendChild(lista);
+    const cancelar = prEl('button', 'ps-acao', 'Cancelar');
+    cancelar.type = 'button'; cancelar.style.marginTop = '12px';
+    cancelar.onclick = () => { m.hidden = true; };
+    cx.appendChild(cancelar);
+    m.appendChild(cx);
+    m.hidden = false;
+}
+async function rsNaoContatar(g, descartarJunto) {
+    try {
+        const tel = formatPhoneBR(g.ultimo.phone);
+        await carregarNaoContatar(true);
+        if (!bloqueadoLead({ phone: tel })) {
+            const { error } = await supabaseClient.from('nao_contatar').insert({ user_id: currentUser.id, phone: tel, nome: g.nome || null, motivo: 'marcado em Respostas' });
+            if (error) throw error;
+            await carregarNaoContatar(true);
+        }
+        if (descartarJunto) await rsDescartar(g);
+        showToast('🚫 ' + g.nome + ' não recebe mais campanha nem follow-up', 'ok');
+    } catch (e) { showToast('❌ Não consegui salvar: ' + (e && e.message), 'err'); }
+}
+async function rsDescartarRobos() {
+    const robos = rsGrupos().filter(g => g.secao === 'robos');
+    if (!robos.length || !confirm('Descartar as ' + robos.length + ' conversas com robô de atendimento? Interessados e dúvidas nunca entram aqui.')) return;
+    for (const g of robos) await rsDescartar(g);
+    showToast('🤖 ' + robos.length + ' conversas com robô descartadas', 'ok');
+}
+
+// Lista de pendentes, separada em Interessados / Outras pessoas / Robôs
 function renderizarFilaSugestoes() {
     const lista = document.getElementById('fila-respostas-lista');
     const vazio = document.getElementById('fila-respostas-vazia');
     if (!lista) return;
-
+    rsPintarTopo();
+    if (_rsAba !== 'pendentes') { lista.innerHTML = ''; if (vazio) vazio.style.display = 'none'; return; }
     if (!_filaSugestoesCache.length) {
         lista.innerHTML = '';
         if (vazio) vazio.style.display = 'flex';
         return;
     }
     if (vazio) vazio.style.display = 'none';
+    lista.innerHTML = '';
+    const grupos = rsGrupos();
+    const secoes = [
+        ['interessados', '🔥 Interessados', 'Responda primeiro: cada minuto conta.'],
+        ['pessoas', '💬 Outras pessoas', ''],
+        ['robos', '🤖 Robôs de atendimento', 'Menus e mensagens automáticas das empresas.'],
+    ];
+    secoes.forEach(([id, tit, sub]) => {
+        const gs = grupos.filter(g => g.secao === id);
+        if (!gs.length) return;
+        const sec = document.createElement(id === 'robos' ? 'details' : 'section');
+        sec.className = 'rs-secao';
+        const cab = prEl(id === 'robos' ? 'summary' : 'div', 'rs-secao-tit');
+        cab.appendChild(prEl('span', '', tit + ' (' + gs.length + ')'));
+        if (sub) cab.appendChild(prEl('small', '', sub));
+        sec.appendChild(cab);
+        if (id === 'robos') {
+            const b = prEl('button', 'rs-btn', 'Descartar todos os robôs (' + gs.length + ')');
+            b.onclick = rsDescartarRobos;
+            const barra = prEl('div', 'rs-robos-barra');
+            barra.appendChild(b);
+            sec.appendChild(barra);
+        }
+        gs.forEach(g => sec.appendChild(rsCard(g)));
+        lista.appendChild(sec);
+    });
+}
 
-    lista.innerHTML = _filaSugestoesCache.map(item => {
-        const info = CLASSIFICACAO_INFO[item.classificacao] || CLASSIFICACAO_INFO.indefinido;
-        const dataFmt = item.criado_em ? new Date(item.criado_em).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
-        return `
-        <div class="fila-card" style="background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <strong style="font-size:0.92rem;">${(item.lead_nome || item.phone || 'Lead')}</strong>
-                    <span style="font-size:0.75rem;color:var(--text-muted,#888);">${formatPhoneBR ? formatPhoneBR(item.phone) : item.phone}</span>
-                </div>
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <span style="font-size:0.68rem;font-weight:700;padding:3px 9px;border-radius:20px;background:${info.bg};color:${info.cor};">${info.emoji} ${info.label}</span>
-                    <span style="font-size:0.68rem;color:var(--text-muted,#888);">${dataFmt}</span>
-                </div>
-            </div>
-            ${(item.variante_ab || item.gatilho_cta) ? `
-            <div style="display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;">
-                ${item.variante_ab ? `<span style="font-size:0.6rem;font-weight:700;padding:2px 8px;border-radius:20px;background:#EBF0FF;color:#165DFF;">Variante ${item.variante_ab.toUpperCase()}</span>` : ''}
-                ${item.gatilho_cta ? `<span style="font-size:0.6rem;font-weight:700;padding:2px 8px;border-radius:20px;background:#FFF3E0;color:#FF6A00;">Gatilho: ${item.gatilho_cta}</span>` : ''}
-            </div>` : ''}
-            <div style="background:#f8fafc;border-radius:10px;padding:10px 12px;margin-bottom:10px;font-size:0.85rem;color:#334155;white-space:pre-line;max-height:220px;overflow:auto;">
-                <strong style="font-size:0.7rem;color:#64748b;display:block;margin-bottom:3px;">${item.classificacao === 'menu' ? 'ROBÔ DE ATENDIMENTO DA EMPRESA' : 'MENSAGEM DO LEAD'}</strong>${escapeHtml(item.mensagem_recebida || '')}
-            </div>
-            ${item.classificacao === 'menu' ? `<div style="font-size:0.72rem;color:#0f766e;margin:-4px 0 8px;">🤖 A empresa respondeu com um robô. A sugestão escolhe o caminho até o comercial ou o responsável; confira e envie para chegar numa pessoa.</div>` : ''}
-            <textarea id="fila-texto-${item.id}" style="width:100%;min-height:70px;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:0.85rem;font-family:'Inter',sans-serif;resize:vertical;background:var(--surface);color:var(--text);" placeholder="Sugestão da IA...">${escapeHtml(item.sugestao_ia || '')}</textarea>
-            <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end;">
-                <button onclick="descartarSugestao(${item.id})" style="padding:8px 14px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:#64748b;font-size:0.78rem;font-weight:600;cursor:pointer;">Descartar</button>
-                <button onclick="enviarSugestao(${item.id})" style="padding:8px 16px;border-radius:8px;border:none;background:#16a34a;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;">✅ Enviar resposta</button>
-            </div>
-        </div>`;
-    }).join('');
+// Topo: placar de hoje + abas Pendentes / Respondidas e descartadas
+var _rsHistCache = null;
+function rsPintarTopo() {
+    const topo = document.getElementById('rs-topo');
+    if (!topo) return;
+    topo.innerHTML = '';
+    const abas = prEl('div', 'rs-abas');
+    const n = rsGrupos().length;
+    [['pendentes', 'Pendentes' + (n ? ' (' + n + ')' : '')], ['historico', 'Respondidas e descartadas']].forEach(([k, t]) => {
+        const b = prEl('button', 'rs-aba' + (_rsAba === k ? ' ativa' : ''), t);
+        b.onclick = () => { _rsAba = k; renderizarFilaSugestoes(); rsPintarHistorico(); };
+        abas.appendChild(b);
+    });
+    topo.appendChild(abas);
+    const placar = prEl('div', 'rs-placar');
+    const h = _rsHistCache;
+    if (h) {
+        const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+        const resp = h.filter(i => ['enviado', 'respondido_fora'].includes(i.status) && i.respondido_em && new Date(i.respondido_em) >= hoje);
+        const tempos = resp.map(i => (new Date(i.respondido_em) - new Date(i.criado_em)) / 60000).filter(x => x >= 0).sort((a, b) => a - b);
+        const med = tempos.length ? tempos[Math.floor(tempos.length / 2)] : null;
+        const nConv = new Set(resp.map(i => rsTel(i.phone))).size;
+        placar.textContent = resp.length
+            ? `Hoje: ${nConv} conversa${nConv === 1 ? '' : 's'} respondida${nConv === 1 ? '' : 's'} · tempo de resposta ${med < 60 ? Math.round(med) + ' min' : (med / 60).toFixed(1).replace('.', ',') + ' h'}`
+            : 'Hoje: nenhuma resposta ainda';
+    }
+    topo.appendChild(placar);
+    const hist = document.getElementById('rs-historico');
+    if (hist) hist.hidden = _rsAba !== 'historico';
+    const fu = document.getElementById('fila-followups-secao');
+    if (fu) fu.classList.toggle('rs-escondido', _rsAba !== 'pendentes');
+}
+async function rsCarregarHistorico() {
+    if (!currentUser) return;
+    try {
+        const desde = new Date(Date.now() - 7 * 86400000).toISOString();
+        const { data, error } = await supabaseClient.from('fila_sugestoes').select('id,phone,lead_nome,classificacao,mensagem_recebida,status,criado_em,respondido_em')
+            .eq('user_id', currentUser.id).neq('status', 'pendente').gte('criado_em', desde).order('criado_em', { ascending: false }).limit(1000);
+        if (error) throw error;
+        _rsHistCache = data || [];
+    } catch (e) { _rsHistCache = _rsHistCache || []; }
+    rsPintarTopo();
+    rsPintarHistorico();
+}
+function rsPintarHistorico() {
+    const box = document.getElementById('rs-historico');
+    if (!box || _rsAba !== 'historico') return;
+    box.innerHTML = '';
+    const h = _rsHistCache || [];
+    const cont = s => new Set(h.filter(i => s.includes(i.status)).map(i => rsTel(i.phone))).size;   // conversas, não mensagens
+    const tempos = h.filter(i => ['enviado', 'respondido_fora'].includes(i.status) && i.respondido_em).map(i => (new Date(i.respondido_em) - new Date(i.criado_em)) / 60000).sort((a, b) => a - b);
+    const med = tempos.length ? tempos[Math.floor(tempos.length / 2)] : null;
+    const placar = prEl('div', 'rs-placar-semana');
+    [[cont(['enviado', 'respondido_fora']), 'respondidas'], [cont(['descartado']), 'descartadas'], [cont(['sem_interesse']), 'sem interesse'],
+     [med == null ? '—' : med < 60 ? Math.round(med) + ' min' : (med / 60).toFixed(1).replace('.', ',') + ' h', 'tempo típico de resposta']].forEach(([v, t]) => {
+        const c = prEl('div', 'rs-num');
+        c.appendChild(prEl('b', '', String(v)));
+        c.appendChild(prEl('span', '', t));
+        placar.appendChild(c);
+    });
+    box.appendChild(prEl('div', 'rs-secao-tit', 'Últimos 7 dias'));
+    box.appendChild(placar);
+    // um item por conversa (o mais recente), sem os "respondida junto"
+    const vistos = new Set();
+    const itens = h.filter(i => i.status !== 'agrupado').filter(i => { const k = rsTel(i.phone) + '|' + i.status; if (vistos.has(k)) return false; vistos.add(k); return true; });
+    if (!itens.length) { box.appendChild(prEl('div', 'ph-mudo', 'Nada respondido ou descartado nos últimos 7 dias.')); return; }
+    const lista = prEl('div', 'rs-hist-lista');
+    itens.slice(0, 150).forEach(i => {
+        const info = CLASSIFICACAO_INFO[i.classificacao] || CLASSIFICACAO_INFO.indefinido;
+        const li = prEl('div', 'rs-hist-item' + ((i.classificacao === 'quente' || i.classificacao === 'duvida') && i.status === 'descartado' ? ' perigo' : ''));
+        const t = prEl('div', 'rs-hist-txt');
+        t.appendChild(prEl('strong', '', (i.lead_nome || formatPhoneBR(i.phone)) + ' '));
+        t.appendChild(prEl('span', 'rs-hist-meta', info.emoji + ' ' + info.label + ' · ' + (RS_STATUS[i.status] || i.status) + ' · ' + new Date(i.criado_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })));
+        t.appendChild(prEl('div', 'rs-hist-msg', rsTextoVazio(i.mensagem_recebida) ? '🎤 áudio, foto ou figurinha' : String(i.mensagem_recebida).replace(/\s+/g, ' ').slice(0, 140)));
+        li.appendChild(t);
+        if (i.status !== 'enviado') {
+            const b = prEl('button', 'rs-btn', '↩ Voltar para a fila');
+            b.onclick = async () => {
+                b.disabled = true;
+                try {
+                    const ids = h.filter(x => rsTel(x.phone) === rsTel(i.phone) && x.status === i.status).map(x => x.id);
+                    await rsAtualizarStatus(ids, 'pendente');
+                    showToast('↩ ' + (i.lead_nome || 'Conversa') + ' voltou para a fila', 'ok');
+                    await carregarFilaSugestoes();
+                    rsCarregarHistorico();
+                } catch (e) { b.disabled = false; showToast('❌ Não consegui: ' + (e && e.message), 'err'); }
+            };
+            li.appendChild(b);
+        }
+        lista.appendChild(li);
+    });
+    box.appendChild(lista);
 }
 
 function escapeHtml(str) {
@@ -3689,6 +4115,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <!-- RESPOSTAS (fila de aprovação IA) -->
         <div class="tab-content" id="tab-respostas">
+            <div id="rs-topo" class="rs-topo"></div>
             <div id="fila-followups-secao" style="display:none;margin-bottom:22px;">
                 <h3 style="font-size:0.85rem;font-weight:800;color:#FF6A00;margin:0 0 10px;">📅 Follow-ups prontos pra disparar</h3>
                 <div id="fila-followups-lista" style="display:flex;flex-direction:column;gap:14px;"></div>
@@ -3699,6 +4126,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <p>Quando um lead responder, a IA vai gerar uma sugestão aqui pra você aprovar ou editar antes de enviar.</p>
             </div>
             <div id="fila-respostas-lista" style="display:flex;flex-direction:column;gap:14px;padding:4px 2px 20px;"></div>
+            <div id="rs-historico" class="rs-historico" hidden></div>
         </div>
 
         <!-- IA -->
@@ -3930,6 +4358,59 @@ document.addEventListener('DOMContentLoaded', () => {
             .ia-lib-item { display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-top:1px solid var(--border); }
             .ia-link { background:none; border:none; color:#FF6A00; cursor:pointer; font-size:0.62rem; font-weight:600; text-decoration:underline; width:auto; padding:0; }
             .ia-ab-box { max-height:60vh; overflow:auto; margin-bottom:6px; }
+            /* Respostas */
+            .rs-topo { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+            .rs-abas { display:flex; gap:6px; flex-wrap:wrap; }
+            .rs-aba { width:auto; padding:7px 14px; border-radius:99px; border:1.5px solid var(--border); background:var(--surface); color:var(--muted); font-size:0.78rem; font-weight:600; cursor:pointer; }
+            .rs-aba.ativa { border-color:#FF6A00; background:#FFF3E0; color:#FF6A00; }
+            .rs-placar { font-size:0.76rem; color:var(--muted); }
+            .rs-escondido { display:none !important; }
+            .rs-secao { display:flex; flex-direction:column; gap:12px; margin-bottom:18px; }
+            .rs-secao-tit { font-size:0.88rem; font-weight:800; color:var(--text); display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; cursor:default; }
+            details.rs-secao > summary { cursor:pointer; list-style:revert; }
+            .rs-secao-tit small { font-weight:500; color:var(--muted); font-size:0.72rem; }
+            .rs-robos-barra { display:flex; justify-content:flex-end; }
+            .rs-card { background:var(--surface); border:1.5px solid var(--border); border-radius:14px; padding:14px 16px; display:flex; flex-direction:column; gap:10px; }
+            .rs-card.quente { border-color:#fca5a5; box-shadow:0 0 0 3px rgba(220,38,38,.06); }
+            .rs-topo-card { display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap; align-items:flex-start; }
+            .rs-quem { display:flex; flex-direction:column; min-width:0; }
+            .rs-quem strong { font-size:0.92rem; }
+            .rs-tel { font-size:0.72rem; color:var(--muted); }
+            .rs-tags { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+            .rs-classe { font-size:0.68rem; font-weight:700; padding:3px 9px; border-radius:20px; }
+            .rs-espera { font-size:0.68rem; font-weight:600; color:var(--muted); background:var(--surface2); padding:3px 9px; border-radius:20px; }
+            .rs-espera.atrasado { background:#fee2e2; color:#b91c1c; }
+            .rs-conversa { max-height:240px; overflow-y:auto; margin:0; }
+            .rs-primeira { opacity:.75; }
+            .rs-midia { font-style:italic; color:#475569; }
+            .rs-dica { font-size:0.72rem; color:#0f766e; }
+            .rs-texto { width:100%; min-height:70px; padding:10px 12px; border:1.5px solid var(--border); border-radius:10px; font-size:0.85rem; font-family:'Inter',sans-serif; resize:vertical; background:var(--surface); color:var(--text); box-sizing:border-box; }
+            .rs-texto.rs-alerta { border-color:#f59e0b; background:#fffbeb; }
+            .rs-aviso { font-size:0.72rem; color:#b45309; margin-top:-4px; }
+            .rs-acoes { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; }
+            .rs-btn { width:auto; padding:8px 14px; border-radius:8px; border:1.5px solid var(--border); background:transparent; color:#475569; font-size:0.78rem; font-weight:600; cursor:pointer; }
+            .rs-btn.verde { border:none; background:#16a34a; color:#fff; font-weight:700; }
+            .rs-btn.vermelho { border-color:#fca5a5; color:#b91c1c; }
+            .rs-btn:disabled { opacity:.5; cursor:not-allowed; }
+            .rs-rapidas { display:flex; gap:14px; flex-wrap:wrap; border-top:1px dashed var(--border); padding-top:8px; }
+            .rs-link { width:auto; background:none; border:none; padding:0; font-size:0.74rem; color:#165DFF; font-weight:600; cursor:pointer; text-decoration:none; }
+            .rs-painel { background:var(--surface2); border-radius:10px; padding:10px 12px; }
+            .rs-painel-tit { font-size:0.72rem; color:var(--muted); margin-bottom:6px; }
+            .rs-painel-linha { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+            .rs-painel-linha input { width:auto; padding:7px 9px; border:1.5px solid var(--border); border-radius:8px; }
+            .rs-historico { display:flex; flex-direction:column; gap:12px; }
+            .rs-historico[hidden] { display:none !important; }
+            .rs-placar-semana { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+            .rs-num { background:var(--surface); border:1.5px solid var(--border); border-radius:12px; padding:10px 12px; display:flex; flex-direction:column; }
+            .rs-num b { font-size:1.15rem; }
+            .rs-num span { font-size:0.68rem; color:var(--muted); }
+            .rs-hist-lista { display:flex; flex-direction:column; gap:8px; }
+            .rs-hist-item { display:flex; gap:10px; align-items:center; justify-content:space-between; background:var(--surface); border:1.5px solid var(--border); border-radius:12px; padding:10px 12px; }
+            .rs-hist-item.perigo { border-color:#fca5a5; }
+            .rs-hist-txt { min-width:0; }
+            .rs-hist-meta { font-size:0.68rem; color:var(--muted); }
+            .rs-hist-msg { font-size:0.76rem; color:#475569; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+            @media (max-width:600px) { .rs-placar-semana { grid-template-columns:repeat(2,1fr); } .rs-hist-item { flex-direction:column; align-items:stretch; } .rs-acoes .rs-btn { flex:1 1 auto; } }
             /* Prévia em formato de iPhone com WhatsApp */
             #ia-message-preview-area.wa-on { background: var(--surface2) !important; align-items:center; gap:10px !important; }
             .ia-selo.wa-cripto { align-self:center; max-width:90%; background:#FFF3C4; border:none; color:#54656f; font-family:-apple-system,'Helvetica Neue',Arial,sans-serif; font-size:11px; text-align:center; border-radius:8px; padding:5px 10px; margin-bottom:8px; box-shadow:0 1px 1px rgba(0,0,0,.06); }
