@@ -1411,9 +1411,9 @@
                 <span id="spinner-login" style="display:none;width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;border-radius:50%;animation:girar-spinner .7s linear infinite;"></span>
                 <span id="txt-login">Entrar</span>
             </button>
-            <button onclick="fazerCadastro()" id="btn-cadastro" style="width:100%;padding:12px;background:#fff;color:#0D1330;border:1.5px solid #0D1330;border-radius:10px;font-weight:700;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
-                <span id="spinner-cadastro" style="display:none;width:14px;height:14px;border:2px solid rgba(13,19,48,0.25);border-top-color:#0D1330;border-radius:50%;animation:girar-spinner .7s linear infinite;"></span>
-                <span id="txt-cadastro">Criar conta</span>
+            <!-- Contas são criadas pelo painel admin; quem não tem acesso pede por aqui -->
+            <button onclick="pedirAcesso()" id="btn-cadastro" style="width:100%;padding:12px;background:#fff;color:#0D1330;border:1.5px solid #0D1330;border-radius:10px;font-weight:700;font-size:0.85rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+                <span id="txt-cadastro">Ainda não tenho acesso</span>
             </button>
 
             <div id="login-msg" style="font-size:0.7rem;text-align:center;margin-top:14px;min-height:16px;"></div>
@@ -1588,6 +1588,12 @@ async function fazerCadastro() {
     }
 }
 
+function pedirAcesso() {
+    const email = document.getElementById('login-email').value.trim();
+    let msg = 'Olá! Quero conhecer o Prospecta+ e ter um acesso.';
+    if (email) msg += ` Meu e-mail: ${email}`;
+    window.open(`https://wa.me/5511915117743?text=${encodeURIComponent(msg)}`, '_blank');
+}
 function esqueciSenha() {
     const email = document.getElementById('login-email').value.trim();
     const numeroSuporte = '5511915117743';
