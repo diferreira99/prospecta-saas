@@ -2023,6 +2023,7 @@ function iniciarAppPosLogin() {
                 <button type="button" class="ps-acao" id="ps-btn-cidade" onclick="mesmaBuscaOutraCidade()">🔁 Mesma busca em outra cidade</button>
                 <button type="button" class="ps-acao" id="ps-btn-fundo" onclick="buscarMaisFundo()" hidden>🔎 Buscar mais nesta cidade</button>
                 <button type="button" class="ps-acao" id="ps-btn-bloq" onclick="abrirNaoContatar()">🚫 Não contatar</button>
+                <button type="button" class="ps-acao" id="ps-btn-grupos" onclick="abrirGrupos('leads')">👥 Leads de grupos</button>
                 <span class="ps-acoes-dica" id="ps-acoes-dica"></span>
             </div>
             <div id="ps-bairros" class="ps-sugestoes ps-bairros" hidden></div>
@@ -4361,6 +4362,21 @@ document.addEventListener('DOMContentLoaded', () => {
             .wa-aviso[hidden] { display:none !important; }
             .wa-aviso button { width:auto; background:#b91c1c; color:#fff; border:none; border-radius:8px; padding:7px 14px; font-weight:700; cursor:pointer; }
             .cp-st.leu { background:#e0f2fe; color:#075985; }
+            .grp-modal { max-width:620px; }
+            .grp-corpo { max-height:60vh; overflow-y:auto; margin:8px 0; }
+            .grp-resumo { font-size:0.74rem; color:var(--muted); margin-bottom:8px; }
+            .grp-lista { display:flex; flex-direction:column; gap:6px; }
+            .grp-item { display:flex; align-items:center; gap:10px; padding:9px 10px; border:1.5px solid var(--border); border-radius:10px; cursor:pointer; }
+            .grp-item input { width:18px; height:18px; flex-shrink:0; accent-color:#FF6A00; }
+            .grp-txt { flex:1; min-width:0; display:flex; flex-direction:column; }
+            .grp-txt b { font-size:0.84rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+            .grp-txt small { font-size:0.68rem; color:var(--muted); }
+            .grp-inbox { width:auto; flex-shrink:0; padding:5px 10px; border-radius:99px; border:1px solid var(--border); background:transparent; font-size:0.7rem; font-weight:600; color:var(--muted); cursor:pointer; }
+            .grp-inbox.ligado { background:#d9fdd3; border-color:#25d366; color:#0b5e3a; }
+            .grp-alerta { font-size:0.7rem; color:#92400e; background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:8px 10px; margin-top:10px; line-height:1.45; }
+            .inbox-grupos-escolher { width:calc(100% - 20px); margin:8px 10px; padding:8px; border-radius:8px; border:1px dashed #94a3b8; background:#fff; color:#54656f; font-size:0.74rem; font-weight:600; cursor:pointer; }
+            .inbox-avatar.grupo { background:#e7f3ef; font-size:1rem; }
+            .inbox-bubble-autor { font-size:0.66rem; font-weight:700; color:#0b7a5a; margin-bottom:2px; }
             .inbox-chat-header > div:not([class]):not([style]) { min-width:0; flex:1; }
             .inbox-chat-phone { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
             .inbox-chat-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -7983,7 +7999,7 @@ function iaPromptServidor(lead, promptLivre, variant, gatilhoTipo) {
     if (elogio) ctx += '\n- Um cliente escreveu no Google (nota ' + elogio.nota + '): "' + String(elogio.texto).replace(/\s+/g, ' ').slice(0, 240) + '"';
     if (neg) ctx += '\n- Avaliações negativas (1 e 2 estrelas): ' + neg;
     const regrasAval = ctx ? '\nSOBRE AS AVALIAÇÕES: se houver elogio de cliente, você pode citar o ponto elogiado de forma natural e curta (ex.: "vi que seus clientes elogiam o atendimento"), sem copiar o texto e sem dizer quem escreveu. Nunca mencione avaliações negativas nem critique a empresa; use-as só para entender o que pode ser uma dor dela.' : '';
-    return 'Você é especialista em prospecção B2B via WhatsApp.\n\nINSTRUÇÕES:\n' + (promptLivre || 'Apresente nossa empresa e peça uma reunião rápida.') + '\n\nLEAD:\n- Empresa: ' + (lead.title || 'Empresa') + '\n- Categoria: ' + (lead.category || 'Negócio local') + '\n- Endereço: ' + (lead.address || 'Não informado') + '\n- Avaliação: ' + (lead.rating ? lead.rating + ' estrelas' : 'Não informado') + ctx + '\n\nCrie UMA mensagem de primeiro contato para WhatsApp.\nREGRAS (variante ' + variant + ', gatilho ' + gatilho.tipo + '): ' + regrasFormato + '\nAdapte para este lead específico. Não copie os exemplos de frase ao pé da letra, apenas se inspire neles.' + regrasAval + '\nRetorne APENAS o texto, sem títulos, sem aspas.\nEscreva em Português do Brasil.';
+    return 'Você é especialista em prospecção B2B via WhatsApp.\n\nINSTRUÇÕES:\n' + (promptLivre || 'Apresente nossa empresa e peça uma reunião rápida.') + '\n\nLEAD:\n- Empresa: ' + (lead.title || (lead.origemGrupo ? 'nome desconhecido (não use nome na saudação)' : 'Empresa')) + '\n- Categoria: ' + (lead.category || (lead.origemGrupo ? 'não informada' : 'Negócio local')) + '\n- Endereço: ' + (lead.address || 'Não informado') + '\n- Avaliação: ' + (lead.rating ? lead.rating + ' estrelas' : 'Não informado') + ctx + (lead.origemGrupo ? '\n- Origem: vocês participam do mesmo grupo de WhatsApp "' + lead.origemGrupo + '". Cite isso de forma natural e curta no 1º parágrafo (ex.: "vi que estamos no grupo ' + lead.origemGrupo + '"), sem dizer que pegou o número de lá.' : '') + '\n\nCrie UMA mensagem de primeiro contato para WhatsApp.\nREGRAS (variante ' + variant + ', gatilho ' + gatilho.tipo + '): ' + regrasFormato + '\nAdapte para este lead específico. Não copie os exemplos de frase ao pé da letra, apenas se inspire neles.' + regrasAval + '\nRetorne APENAS o texto, sem títulos, sem aspas.\nEscreva em Português do Brasil.';
 }
 // O servidor corta em 3 parágrafos; a prévia faz o mesmo.
 function iaComoServidorEnvia(msg) {
@@ -11191,7 +11207,8 @@ async function carregarInbox(silencioso) {
             }
         }
         _ibUltimas = {}; conversas.forEach(c => { _ibUltimas[c.chave] = c.lastTime; });
-        inboxConversas = conversas;
+        await ibCarregarGrupos();
+        inboxConversas = conversas.concat(_ibGrupos);
         if (inboxChatAtual) {
             const atual = conversas.find(c => c.chave === inboxChatAtual.chave);
             if (atual) { inboxChatAtual = Object.assign(inboxChatAtual, atual, { unread: false }); ibPintarCabecalho(); }
@@ -11216,12 +11233,13 @@ function ibLigarAoVivo() {
     }, 20000);
 }
 
-function ibEsperandoVoce(c) { return !c.fromMe && !c.robo && !c.pare; }
+function ibEsperandoVoce(c) { return !c.grupo && !c.fromMe && !c.robo && !c.pare; }
 const IB_FILTROS = [
     ['esperando', 'Esperando você', ibEsperandoVoce],
-    ['interessados', '🔥 Interessados', c => c.interessado],
+    ['interessados', '🔥 Interessados', c => !c.grupo && c.interessado],
     ['naolidas', 'Não lidas', c => c.unread],
-    ['todas', 'Todas', () => true],
+    ['grupos', '👥 Grupos', c => c.grupo],
+    ['todas', 'Todas', c => !c.grupo],
 ];
 function ibPintarFiltros() {
     let barra = document.getElementById('inbox-filtros');
@@ -11233,7 +11251,7 @@ function ibPintarFiltros() {
     barra.innerHTML = '';
     IB_FILTROS.forEach(([k, t, f]) => {
         const n = (inboxConversas || []).filter(f).length;
-        const b = prEl('button', 'inbox-filtro' + (_ibFiltro === k ? ' ativo' : ''), t + (k !== 'todas' && n ? ' ' + n : ''));
+        const b = prEl('button', 'inbox-filtro' + (_ibFiltro === k ? ' ativo' : ''), t + (k !== 'todas' && k !== 'grupos' && n ? ' ' + n : ''));
         b.type = 'button';
         b.onclick = () => { _ibFiltro = k; userSet('inboxFiltro', k); renderInboxLista(inboxConversas); };
         barra.appendChild(b);
@@ -11246,13 +11264,18 @@ function renderInboxLista(conversas) {
     ibPintarFiltros();
     const termo = (document.getElementById('inbox-search-input')?.value || '').toLowerCase().trim();
     const dig = termo.replace(/\D/g, '');
-    const filtro = (IB_FILTROS.find(f => f[0] === _ibFiltro) || IB_FILTROS[3])[2];
+    const filtro = (IB_FILTROS.find(f => f[0] === _ibFiltro) || IB_FILTROS[4])[2];
     const filtradas = (conversas || []).filter(c => (termo ? (c.name.toLowerCase().includes(termo) || (dig.length >= 3 && String(c.phone).includes(dig))) : filtro(c)));
+    lista.innerHTML = '';
+    if (_ibFiltro === 'grupos' && !termo) {
+        const esc = prEl('button', 'inbox-grupos-escolher', '⚙ Escolher grupos para ver aqui'); esc.type = 'button';
+        esc.onclick = () => abrirGrupos('inbox');
+        lista.appendChild(esc);
+    }
     if (!filtradas.length) {
-        lista.innerHTML = '<div class="inbox-empty"><div class="icon">🔍</div><p>' + (termo ? 'Nenhuma conversa encontrada' : 'Nada aqui agora 🎉') + '</p></div>';
+        lista.appendChild(prEl('div', 'inbox-empty', termo ? 'Nenhuma conversa encontrada' : _ibFiltro === 'grupos' ? 'Nenhum grupo no Inbox ainda. Escolha acima; as mensagens aparecem a partir de agora.' : 'Nada aqui agora 🎉'));
         return;
     }
-    lista.innerHTML = '';
     const agora = new Date();
     filtradas.forEach(c => {
         const msgDate = c.lastTime ? new Date(c.lastTime) : null;
@@ -11261,7 +11284,7 @@ function renderInboxLista(conversas) {
             ? msgDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
             : msgDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
         const item = prEl('div', 'inbox-item' + (inboxChatAtual?.chave === c.chave ? ' active' : ''));
-        item.appendChild(prEl('div', 'inbox-avatar' + (c.interessado ? ' quente' : ''), c.semNome ? '#' : (c.name || '?').charAt(0).toUpperCase()));
+        item.appendChild(prEl('div', 'inbox-avatar' + (c.interessado ? ' quente' : '') + (c.grupo ? ' grupo' : ''), c.grupo ? '👥' : c.semNome ? '#' : (c.name || '?').charAt(0).toUpperCase()));
         const info = prEl('div', 'inbox-item-info');
         const r1 = prEl('div', 'inbox-item-row1');
         r1.appendChild(prEl('span', 'inbox-item-name', (c.interessado ? '🔥 ' : '') + c.name));
@@ -11283,6 +11306,14 @@ function ibPintarCabecalho() {
     const c = inboxChatAtual;
     if (!c) return;
     const nomeEl = document.getElementById('inbox-chat-name'), telEl = document.getElementById('inbox-chat-phone'), av = document.getElementById('inbox-chat-avatar');
+    if (c.grupo) {
+        if (nomeEl) nomeEl.textContent = c.name;
+        if (av) av.textContent = '👥';
+        if (telEl) telEl.textContent = 'Grupo do WhatsApp';
+        const b = document.getElementById('inbox-acoes'); if (b) b.innerHTML = '';
+        ibPintarAjudas();
+        return;
+    }
     if (nomeEl) nomeEl.textContent = (c.interessado ? '🔥 ' : '') + c.name;
     if (av) av.textContent = c.semNome ? '#' : (c.name || '?').charAt(0).toUpperCase();
     if (telEl) {
@@ -11368,12 +11399,48 @@ function ibRecibo(chave, quandoMs) {
     return melhor ? melhor.e.status : null;
 }
 
+function ibPintarMensagens(area, msgs, t, grupo) {
+        const noFundo = area.scrollHeight - area.scrollTop - area.clientHeight < 60;
+        area.innerHTML = '';
+        let ultimaData = '';
+        const hoje = new Date().toLocaleDateString('pt-BR'), ontem = new Date(Date.now() - 86400000).toLocaleDateString('pt-BR');
+        msgs.forEach(m => {
+            const dt = new Date(m.ts);
+            const dataStr = dt.toLocaleDateString('pt-BR');
+            if (dataStr !== ultimaData) {
+                ultimaData = dataStr;
+                const sep = prEl('div', 'inbox-date-sep');
+                sep.appendChild(prEl('span', '', dataStr === hoje ? 'Hoje' : dataStr === ontem ? 'Ontem' : dataStr));
+                area.appendChild(sep);
+            }
+            const b = prEl('div', 'inbox-bubble ' + (m.fromMe ? 'me' : 'them') + (m.campanha ? ' campanha' : ''));
+            if (m.campanha) b.appendChild(prEl('div', 'inbox-bubble-rotulo', 'Mensagem da campanha'));
+            if (m.autor) b.appendChild(prEl('div', 'inbox-bubble-autor', m.autor));
+            const txt = String(m.text || '');
+            if (!txt.replace(/[\s‎‏​]/g, '')) b.appendChild(prEl('span', 'inbox-midia', '📎 Áudio, foto ou figurinha (veja no WhatsApp)'));
+            else b.appendChild(prEl('span', '', txt));
+            const pe = prEl('div', 'inbox-bubble-footer');
+            pe.appendChild(prEl('span', 'inbox-bubble-time', dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })));
+            if (m.fromMe && !grupo) {
+                const st = ibRecibo(t, m.ts);
+                const tick = prEl('span', 'inbox-bubble-tick' + (st === 4 ? ' read' : ''), st === 1 ? '✓' : '✓✓');
+                tick.title = st === 4 ? 'Lida' : st === 3 ? 'Entregue' : st === 1 ? 'Enviada' : '';
+                pe.appendChild(tick);
+            }
+            b.appendChild(pe);
+            area.appendChild(b);
+        });
+        if (noFundo || !area.dataset.rolou) { area.scrollTop = area.scrollHeight; area.dataset.rolou = '1'; }
+        ibMarcarVisto(t);
+}
+
 async function atualizarMensagens() {
     if (!inboxChatAtual) return;
     const area = document.getElementById('inbox-messages');
     if (!area || !currentUser) return;
     try {
         const c = inboxChatAtual;
+        if (c.grupo) { ibPintarMensagens(area, await ibMensagensGrupo(c), c.chave, true); return; }
         const d = String(c.phone).replace(/\D/g, ''), t = ibChave(d);
         const [{ data, error }] = await Promise.all([
             supabaseClient.from('respostas_historico').select('direcao, mensagem, criado_em').eq('user_id', currentUser.id).in('phone', Array.from(new Set([d, t, '55' + t]))).order('criado_em', { ascending: true }).limit(300),
@@ -11391,37 +11458,7 @@ async function atualizarMensagens() {
                 msgs.unshift({ fromMe: true, ts: Math.min(quando, msgs[0] ? msgs[0].ts - 1 : quando), text: r0.mensagem, campanha: true });
             }
         } catch (e) {}
-        const noFundo = area.scrollHeight - area.scrollTop - area.clientHeight < 60;
-        area.innerHTML = '';
-        let ultimaData = '';
-        const hoje = new Date().toLocaleDateString('pt-BR'), ontem = new Date(Date.now() - 86400000).toLocaleDateString('pt-BR');
-        msgs.forEach(m => {
-            const dt = new Date(m.ts);
-            const dataStr = dt.toLocaleDateString('pt-BR');
-            if (dataStr !== ultimaData) {
-                ultimaData = dataStr;
-                const sep = prEl('div', 'inbox-date-sep');
-                sep.appendChild(prEl('span', '', dataStr === hoje ? 'Hoje' : dataStr === ontem ? 'Ontem' : dataStr));
-                area.appendChild(sep);
-            }
-            const b = prEl('div', 'inbox-bubble ' + (m.fromMe ? 'me' : 'them') + (m.campanha ? ' campanha' : ''));
-            if (m.campanha) b.appendChild(prEl('div', 'inbox-bubble-rotulo', 'Mensagem da campanha'));
-            const txt = String(m.text || '');
-            if (!txt.replace(/[\s‎‏​]/g, '')) b.appendChild(prEl('span', 'inbox-midia', '📎 Áudio, foto ou figurinha (veja no WhatsApp)'));
-            else b.appendChild(prEl('span', '', txt));
-            const pe = prEl('div', 'inbox-bubble-footer');
-            pe.appendChild(prEl('span', 'inbox-bubble-time', dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })));
-            if (m.fromMe) {
-                const st = ibRecibo(t, m.ts);
-                const tick = prEl('span', 'inbox-bubble-tick' + (st === 4 ? ' read' : ''), st === 1 ? '✓' : '✓✓');
-                tick.title = st === 4 ? 'Lida' : st === 3 ? 'Entregue' : st === 1 ? 'Enviada' : '';
-                pe.appendChild(tick);
-            }
-            b.appendChild(pe);
-            area.appendChild(b);
-        });
-        if (noFundo || !area.dataset.rolou) { area.scrollTop = area.scrollHeight; area.dataset.rolou = '1'; }
-        ibMarcarVisto(t);
+        ibPintarMensagens(area, msgs, t, false);
     } catch (e) {}
 }
 
@@ -11429,7 +11466,7 @@ async function atualizarMensagens() {
 function ibPodeEnviar(texto) {
     const c = inboxChatAtual;
     if (/\[[^\]\n]{1,40}\]/.test(texto)) { showToast('Preencha o trecho entre [colchetes] antes de enviar', 'err'); return false; }
-    if (c && (c.pare || bloqueadoLead({ phone: c.phone }))) {
+    if (c && !c.grupo && (c.pare || bloqueadoLead({ phone: c.phone }))) {
         return confirm((c.name || 'Este contato') + ' está na lista Não contatar ou pediu para não receber mensagens. Enviar mesmo assim?');
     }
     return true;
@@ -11495,6 +11532,158 @@ async function cpCarregarEntregas() {
     } catch (e) { _cpEntregas = { t: Date.now(), m: {} }; }
 }
 function cpLeu(l) { const e = _cpEntregas && _cpEntregas.m[prTel(l.phone)]; return !!(e && e.status >= 4); }
+
+// ===================== GRUPOS DO WHATSAPP: leads de grupos + grupos no Inbox =====================
+function _waServ() {
+    const base = (config?.uazapi?.url || '').replace(/\/+$/, '');
+    if (!base || !config?.uazapi?.token) { showToast('Configure o servidor WhatsApp em Integrações primeiro', 'err'); return null; }
+    return { base, hdr: { 'Content-Type': 'application/json', 'x-api-token': config.uazapi.token } };
+}
+var _grpLista = [];
+var _grpConfig = {};                        // grupo_id -> { acompanhar }
+async function grpCarregarConfig() {
+    if (!currentUser) return;
+    try {
+        const { data } = await supabaseClient.from('grupos_config').select('grupo_id,acompanhar').eq('user_id', currentUser.id);
+        _grpConfig = {}; (data || []).forEach(g => { _grpConfig[g.grupo_id] = g; });
+    } catch (e) {}
+}
+async function grpAcompanhar(g, ligado) {
+    try {
+        const { error } = await supabaseClient.from('grupos_config').upsert({ user_id: currentUser.id, grupo_id: g.id, nome: g.nome, acompanhar: ligado, atualizado_em: new Date().toISOString() });
+        if (error) throw error;
+        _grpConfig[g.id] = { grupo_id: g.id, acompanhar: ligado };
+        showToast(ligado ? `👥 ${g.nome} aparece no Inbox a partir das próximas mensagens` : `${g.nome} saiu do Inbox`, 'ok');
+    } catch (e) { showToast('❌ Não consegui salvar: ' + (e && e.message), 'err'); }
+}
+
+// Tela única: escolher grupos para importar leads e/ou acompanhar no Inbox
+async function abrirGrupos(modo) {
+    const s = _waServ(); if (!s) return;
+    let fundo = document.getElementById('grp-modal');
+    if (fundo) fundo.remove();
+    fundo = prEl('div', 'modal-backdrop active'); fundo.id = 'grp-modal';
+    const m = prEl('div', 'modal ia-modal grp-modal');
+    m.appendChild(prEl('div', 'modal-title', modo === 'inbox' ? '👥 Grupos no Inbox' : '👥 Leads de grupos'));
+    m.appendChild(prEl('div', 'modal-sub', modo === 'inbox'
+        ? 'Escolha os grupos que aparecem no Inbox. Só as mensagens desses grupos são guardadas (por 30 dias).'
+        : 'Escolha os grupos e importe os números como leads. O WhatsApp esconde o telefone de parte dos participantes: só vêm os que aparecem.'));
+    const corpo = prEl('div', 'grp-corpo');
+    corpo.appendChild(prEl('div', 'ph-mudo', 'Lendo seus grupos no WhatsApp…'));
+    m.appendChild(corpo);
+    const rodape = prEl('div', 'modal-actions');
+    const fechar = prEl('button', 'modal-btn', 'Fechar'); fechar.onclick = () => fundo.remove();
+    rodape.appendChild(fechar);
+    let importar = null;
+    if (modo !== 'inbox') { importar = prEl('button', 'modal-btn primary', 'Importar números'); importar.disabled = true; rodape.appendChild(importar); }
+    m.appendChild(rodape);
+    fundo.appendChild(m);
+    fundo.onclick = e => { if (e.target === fundo) fundo.remove(); };
+    document.body.appendChild(fundo);
+    try {
+        const [r] = await Promise.all([fetch(s.base + '/groups', { headers: s.hdr }), grpCarregarConfig()]);
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+        _grpLista = d.grupos || [];
+    } catch (e) {
+        corpo.innerHTML = '';
+        corpo.appendChild(prEl('div', 'ia-aviso', 'Não consegui ler os grupos: ' + (e && e.message) + '. Confira se o WhatsApp está conectado.'));
+        return;
+    }
+    corpo.innerHTML = '';
+    if (!_grpLista.length) { corpo.appendChild(prEl('div', 'ph-mudo', 'Este número não participa de nenhum grupo.')); return; }
+    const total = _grpLista.reduce((a, g) => a + g.comNumero, 0);
+    corpo.appendChild(prEl('div', 'grp-resumo', `${_grpLista.length} grupos · ${total} números visíveis no total`));
+    const sel = new Set();
+    const lista = prEl('div', 'grp-lista');
+    _grpLista.forEach(g => {
+        const li = prEl('label', 'grp-item');
+        if (modo !== 'inbox') {
+            const cb = document.createElement('input'); cb.type = 'checkbox'; cb.disabled = !g.comNumero;
+            cb.onchange = () => { cb.checked ? sel.add(g.id) : sel.delete(g.id); const n = _grpLista.filter(x => sel.has(x.id)).reduce((a, x) => a + x.comNumero, 0); importar.disabled = !sel.size; importar.textContent = sel.size ? `Importar até ${n} números` : 'Importar números'; };
+            li.appendChild(cb);
+        }
+        const txt = prEl('span', 'grp-txt');
+        txt.appendChild(prEl('b', '', g.nome));
+        const pct = g.participantes ? Math.round(g.comNumero / g.participantes * 100) : 0;
+        txt.appendChild(prEl('small', '', `${g.participantes} participantes · ${g.comNumero} com número visível (${pct}%)` + (g.souAdmin ? ' · você é admin' : '') + (g.soAdminsFalam ? ' · só admins falam' : '')));
+        li.appendChild(txt);
+        const tog = prEl('button', 'grp-inbox' + (_grpConfig[g.id]?.acompanhar ? ' ligado' : ''), _grpConfig[g.id]?.acompanhar ? '✓ No Inbox' : '+ Inbox');
+        tog.type = 'button'; tog.title = 'Ver as mensagens deste grupo no Inbox';
+        tog.onclick = async (e) => { e.preventDefault(); const lig = !_grpConfig[g.id]?.acompanhar; await grpAcompanhar(g, lig); tog.classList.toggle('ligado', lig); tog.textContent = lig ? '✓ No Inbox' : '+ Inbox'; if (document.getElementById('tab-inbox')?.classList.contains('active')) carregarInbox(true); };
+        li.appendChild(tog);
+        lista.appendChild(li);
+    });
+    corpo.appendChild(lista);
+    if (modo !== 'inbox') {
+        corpo.appendChild(prEl('div', 'grp-alerta', '⚠️ Mensagem para quem não te conhece é o que mais gera denúncia no WhatsApp. A IA cita o grupo na abordagem, o limite diário continua valendo e quem já foi contatado ou está em Não contatar fica de fora.'));
+        importar.onclick = () => grpImportar(_grpLista.filter(g => sel.has(g.id)), importar, fundo);
+    }
+}
+
+async function grpImportar(grupos, btn, fundo) {
+    const s = _waServ(); if (!s || !grupos.length) return;
+    btn.disabled = true; btn.textContent = 'Importando…';
+    try {
+        await Promise.all([carregarNaoContatar(), carregarLeadsEnviadosDaNuvem()]);
+        const vistos = new Set(), leads = [];
+        let jaContatados = 0, bloqueados = 0, escondidos = 0;
+        for (const g of grupos) {
+            const r = await fetch(s.base + '/groups/' + encodeURIComponent(g.id) + '/participants', { headers: s.hdr });
+            const d = await r.json().catch(() => ({}));
+            if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+            escondidos += d.escondidos || 0;
+            (d.participantes || []).forEach(p => {
+                const tel = formatPhoneBR(p.phone);
+                if (!tel || vistos.has(tel)) return;
+                vistos.add(tel);
+                const lead = { title: '', phone: tel, category: '', address: '', is_whatsapp: true, origemGrupo: g.nome, grupoAdmin: !!p.admin };
+                if (leadJaFoiEnviado(tel)) { jaContatados++; return; }
+                if (bloqueadoLead(lead)) { bloqueados++; return; }
+                leads.push(lead);
+            });
+        }
+        fundo.remove();
+        if (!leads.length) { showToast(`Nenhum número novo (${jaContatados} já contatados, ${bloqueados} em Não contatar)`, 'err'); return; }
+        // Entra na Prospecção como uma busca: dali vai para a Prospecção IA normalmente
+        const nomeOrigem = grupos.length === 1 ? grupos[0].nome : grupos.length + ' grupos';
+        todosLeads = leads; _leadsBase = leads.slice(); paginaAtual = 1; porPagina = leads.length;
+        const statsBar = document.getElementById('stats-bar');
+        if (statsBar) statsBar.style.display = 'flex';
+        const st = document.getElementById('stats-text'); if (st) st.innerText = '👥 Grupo: ' + nomeOrigem;
+        const cb = document.getElementById('count-badge'); if (cb) cb.innerText = leads.length + ' leads';
+        const status = document.getElementById('status');
+        if (status) { status.className = 'status ok'; status.innerText = `// ${leads.length} números do grupo ${nomeOrigem}` + (jaContatados || bloqueados ? ` · ficaram de fora ${jaContatados} já contatados e ${bloqueados} em Não contatar` : '') + (escondidos ? ` · ${escondidos} com número escondido pelo WhatsApp` : ''); }
+        userSet('ultimosLeads', { leads, nicho: 'Grupo: ' + nomeOrigem, local: '', maxLeads: leads.length, data: new Date().toLocaleString('pt-BR') });
+        trocarAba('prospeccao', document.querySelector(`.nav-item[onclick*="'prospeccao'"]`));
+        renderPagina(1);
+        showToast(`👥 ${leads.length} leads do grupo ${nomeOrigem}. Selecione e envie pela Prospecção IA.`, 'ok');
+    } catch (e) {
+        btn.disabled = false; btn.textContent = 'Importar números';
+        showToast('❌ Não consegui importar: ' + (e && e.message), 'err');
+    }
+}
+
+// ---------- Inbox: grupos acompanhados ----------
+var _ibGrupos = [];
+async function ibCarregarGrupos() {
+    if (!currentUser) return [];
+    try {
+        const { data } = await supabaseClient.from('v_inbox_grupos').select('grupo_id,grupo_nome,ultimo_autor,ultima_mensagem,ultima_de_mim,ultima_em').eq('user_id', currentUser.id).order('ultima_em', { ascending: false });
+        const vistos = ibVistos();
+        _ibGrupos = (data || []).map(g => {
+            const k = 'g:' + g.grupo_id, t = g.ultima_em ? new Date(g.ultima_em).getTime() : 0;
+            return { grupo: true, grupoId: g.grupo_id, chave: k, phone: g.grupo_id, name: g.grupo_nome || 'Grupo', semNome: false,
+                lastMsg: (g.ultima_de_mim ? '' : (g.ultimo_autor ? g.ultimo_autor + ': ' : '')) + (g.ultima_mensagem || ''), lastTime: t, fromMe: !!g.ultima_de_mim,
+                unread: !g.ultima_de_mim && t > (vistos[k] || 0) && inboxChatAtual?.chave !== k, pendentes: [], sugestao: null };
+        });
+    } catch (e) { _ibGrupos = []; }
+    return _ibGrupos;
+}
+async function ibMensagensGrupo(c) {
+    const { data } = await supabaseClient.from('grupo_mensagens').select('autor_nome,autor_phone,mensagem,de_mim,criado_em').eq('user_id', currentUser.id).eq('grupo_id', c.grupoId).order('criado_em', { ascending: false }).limit(300);
+    return (data || []).reverse().map(r => ({ fromMe: !!r.de_mim, ts: new Date(r.criado_em).getTime(), text: r.mensagem || '', autor: r.de_mim ? '' : (r.autor_nome || (r.autor_phone ? formatPhoneBR(r.autor_phone) : 'Participante')) }));
+}
 
 async function abrirChat(conversa) {
     inboxChatAtual = conversa;
@@ -11578,22 +11767,27 @@ async function enviarMensagemInbox() {
 
     try {
         const baseUrl = config.uazapi.url.replace(/\/$/, '');
-        const resp = await fetch(`${baseUrl}/send-message`, {
+        const ehGrupo = !!inboxChatAtual.grupo;
+        const resp = await fetch(`${baseUrl}/${ehGrupo ? 'send-group' : 'send-message'}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-token': config.uazapi.token },
-            body: JSON.stringify({ phone: inboxChatAtual.phone, message: texto })
+            body: JSON.stringify(ehGrupo ? { grupoId: inboxChatAtual.grupoId, message: texto } : { phone: inboxChatAtual.phone, message: texto })
         });
         const tickEl = document.getElementById(tickId);
         if (resp.ok) {
             if (tickEl) { tickEl.textContent = '✓✓'; tickEl.style.color = '#4DA8FF'; }
             // Registra no histórico — é daí que a lista e a conversa leem
             try {
-                await supabaseClient.from('respostas_historico').insert({
+                if (ehGrupo) await supabaseClient.from('grupo_mensagens').insert({
+                    user_id: currentUser.id, grupo_id: inboxChatAtual.grupoId, grupo_nome: inboxChatAtual.name || '',
+                    autor_nome: 'Você', mensagem: texto, tipo: 'texto', de_mim: true, criado_em: new Date().toISOString()
+                });
+                else await supabaseClient.from('respostas_historico').insert({
                     user_id: currentUser.id, phone: inboxChatAtual.phone, lead_nome: inboxChatAtual.name || '',
                     direcao: 'enviada', mensagem: texto, criado_em: new Date().toISOString()
                 });
             } catch (e) { console.warn('Erro ao salvar no histórico:', e.message); }
-            ibTirarDaFila(inboxChatAtual);
+            if (!ehGrupo) ibTirarDaFila(inboxChatAtual);
             // Atualiza preview na lista
             inboxConversas = inboxConversas.map(c =>
                 c.phone === inboxChatAtual.phone ? {...c, lastMsg: texto, fromMe: true, lastTime: Date.now()} : c
@@ -11637,6 +11831,7 @@ let _midiaTipo = null;
 let _midiaUrl  = null;
 
 async function enviarMidiaInbox(tipo, inputEl) {
+    if (inboxChatAtual && inboxChatAtual.grupo) { inputEl.value = ''; showToast('Em grupo, por enquanto só texto. Mande a mídia pelo celular.', 'err'); return; }
     refreshUazapiCreds();
     if (!inboxChatAtual || !inputEl.files[0]) return;
     const file = inputEl.files[0];
@@ -14608,6 +14803,7 @@ async function toggleGravacao() {
 }
 
 async function enviarAudioGravado(blob) {
+    if (inboxChatAtual && inboxChatAtual.grupo) { showToast('Em grupo, por enquanto só texto. Mande o áudio pelo celular.', 'err'); return; }
     if (!inboxChatAtual) return;
     if (!config.uazapi?.url || !config.uazapi?.token) {
         showToast('Configure o servidor WhatsApp em Integrações primeiro', 'err');
