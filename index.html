@@ -1719,6 +1719,7 @@ function aplicarDadosUsuario(nome, email) {
         renderCampanhas();
         sincronizarConfigNaNuvem(true); // garante que a config (antes só local) suba pra nuvem, sem apagar o que já está lá
         pkSincronizarDaNuvem();     // puxa o Pipeline/CRM da nuvem (fonte de verdade entre navegadores)
+        setTimeout(() => { try { cpAoVivo(); } catch (e) {} }, 1500);   // cartão "Ao vivo" no Painel
         carregarFilaSugestoes();    // popula o badge de respostas pendentes já no login
         carregarFilaFollowups();    // popula o badge de follow-ups prontos pra aprovar
         if (!window._filaRespostasInterval) {
@@ -5498,6 +5499,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div style="font-family:'Inter',sans-serif;font-size:0.62rem;color:rgba(255,255,255,0.8);margin-top:6px;">Bem-vindo ao seu painel de controle</div>
                 </div>
                             </div>
+            <section id="painel-aovivo" class="cp-aovivo" aria-live="polite" hidden></section>
             <!-- PAINEL: o que precisa de você + saúde do número -->
             <div id="painel-hoje" class="ph-grid" aria-live="polite">
                 <section class="ph-card" aria-labelledby="ph-t1">
@@ -5953,6 +5955,7 @@ function trocarAba(aba, el) {
     if (btRel) btRel.style.display = aba === 'metricas' ? 'inline-flex' : 'none';
     if (aba === 'prospeccao') setTimeout(() => { try { carregarInteligenciaProspeccao(); } catch (e) {} }, 200);
     if (aba === 'campanhas') setTimeout(() => { try { cpCarregar(); } catch (e) {} }, 150);
+    if (aba === 'metricas') setTimeout(() => { try { cpAoVivo(); } catch (e) {} }, 150);
 
     const content = document.getElementById('main-content');
     content.style.padding  = '';
@@ -10021,9 +10024,8 @@ async function restaurarCampanhaAtiva() {
 
         iniciarPollingReal(camp.campanhaId, camp.total || 0, addLog, setStatus, bar, counterEl, pctEl, btn, pararBtn);
 
-        // Navega para aba IA
-        const navItem = document.querySelector(`.nav-item[onclick*="'ia'"]`);
-        if (navItem) trocarAba('ia', navItem);
+        // Não troca mais de aba: o cartão "Ao vivo" aparece no Painel e em Campanhas
+        try { cpAoVivo(); } catch (e) {}
 
     } catch(e) { console.warn('Erro ao restaurar campanha:', e); }
 }
@@ -12107,11 +12109,8 @@ window.addEventListener('load', () => {
                     _campanhaIdAtiva = camp.campanhaId;
                     iniciarPollingReal(camp.campanhaId, camp.total, addLogResume, setStatusResume, bar, counterEl, pctEl, btn, pararBtn);
 
-                    // Navega para aba IA automaticamente
-                    setTimeout(() => {
-                        const iaNav = document.querySelector('.nav-item[onclick*="ia"]');
-                        if (iaNav) trocarAba('ia', iaNav);
-                    }, 500);
+                    // Não troca mais de aba: o cartão "Ao vivo" aparece no Painel e em Campanhas
+                    setTimeout(() => { try { cpAoVivo(); } catch (e) {} }, 500);
                 }
             } catch(e) {}
         }
@@ -15853,33 +15852,48 @@ function _cpProximaJanela() {
     return null;
 }
 async function cpAoVivo() {
-    const box = document.getElementById('cp-aovivo');
-    if (!box) return;
+    // O mesmo cartão aparece em Campanhas e no Painel
+    const caixas = ['cp-aovivo', 'painel-aovivo'].map(id => document.getElementById(id)).filter(Boolean);
+    if (!caixas.length) return;
+    const esconder = () => caixas.forEach(b => { b.hidden = true; });
     const camp = userGet('campanhaAtiva', null);
     clearTimeout(_cpAoVivoTimer);
-    if (!camp || !camp.campanhaId) { box.hidden = true; return; }
+    if (!camp || !camp.campanhaId) { esconder(); return; }
     try {
         delete _cpMsgCache[camp.campanhaId];
         const linhas = await cpLinhasStatus(camp.campanhaId);
         delete _cpMsgCache[camp.campanhaId];
         const total = camp.total || (linhas[0] && parseInt(linhas[0].total, 10)) || 0;
-        const feitos = linhas.filter(r => ['enviado', 'erro', 'pulado', 'limite_diario'].includes(r.status)).length;
+        const feitos = linhas.filter(r => ['enviado', 'erro', 'pulado', 'limite_diario', 'sem_whatsapp'].includes(r.status)).length;
         const env = linhas.filter(r => r.status === 'enviado').length;
         const cancel = linhas.some(r => r.status === 'cancelado');
-        if (cancel || (total && feitos >= total)) { box.hidden = true; return; }
+        if (cancel || (total && feitos >= total)) { esconder(); return; }
         const nome = (typeof _nomeCampanha === 'function' && _nomeCampanha(camp.campanhaId)) || 'Campanha em andamento';
         const jan = _cpProximaJanela();
-        box.innerHTML = '';
-        box.appendChild(prEl('h3', '', '● Ao vivo'));
-        box.appendChild(prEl('div', 'cp-av-nome', nome));
-        box.appendChild(prEl('div', 'cp-av-info', `${env} enviadas de ${total || '?'}${feitos - env ? ` · ${feitos - env} puladas ou com erro` : ''} · ` + (jan && !jan.agora ? `aguardando a janela de envio: ${jan.quando}` : 'enviando agora, com intervalos para parecer natural')));
-        const barra = prEl('div', 'cp-barra'); const f = prEl('span'); f.style.width = (total ? Math.min(100, feitos / total * 100) : 5) + '%'; barra.appendChild(f); box.appendChild(barra);
-        const bt = prEl('button', 'ps-acao', '⏹ Cancelar campanha'); bt.type = 'button';
-        bt.addEventListener('click', async () => { await pararEnvio(); cpAoVivo(); });
-        box.appendChild(bt);
-        box.hidden = false;
-        if (document.getElementById('tab-campanhas')?.classList.contains('active')) _cpAoVivoTimer = setTimeout(cpAoVivo, 30000);
-    } catch (e) { box.hidden = true; }
+        const ultimo = linhas.filter(r => r.status === 'enviado').slice(-1)[0];
+        caixas.forEach(box => {
+            const noPainel = box.id === 'painel-aovivo';
+            box.innerHTML = '';
+            box.appendChild(prEl('h3', '', '● Ao vivo'));
+            box.appendChild(prEl('div', 'cp-av-nome', nome));
+            box.appendChild(prEl('div', 'cp-av-info', `${env} enviadas de ${total || '?'}${feitos - env ? ` · ${feitos - env} puladas ou com erro` : ''} · ` + (jan && !jan.agora ? `aguardando a janela de envio: ${jan.quando}` : 'enviando agora, com intervalos para parecer natural')));
+            if (ultimo && ultimo.lead) box.appendChild(prEl('div', 'cp-av-info', '✅ Última: ' + ultimo.lead + (ultimo.data ? ' · ' + String(ultimo.data).split(', ').pop().slice(0, 5) : '')));
+            const barra = prEl('div', 'cp-barra'); const f = prEl('span'); f.style.width = (total ? Math.min(100, feitos / total * 100) : 5) + '%'; barra.appendChild(f); box.appendChild(barra);
+            const acoes = prEl('div', ''); acoes.style.display = 'flex'; acoes.style.flexWrap = 'wrap'; acoes.style.gap = '8px';
+            if (noPainel) {
+                const ver = prEl('button', 'ps-acao', '📣 Ver campanha'); ver.type = 'button';
+                ver.addEventListener('click', () => trocarAba('campanhas', document.querySelector(`.nav-item[onclick*="'campanhas'"]`)));
+                acoes.appendChild(ver);
+            }
+            const bt = prEl('button', 'ps-acao', '⏹ Cancelar campanha'); bt.type = 'button';
+            bt.addEventListener('click', async () => { await pararEnvio(); cpAoVivo(); });
+            acoes.appendChild(bt);
+            box.appendChild(acoes);
+            box.hidden = false;
+        });
+        const aberta = ['tab-campanhas', 'tab-metricas'].some(id => document.getElementById(id)?.classList.contains('active'));
+        if (aberta) _cpAoVivoTimer = setTimeout(cpAoVivo, 30000);
+    } catch (e) { esconder(); }
 }
 
 async function carregarMetricas() {
