@@ -1818,7 +1818,7 @@ function iniciarAppPosLogin() {
                     </span>
                 </div>
                 <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 10px;">
-                    <span style="font-family:'Inter',sans-serif;font-size:0.58rem;color:var(--muted);font-weight:700;">IA Gemini</span>
+                    <span id="sidebar-ia-label" style="font-family:'Inter',sans-serif;font-size:0.58rem;color:var(--muted);font-weight:700;">IA</span>
                     <span id="sidebar-gemini-status" style="font-family:'Inter',sans-serif;font-size:0.58rem;color:#dc2626;font-weight:700;display:flex;align-items:center;gap:3px;">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Não config.
                     </span>
@@ -2059,7 +2059,8 @@ function iniciarAppPosLogin() {
 @media (max-width: 900px) {
   body:has(#tab-inbox.active) #export-mobile, body:has(#tab-inbox.active) #campanha-mobile, body:has(#tab-inbox.active) .topbar-btn.hide-mobile,
   body:has(#tab-historico.active) #export-mobile, body:has(#tab-historico.active) #campanha-mobile,
-  body:has(#tab-meusleads.active) #export-mobile, body:has(#tab-meusleads.active) #campanha-mobile { display:none!important; }
+  body:has(#tab-meusleads.active) #export-mobile, body:has(#tab-meusleads.active) #campanha-mobile,
+  body:has(#tab-integracoes.active) #export-mobile, body:has(#tab-integracoes.active) #campanha-mobile { display:none!important; }
   #tab-inbox .inbox-wrap { box-shadow:none; }
   #tab-inbox .inbox-list { padding-bottom:env(safe-area-inset-bottom); }
 }
@@ -5076,75 +5077,46 @@ document.addEventListener('DOMContentLoaded', () => {
                 .integ-status-msg { font-family: 'Inter', sans-serif; font-size: 0.65rem; color: var(--muted); margin-top: 10px; min-height: 16px; }
                 .integ-status-msg.ok { color: #16a34a; }
                 .integ-status-msg.err { color: var(--danger); }
+                .integ-painel-itens { display:grid; grid-template-columns:repeat(5, 1fr); gap:10px; }
+                @media (max-width: 1100px) { .integ-painel-itens { grid-template-columns:repeat(2, 1fr); } }
+                @media (max-width: 520px) { .integ-painel-itens { grid-template-columns:1fr; } }
+                .integ-pi { background:var(--surface2); border:1.5px solid var(--border); border-radius:12px; padding:10px 12px; display:flex; flex-direction:column; gap:3px; min-width:0; }
+                .integ-pi.ruim { border-color:#fca5a5; background:#fff7f7; }
+                .integ-pi small { font-size:0.62rem; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:0.3px; }
+                .integ-pi b { font-size:0.86rem; }
+                .integ-pi span { font-size:0.66rem; color:var(--muted); line-height:1.4; word-break:break-word; }
+                .integ-pi-bt { align-self:flex-start; margin-top:4px; width:auto; font-size:0.66rem; font-weight:700; padding:4px 10px; border-radius:7px; border:none; background:#dc2626; color:#fff; cursor:pointer; }
+                .integ-real { font-family:'Inter',sans-serif; font-size:0.74rem; font-weight:600; margin:-6px 0 14px; color:var(--muted); }
+                .integ-real.mudo { font-weight:500; font-size:0.66rem; margin-top:-4px; }
+                .integ-agora { font-family:'Inter',sans-serif; font-size:0.68rem; color:#166534; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:7px 10px; margin:0 0 12px; }
+                .integ-agora:empty { display:none; }
+                .integ-agora.erro { color:#991b1b; background:#fef2f2; border-color:#fecaca; }
+                .integ-presets { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin-bottom:12px; font-family:'Inter',sans-serif; font-size:0.66rem; color:var(--muted); }
+                .integ-presets .integ-btn { padding:6px 12px; }
+                .integ-sujo { font-family:'Inter',sans-serif; font-size:0.64rem; font-weight:700; color:#b45309; align-self:center; }
+                .integ-notif { margin-top:16px; padding-top:14px; border-top:1px dashed var(--border); font-family:'Inter',sans-serif; font-size:0.74rem; }
+                .integ-notif .integ-real { margin:6px 0 10px; }
                 .integ-test-result { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-top: 10px; font-family: 'Inter', sans-serif; font-size: 0.62rem; color: var(--muted); white-space: pre-wrap; word-break: break-word; }
             </style>
 
-            <!-- HORÁRIO DE ENVIO -->
-            <div class="integ-card">
+            <!-- PAINEL: tudo num olhar -->
+            <div class="integ-card integ-painel">
                 <div class="integ-header">
-                    <div class="integ-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF6A00" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
-                    <div class="integ-title">Horário de Envio</div>
-                    <span class="integ-status" id="horario-status">Sem restrição</span>
+                    <span class="integ-icon">🩺</span>
+                    <span class="integ-title">Como está tudo agora</span>
+                    <button type="button" class="integ-btn" style="margin-left:auto" onclick="integStatusWA()">🔄 Conferir</button>
                 </div>
-                <p class="integ-desc">Defina em quais dias e horários as campanhas podem enviar mensagens. Fora dessa janela, o envio pausa automaticamente e retoma quando abrir de novo.</p>
-
-                <div style="background:#f0f9ff;border:1.5px solid #C0D8FF;border-radius:12px;padding:16px;margin-bottom:14px;">
-                    <label style="display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;font-size:0.72rem;font-weight:700;color:#0A5FD4;margin-bottom:10px;cursor:pointer;">
-                        <input type="checkbox" id="horario-semana-ativo" onchange="atualizarHorarioUI()" style="width:16px;height:16px;">
-                        Segunda a Sexta
-                    </label>
-                    <div class="integ-fields">
-                        <div class="integ-field">
-                            <label class="integ-label">Início</label>
-                            <input type="time" class="integ-input" id="horario-semana-inicio" value="08:00">
-                        </div>
-                        <div class="integ-field">
-                            <label class="integ-label">Fim</label>
-                            <input type="time" class="integ-input" id="horario-semana-fim" value="18:00">
-                        </div>
-                    </div>
-                </div>
-
-                <div style="background:#FFF3E0;border:1px solid #FFD6B0;border-radius:10px;padding:16px;margin-bottom:14px;">
-                    <label style="display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;font-size:0.72rem;font-weight:700;color:#FF6A00;margin-bottom:10px;cursor:pointer;">
-                        <input type="checkbox" id="horario-fds-ativo" onchange="atualizarHorarioUI()" style="width:16px;height:16px;">
-                        Sábado e Domingo
-                    </label>
-                    <div class="integ-fields">
-                        <div class="integ-field">
-                            <label class="integ-label">Início</label>
-                            <input type="time" class="integ-input" id="horario-fds-inicio" value="09:00">
-                        </div>
-                        <div class="integ-field">
-                            <label class="integ-label">Fim</label>
-                            <input type="time" class="integ-input" id="horario-fds-fim" value="14:00">
-                        </div>
-                    </div>
-                </div>
-
-                <p style="font-family:'Inter',sans-serif;font-size:0.6rem;color:var(--muted);margin:0 0 14px;line-height:1.6;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" style="vertical-align:-2px;"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V18h8v-3.26A7 7 0 0 0 12 2z"/></svg>
-                    Se você <strong>não marcar nenhum dos dois</strong>, o envio roda sem restrição de horário (24h, todos os dias). Deixe desmarcado se preferir assim.
-                </p>
-
-                <div style="background:#ecfdf5;border:1px solid #bbf7d0;border-radius:10px;padding:10px 12px;margin:0 0 12px;font-family:'Inter',sans-serif;font-size:0.66rem;color:#166534;line-height:1.5;">
-                    📊 <strong>Pelos seus envios:</strong> de manhã (7h–12h) mais pessoas respondem; à tarde cai pela metade e no sábado quase ninguém responde.
-                    <button type="button" onclick="usarHorarioRecomendado()" style="margin-left:6px;background:#16a34a;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:0.64rem;font-weight:700;cursor:pointer;">Usar horário recomendado</button>
-                </div>
-                <div class="integ-actions">
-                    <button class="integ-btn primary" onclick="salvarHorarioEnvio()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar Horário</button>
-                </div>
-                <div class="integ-status-msg" id="horario-msg"></div>
+                <div class="integ-painel-itens" id="integ-painel-itens"></div>
             </div>
-
             <!-- UAZAPI -->
-            <div class="integ-card">
+            <div class="integ-card" id="integ-card-wa">
                 <div class="integ-header">
                     <div class="integ-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF6A00" stroke-width="1.7" stroke-linecap="round"><path d="M21 12a9 9 0 1 0-16.2 5.3L4 21l3.8-1A9 9 0 0 0 21 12z"/><path d="M9 10h.01M12 10h.01M15 10h.01"/></svg></div>
                     <div class="integ-title">Integração WhatsApp</div>
                     <span class="integ-status" id="uazapi-status">Desconectado</span>
                 </div>
                 <p class="integ-desc">Conecte seu servidor para enviar mensagens</p>
+                <div class="integ-real" id="wa-real">Conferindo com o servidor…</div>
 
                 <div class="integ-fields">
                     <div class="integ-field">
@@ -5205,20 +5177,83 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
                 <div class="integ-actions">
-                    <button class="integ-btn primary" onclick="testarConexaoUAZAPI()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M10 13a5 5 0 0 1 0-7l2-2a5 5 0 0 1 7 7l-1.5 1.5"/><path d="M14 11a5 5 0 0 1 0 7l-2 2a5 5 0 0 1-7-7L6.5 11.5"/></svg> Testar Conexão</button>
+                    <button class="integ-btn primary" id="wa-testar" onclick="testarConexaoUAZAPI(this)"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M10 13a5 5 0 0 1 0-7l2-2a5 5 0 0 1 7 7l-1.5 1.5"/><path d="M14 11a5 5 0 0 1 0 7l-2 2a5 5 0 0 1-7-7L6.5 11.5"/></svg> Testar Conexão</button>
                     <button class="integ-btn" onclick="salvarUAZAPI()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar Configuração</button>
+                    <button class="integ-btn" id="wa-sair" onclick="integDesconectar()" hidden>🔌 Desconectar / trocar número</button>
+                    <span class="integ-sujo" id="sujo-wa" hidden>• alterações não salvas</span>
                 </div>
                 <div class="integ-status-msg" id="uazapi-msg"></div>
                 <div class="integ-test-result" id="uazapi-test" style="display:none;"></div>
             </div>
 
+            <!-- HORÁRIO DE ENVIO -->
+            <div class="integ-card" id="integ-card-horario">
+                <div class="integ-header">
+                    <div class="integ-icon"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FF6A00" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+                    <div class="integ-title">Horário de Envio</div>
+                    <span class="integ-status" id="horario-status">Sem restrição</span>
+                </div>
+                <p class="integ-desc">Defina em quais dias e horários as campanhas podem enviar mensagens. Fora dessa janela, o envio pausa automaticamente e retoma quando abrir de novo.</p>
+
+                <div style="background:#f0f9ff;border:1.5px solid #C0D8FF;border-radius:12px;padding:16px;margin-bottom:14px;">
+                    <label style="display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;font-size:0.72rem;font-weight:700;color:#0A5FD4;margin-bottom:10px;cursor:pointer;">
+                        <input type="checkbox" id="horario-semana-ativo" onchange="atualizarHorarioUI()" style="width:16px;height:16px;">
+                        Segunda a Sexta
+                    </label>
+                    <div class="integ-fields">
+                        <div class="integ-field">
+                            <label class="integ-label">Início</label>
+                            <input type="time" class="integ-input" id="horario-semana-inicio" value="08:00">
+                        </div>
+                        <div class="integ-field">
+                            <label class="integ-label">Fim</label>
+                            <input type="time" class="integ-input" id="horario-semana-fim" value="18:00">
+                        </div>
+                    </div>
+                </div>
+
+                <div style="background:#FFF3E0;border:1px solid #FFD6B0;border-radius:10px;padding:16px;margin-bottom:14px;">
+                    <label style="display:flex;align-items:center;gap:8px;font-family:'Inter',sans-serif;font-size:0.72rem;font-weight:700;color:#FF6A00;margin-bottom:10px;cursor:pointer;">
+                        <input type="checkbox" id="horario-fds-ativo" onchange="atualizarHorarioUI()" style="width:16px;height:16px;">
+                        Sábado e Domingo
+                    </label>
+                    <div class="integ-fields">
+                        <div class="integ-field">
+                            <label class="integ-label">Início</label>
+                            <input type="time" class="integ-input" id="horario-fds-inicio" value="09:00">
+                        </div>
+                        <div class="integ-field">
+                            <label class="integ-label">Fim</label>
+                            <input type="time" class="integ-input" id="horario-fds-fim" value="14:00">
+                        </div>
+                    </div>
+                </div>
+
+                <p style="font-family:'Inter',sans-serif;font-size:0.6rem;color:var(--muted);margin:0 0 14px;line-height:1.6;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" style="vertical-align:-2px;"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V18h8v-3.26A7 7 0 0 0 12 2z"/></svg>
+                    Se você <strong>não marcar nenhum dos dois</strong>, o envio roda sem restrição de horário (24h, todos os dias). Deixe desmarcado se preferir assim.
+                </p>
+
+                <div style="background:#ecfdf5;border:1px solid #bbf7d0;border-radius:10px;padding:10px 12px;margin:0 0 12px;font-family:'Inter',sans-serif;font-size:0.66rem;color:#166534;line-height:1.5;">
+                    📊 <strong>Pelos seus envios:</strong> de manhã (7h–12h) mais pessoas respondem; à tarde cai pela metade e no sábado quase ninguém responde.
+                    <button type="button" onclick="usarHorarioRecomendado()" style="margin-left:6px;background:#16a34a;color:#fff;border:none;border-radius:6px;padding:4px 10px;font-size:0.64rem;font-weight:700;cursor:pointer;">Usar horário recomendado</button>
+                </div>
+                <div class="integ-agora" id="horario-agora"></div>
+                <div class="integ-actions">
+                    <button class="integ-btn primary" onclick="salvarHorarioEnvio()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar Horário</button>
+                </div>
+                <div class="integ-status-msg" id="horario-msg"></div>
+            </div>
+
             <!-- SIMULAÇÃO HUMANIZADA + LIMITE DIÁRIO (movido de dentro da Prospecção IA pra cá, junto do resto da config do WhatsApp) -->
-            <div class="integ-card">
+            <div class="integ-card" id="integ-card-humano">
                 <div class="integ-header">
                     <span class="integ-icon">⌨️</span>
                     <span class="integ-title">Simulação Humanizada</span>
                 </div>
                 <p class="integ-desc">Delays e limites pra parecer humano e proteger seu número — vale pro disparo inicial e pros follow-ups automáticos</p>
+                <div class="integ-presets"><span>Prontos:</span><button type="button" class="integ-btn" onclick="integPreset('seguro')" title="90–180 s entre leads · 20 por dia">🛡️ Seguro</button><button type="button" class="integ-btn" onclick="integPreset('normal')" title="60–120 s entre leads · 30 por dia">⚖️ Normal</button><button type="button" class="integ-btn" onclick="integPreset('rapido')" title="40–80 s entre leads · 50 por dia (mais risco)">⚡ Rápido</button></div>
+                <div class="integ-agora erro" id="humano-aviso" hidden></div>
 
                 <div style="font-family:'Inter',sans-serif;font-size:0.6rem;color:var(--text);margin-bottom:6px;font-weight:600;">Delay entre leads (seg)</div>
                 <div class="integ-fields" style="margin-bottom:12px;">
@@ -5252,6 +5287,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="integ-field">
                     <input type="number" class="integ-input" id="uazapi-limite-diario" placeholder="30" value="30" min="1" max="100">
                 </div>
+                <div class="integ-agora" id="limite-hoje"></div>
                 <p style="font-family:'Inter',sans-serif;font-size:0.6rem;color:var(--muted);margin:8px 0 0;line-height:1.6;">Máximo de mensagens novas por dia, somando todas as campanhas. Ao bater o limite, os envios param sozinhos até o dia seguinte.</p>
 
                 <div class="integ-actions">
@@ -5261,7 +5297,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
 
             <!-- IA PARA MENSAGENS -->
-            <div class="integ-card">
+            <div class="integ-card" id="integ-card-ia">
                 <div class="integ-header">
                     <div class="integ-icon"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FF6A00" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/><path d="M11 8v6M8 11h6"/></svg></div>
                     <div class="integ-title">IA para Mensagens</div>
@@ -5293,13 +5329,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
 
-                <div class="integ-fields full">
-                    <div class="integ-field">
-                        <label class="integ-label">Alerta de lead quente — seu WhatsApp</label>
-                        <input type="text" class="integ-input" id="numero-alerta" placeholder="Ex: 5511999998888 (com DDI, só números)" autocomplete="off">
-                        <p style="font-family:'Inter',sans-serif;font-size:0.6rem;color:var(--muted);margin:4px 0 0;">Quando a IA classificar uma resposta como "quente", você recebe um aviso instantâneo nesse número. Deixe em branco pra desativar.</p>
-                    </div>
-                </div>
+                <div class="integ-real" id="ia-chave-salva"></div>
+                <div class="integ-real mudo" id="ia-transcricao"></div>
 
                 <p style="font-family:'Inter',sans-serif;font-size:0.62rem;color:var(--muted);margin:10px 0;">Como obter sua chave:</p>
                 <ol style="font-family:'Inter',sans-serif;font-size:0.62rem;color:var(--muted);margin:0;padding-left:20px;line-height:1.8;">
@@ -5308,35 +5339,44 @@ document.addEventListener('DOMContentLoaded', () => {
                 </ol>
 
                 <div class="integ-actions" style="margin-top:16px;">
-                    <button class="integ-btn primary" onclick="testarIAProvider()"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg> Testar IA</button>
+                    <button class="integ-btn primary" id="ia-testar" onclick="testarIAProvider(this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg> Testar IA</button>
                     <button class="integ-btn" onclick="salvarIAProvider()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar</button>
+                    <span class="integ-sujo" id="sujo-ia" hidden>• alterações não salvas</span>
                 </div>
                 <div class="integ-status-msg" id="gemini-msg"></div>
                 <div class="integ-test-result" id="gemini-test" style="display:none;"></div>
             </div>
 
-            <!-- RESUMO INTEGRAÇÕES -->
-            <div class="integ-card" style="background:linear-gradient(135deg,#FFF3E0,#fce7f3);border-color:#FFD6B0;padding-bottom:28px;">
+            <!-- ALERTAS E NOTIFICAÇÕES -->
+            <div class="integ-card" id="integ-card-alerta">
                 <div class="integ-header">
-                    <div class="integ-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M18 20V10M12 20V4M6 20v-6"/></svg></div>
-                    <div class="integ-title">Status das Integrações</div>
+                    <span class="integ-icon">🔔</span>
+                    <span class="integ-title">Alertas e notificações</span>
                 </div>
-                <div id="integ-resumo" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-                    <div style="background:#fff;border:1px solid #FFD6B0;border-radius:10px;padding:14px;">
-                        <div style="font-family:'Inter',sans-serif;font-size:0.58rem;color:#FF6A00;letter-spacing:0.3px;text-transform:uppercase;margin-bottom:8px;font-weight:700;">WHATSAPP</div>
-                        <div id="integ-wa-status" style="font-size:0.88rem;font-weight:700;color:var(--muted);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Desconectado</div>
-                        <div id="integ-wa-detail" style="font-family:'Inter',sans-serif;font-size:0.58rem;color:var(--muted);margin-top:6px;">Configure o WhatsApp para enviar</div>
+                <p class="integ-desc">Saiba na hora quando um lead responde com interesse: no seu WhatsApp e no celular ou computador onde o app está aberto.</p>
+                <div class="integ-fields full">
+                    <div class="integ-field">
+                        <label class="integ-label">Alerta de lead quente — seu WhatsApp</label>
+                        <input type="text" class="integ-input" id="numero-alerta" placeholder="Ex: 11999998888 (DDD + número)" autocomplete="off" inputmode="tel">
+                        <p style="font-family:'Inter',sans-serif;font-size:0.6rem;color:var(--muted);margin:4px 0 0;">Quando a IA classificar uma resposta como "quente", você recebe um aviso nesse número. Deixe em branco para desligar.</p>
                     </div>
-                    <div style="background:#fff;border:1px solid #FFD6B0;border-radius:10px;padding:14px;">
-                        <div style="font-family:'Inter',sans-serif;font-size:0.58rem;color:#FF6A00;letter-spacing:0.3px;text-transform:uppercase;margin-bottom:8px;font-weight:700;">IA GEMINI</div>
-                        <div id="integ-ai-status" style="font-size:0.88rem;font-weight:700;color:var(--muted);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Não configurado</div>
-                        <div id="integ-ai-detail" style="font-family:'Inter',sans-serif;font-size:0.58rem;color:var(--muted);margin-top:6px;">Sem chave API</div>
+                </div>
+                <div class="integ-actions">
+                    <button class="integ-btn primary" type="button" onclick="salvarAlerta()">💾 Salvar</button>
+                    <button class="integ-btn" type="button" onclick="testarAlerta(this)">📲 Enviar teste</button>
+                    <span class="integ-sujo" id="sujo-alerta" hidden>• alterações não salvas</span>
+                </div>
+                <div class="integ-status-msg" id="alerta-msg"></div>
+                <div class="integ-notif">
+                    <b>Notificações neste aparelho</b>
+                    <div id="notif-estado" class="integ-real mudo"></div>
+                    <div class="integ-actions">
+                        <button class="integ-btn primary" type="button" id="notif-ativar" onclick="integAtivarNotif()" hidden>🔔 Ativar notificações</button>
+                        <button class="integ-btn" type="button" id="notif-testar" onclick="integTestarNotif()" hidden>Enviar notificação de teste</button>
                     </div>
                 </div>
             </div>
-
         </div>
-
         <!-- CONFIGURAÇÃO -->
 
         <!-- TAB REVENDEDOR -->
@@ -5698,6 +5738,14 @@ async function sincronizarParaServidor() {
         }
     }
 
+    // Chaves e token ficam só em user_config (protegido); não vão no pacote geral
+    if (dados.prospectaConfig && typeof dados.prospectaConfig === 'object') {
+        const c = JSON.parse(JSON.stringify(dados.prospectaConfig));
+        if (c.openai) delete c.openai.key;
+        if (c.gemini) delete c.gemini.key;
+        if (c.uazapi) delete c.uazapi.token;
+        dados.prospectaConfig = c;
+    }
     try {
         await supabaseClient.from('user_data').upsert({
             user_id: currentUser.id,
@@ -5722,7 +5770,16 @@ async function carregarDoSupabase(userId) {
             const email = localStorage.getItem('prospectaEmail');
             const prefixo = email + '__';
             for (const [chave, valor] of Object.entries(data.dados)) {
-                localStorage.setItem(prefixo + chave, JSON.stringify(valor));
+                let v = valor;
+                if (chave === 'prospectaConfig' && v && typeof v === 'object') {
+                    // a nuvem não guarda mais chaves aqui: mantém as que já estão neste aparelho
+                    let local = {}; try { local = JSON.parse(localStorage.getItem(prefixo + chave) || '{}') || {}; } catch (e) {}
+                    v = JSON.parse(JSON.stringify(v));
+                    if (local.openai?.key && !v.openai?.key) v.openai = Object.assign({}, v.openai, { key: local.openai.key });
+                    if (local.gemini?.key && !v.gemini?.key) v.gemini = Object.assign({}, v.gemini, { key: local.gemini.key });
+                    if (local.uazapi?.token && !v.uazapi?.token) v.uazapi = Object.assign({}, v.uazapi, { token: local.uazapi.token });
+                }
+                localStorage.setItem(prefixo + chave, JSON.stringify(v));
             }
             return true;
         }
@@ -5843,6 +5900,7 @@ function trocarAba(aba, el) {
         }, 100);
     }
 
+    if (aba === 'integracoes') setTimeout(() => { try { integAbrir(); } catch (e) {} }, 50);
     // Renderizar histórico ao entrar na aba
     if (aba === 'historico') {
         setTimeout(() => histAtualizar(), 50);
@@ -8494,7 +8552,7 @@ function atualizarConfigStatusDashboard() {
     
     if (uazapiStatus) {
         if (config.uazapi?.url && config.uazapi?.token) {
-            uazapiStatus.textContent = '✅ Conectado';
+            uazapiStatus.textContent = (typeof integTextoWA === 'function' ? integTextoWA().txt : '✅ Configurado');
             const sidebarUAZ = document.getElementById('sidebar-uazapi-status');
             if (sidebarUAZ) { sidebarUAZ.textContent = '✅ Conectado'; sidebarUAZ.style.color = '#16a34a'; }
             uazapiStatus.style.color = '#16a34a';
@@ -9780,11 +9838,7 @@ function iniciarPollingStatus(campanhaId, total, addLog, setStatus, bar, counter
 
 // ── AUTO-SAVE NÚMERO DE ALERTA (lead quente) ──
 document.addEventListener('blur', function(e) {
-    if (e.target && e.target.id === 'numero-alerta') {
-        config.numeroAlerta = e.target.value.replace(/\D/g, '');
-        salvarConfigs();
-        showToast('Número de alerta salvo', 'ok');
-    }
+    if (e.target && e.target.id === 'numero-alerta' && _integSujo.alerta) salvarAlerta();
 }, true);
 
 // ── AUTO-SAVE PROMPT IA ──
@@ -10690,7 +10744,7 @@ async function sincronizarConfigNaNuvem(preservarVazios) {
     }
 }
 
-function salvarHumanizacao() {
+function salvarHumanizacao(silencioso) {
     config.uazapi = config.uazapi || {};
     config.uazapi.delayMin  = parseInt(document.getElementById('uazapi-delay-min')?.value)  || 60;
     config.uazapi.delayMax  = parseInt(document.getElementById('uazapi-delay-max')?.value)  || 120;
@@ -10700,12 +10754,19 @@ function salvarHumanizacao() {
     limite = Math.min(100, Math.max(1, limite)); // trava entre 1 e 100 mesmo se o navegador não respeitar o min/max do input
     config.uazapi.limiteDiario = limite;
     salvarConfigs();
+    integMarcarLimpo('humano');
+    try { integPintar(); } catch (e) {}
     const msg = document.getElementById('humanizacao-msg');
-    if (msg) { msg.textContent = '\u2705 Humanização salva!'; setTimeout(() => { msg.textContent = ''; }, 3000); }
-    try { showToast('\u2705 Humanização salva!', 'ok'); } catch(e) {}
+    if (msg) { msg.textContent = silencioso ? '✓ Salvo automaticamente' : '\u2705 Humanização salva!'; setTimeout(() => { msg.textContent = ''; }, 3000); }
+    if (!silencioso) try { showToast('\u2705 Humanização salva!', 'ok'); } catch(e) {}
 }
 
 function salvarUAZAPI() {
+    // confere antes de mexer na configuração (antes, salvar com campo vazio apagava o token da memória)
+    if (!document.getElementById('uazapi-url').value.trim() || !document.getElementById('uazapi-token').value.trim()) {
+        mostrarStatusMsg('uazapi-msg', '// preencha a URL do servidor e o token', 'err');
+        return;
+    }
     config.uazapi = {
         url: document.getElementById('uazapi-url').value.trim().replace(/\/$/, ''),
         token: document.getElementById('uazapi-token').value.trim(),
@@ -10723,8 +10784,10 @@ function salvarUAZAPI() {
     }
     
     salvarConfigs();
-    mostrarStatusMsg('uazapi-msg', '✅ Configuração salva! Use "Testar Conexão" para verificar.', 'ok');
+    integMarcarLimpo('wa');
+    mostrarStatusMsg('uazapi-msg', '✅ Configuração salva! Conferindo a conexão…', 'ok');
     atualizarStatusIntegracoes();
+    integStatusWA();
 }
 
 // Polling de status após conectar
@@ -10935,7 +10998,7 @@ async function _renderQR(base64, qrStr, display, container, statusEl) {
     }
 }
 
-async function testarConexaoUAZAPI() {
+async function testarConexaoUAZAPI(botao) {
     const url = document.getElementById('uazapi-url').value.trim().replace(/\/$/, '');
     const token = document.getElementById('uazapi-token').value.trim();
 
@@ -10944,7 +11007,7 @@ async function testarConexaoUAZAPI() {
         return;
     }
 
-    const btn = event.target;
+    const btn = botao || document.getElementById('wa-testar');
     btn.disabled = true;
     btn.textContent = '⏳ Testando...';
     const testEl = document.getElementById('uazapi-test');
@@ -10952,12 +11015,14 @@ async function testarConexaoUAZAPI() {
     testEl.textContent = 'Testando conexão com o servidor Baileys...';
 
     try {
-        const res = await fetch(`${url}/status?token=${encodeURIComponent(token)}`);
-        const data = await res.json();
+        const res = await fetch(`${url}/status`, { headers: { 'x-api-token': token } });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) { _integWA = Object.assign(data, { em: Date.now() }); integPintar(); }
 
         if (res.ok && data.connected) {
             mostrarStatusMsg('uazapi-msg', '✅ Conexão bem-sucedida! WhatsApp conectado.', 'ok');
-            testEl.innerHTML = `<div style="color:#16a34a;font-weight:700;">✅ Servidor respondendo e WhatsApp conectado.</div>`;
+            testEl.textContent = '✅ Servidor respondendo e WhatsApp conectado' + (data.numero ? ' no número ' + _integTelVer(data.numero) : '') + '.';
+            testEl.style.color = '#16a34a';
             document.getElementById('uazapi-status').textContent = 'Conectado';
             document.getElementById('uazapi-status').className = 'integ-status conectado';
         } else if (res.ok && !data.connected) {
@@ -10965,11 +11030,12 @@ async function testarConexaoUAZAPI() {
             testEl.innerHTML = `<div style="color:#d97706;font-weight:700;">⚠️ Servidor online, mas sem WhatsApp conectado. Clique em "Gerar QR Code" acima.</div>`;
         } else {
             mostrarStatusMsg('uazapi-msg', '❌ Não foi possível conectar ao servidor.', 'err');
-            testEl.innerHTML = `<div style="color:#dc2626;font-weight:700;">❌ HTTP ${res.status}. Verifique a URL e o token.</div>`;
+            testEl.innerHTML = `<div style="color:#dc2626;font-weight:700;">❌ HTTP ${res.status}. ${res.status === 401 ? 'O token não confere com o do servidor.' : 'Verifique a URL e o token.'}</div>`;
         }
     } catch (e) {
         mostrarStatusMsg('uazapi-msg', '❌ Erro de rede ao testar conexão.', 'err');
-        testEl.innerHTML = `<div style="color:#dc2626;font-weight:700;">❌ ${e.message}</div>`;
+        testEl.textContent = '❌ ' + e.message + ' (confira se a URL está certa e se o servidor está no ar)';
+        testEl.style.color = '#dc2626';
     }
 
     btn.disabled = false;
@@ -11015,7 +11081,7 @@ function aplicarHorarioRecomendadoUmaVez() {
     setTimeout(() => showToast('⏰ Horário de envio ajustado para seg–sex, 7h–12h: é quando mais gente responde. Dá para mudar em Integrações → Horário de Envio.', 'ok'), 4000);
 }
 
-function salvarHorarioEnvio() {
+function salvarHorarioEnvio(silencioso) {
     config.horario = {
         semana: {
             ativo:   document.getElementById('horario-semana-ativo').checked,
@@ -11030,7 +11096,9 @@ function salvarHorarioEnvio() {
     };
     salvarConfigs();
     atualizarHorarioUI();
-    mostrarStatusMsg('horario-msg', '✅ Horário de envio salvo!', 'ok');
+    integMarcarLimpo('horario');
+    try { integPintar(); } catch (e) {}
+    mostrarStatusMsg('horario-msg', silencioso ? '✓ Salvo automaticamente. Campanhas que já estão rodando continuam com o horário de quando começaram.' : '✅ Horário de envio salvo! Vale para as próximas campanhas.', 'ok');
 }
 
 function alternarProviderIA() {
@@ -11058,13 +11126,14 @@ function salvarIAProvider() {
     config.gemini = { key: geminiKey };
 
     salvarConfigs();
+    integMarcarLimpo('ia');
     mostrarStatusMsg('gemini-msg', `✅ ${provider === 'openai' ? 'OpenAI' : 'Gemini'} salvo como IA principal!`, 'ok');
     atualizarStatusIntegracoes();
 }
 
-async function testarIAProvider() {
+async function testarIAProvider(botao) {
     const provider = document.getElementById('ia-provider-select').value;
-    const btn = event.target;
+    const btn = botao || document.getElementById('ia-testar');
     btn.disabled = true;
     btn.textContent = '⏳ Testando...';
     const testEl = document.getElementById('gemini-test');
@@ -11075,13 +11144,13 @@ async function testarIAProvider() {
         const resposta = await gerarMensagemIA(
             { title: 'Empresa Teste', category: 'Teste', address: 'São Paulo, SP', rating: '4.8' },
             'Responda apenas com a palavra: sucesso',
-            provider === 'openai' ? document.getElementById('openai-key').value.trim() : document.getElementById('gemini-key').value.trim(),
+            (provider === 'openai' ? document.getElementById('openai-key').value.trim() || config.openai?.key : document.getElementById('gemini-key').value.trim() || config.gemini?.key) || '',
             provider
         );
-        testEl.innerHTML = `<div style="color:#16a34a;font-weight:700;">✅ Funcionando! Resposta: "${resposta.substring(0,80)}"</div>`;
+        testEl.textContent = '✅ Funcionando! Resposta: "' + String(resposta).substring(0, 80) + '"'; testEl.style.color = '#16a34a';
         mostrarStatusMsg('gemini-msg', '✅ IA respondendo normalmente', 'ok');
     } catch (e) {
-        testEl.innerHTML = `<div style="color:#dc2626;font-weight:700;">❌ ${e.message}</div>`;
+        testEl.textContent = '❌ ' + e.message + (/401|invalid|incorrect/i.test(e.message) ? ' (a chave parece errada ou foi apagada)' : /429|quota|billing/i.test(e.message) ? ' (sem crédito ou limite atingido na conta da IA)' : ''); testEl.style.color = '#dc2626';
         mostrarStatusMsg('gemini-msg', '❌ Erro ao testar', 'err');
     }
 
@@ -11194,7 +11263,219 @@ function atualizarStatusIntegracoes() {
     // Atualiza sidebar
     const sidebarGemini = document.getElementById('sidebar-gemini-status');
     if (sidebarGemini) { sidebarGemini.textContent = temIA ? '✅ Configurado' : '❌ Não config.'; sidebarGemini.style.color = temIA ? '#16a34a' : '#dc2626'; }
+    try { integPintar(); } catch (e) {}   // WhatsApp: status real (servidor), não só "tem URL e token"
 }
+
+
+// ===================== INTEGRAÇÕES: status real, painel e testes =====================
+var _integWA = null;          // { connected, qrPendente, desde, numero, nome, enviosHoje, limiteDiarioServidor, em, erro }
+var _integSujo = {};
+function _integTelVer(n) { const d = String(n || '').replace(/\D/g, ''); return d.replace(/^55(\d\d)(\d{4,5})(\d{4})$/, '($1) $2-$3') || d; }
+function _integMascara(k) { k = String(k || ''); return k ? '••••' + k.slice(-4) : ''; }
+// Lê o estado de verdade: primeiro o servidor (traz o número), se não responder, o que o servidor gravou no banco
+async function integStatusWA() {
+    const base = (config?.uazapi?.url || '').replace(/\/+$/, ''), token = config?.uazapi?.token;
+    let st = null;
+    if (base && token) {
+        try {
+            const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 6000);
+            const r = await fetch(base + '/status', { headers: { 'x-api-token': token }, signal: ctl.signal });
+            clearTimeout(t);
+            if (r.ok) st = await r.json();
+            else st = { erro: r.status === 401 ? 'Token recusado pelo servidor' : 'Servidor respondeu ' + r.status };
+        } catch (e) { st = { erro: 'Servidor não respondeu' }; }
+    }
+    if ((!st || st.erro) && currentUser) {
+        try {
+            const { data } = await supabaseClient.from('whatsapp_status').select('conectado,qr_pendente,desde,motivo').eq('user_id', currentUser.id).limit(1);
+            const s = data && data[0];
+            if (s) st = Object.assign({ connected: !!s.conectado, qrPendente: !!s.qr_pendente, desde: s.desde, motivo: s.motivo, viaBanco: true }, st && st.erro ? { erroServidor: st.erro } : {});
+        } catch (e) {}
+    }
+    _integWA = st ? Object.assign(st, { em: Date.now() }) : null;
+    // o servidor respondeu "conectado" agora: o aviso vermelho (que lê o banco) não fica contradizendo
+    if (_integWA && _integWA.connected && !_integWA.viaBanco) { const av = document.getElementById('wa-aviso'); if (av && !av.hidden) { av.hidden = true; document.documentElement.style.setProperty('--wa-aviso-h', '0px'); } }
+    integPintar();
+    return _integWA;
+}
+function integTextoWA() {
+    const temCfg = !!(config?.uazapi?.url && config?.uazapi?.token);
+    if (!temCfg) return { ok: false, txt: '❌ Não configurado', cor: '#dc2626', det: 'Preencha a URL do servidor e o token' };
+    const s = _integWA;
+    if (!s) return { ok: null, txt: '⏳ Verificando…', cor: '#64748b', det: 'Conferindo com o servidor' };
+    if (s.erro && !s.viaBanco) return { ok: false, txt: '⚠️ Sem resposta', cor: '#d97706', det: s.erro };
+    const desde = s.desde ? _histQuando(new Date(s.desde).getTime()) : '';
+    if (s.connected) return { ok: true, txt: '✅ Conectado', cor: '#16a34a', det: (s.numero ? 'Número ' + _integTelVer(s.numero) + (s.nome ? ' · ' + s.nome : '') : 'WhatsApp conectado') + (desde ? ' · desde ' + desde : '') };
+    return { ok: false, txt: s.qrPendente ? '📱 Ler QR code' : '⚠️ Desconectado', cor: '#dc2626', det: (s.qrPendente ? 'Esperando ler o QR code' : (s.motivo || 'WhatsApp desconectado')) + (desde ? ' · desde ' + desde : '') };
+}
+function integTextoIA() {
+    const p = config.iaProvider || 'openai', nome = p === 'gemini' ? 'Gemini' : 'OpenAI';
+    const k = p === 'gemini' ? config.gemini?.key : config.openai?.key;
+    if (!k) return { ok: false, txt: '❌ Sem chave', cor: '#dc2626', det: 'Coloque a chave da ' + nome, nome };
+    const det = nome + ' · chave ' + _integMascara(k) + (p === 'gemini' && !config.openai?.key ? ' · áudios não são transcritos (precisa de chave OpenAI)' : '');
+    return { ok: true, txt: '✅ ' + nome, cor: '#16a34a', det, nome };
+}
+function integTextoHorario() {
+    const h = config.horario;
+    if (!h || (!h.semana?.ativo && !h.fds?.ativo)) return { ok: true, txt: '🕐 Sem restrição', cor: '#64748b', det: 'Envia a qualquer hora, todos os dias' };
+    const j = _cpProximaJanela();
+    const faixa = [h.semana?.ativo ? `seg–sex ${h.semana.inicio}–${h.semana.fim}` : '', h.fds?.ativo ? `sáb–dom ${h.fds.inicio}–${h.fds.fim}` : ''].filter(Boolean).join(' · ');
+    if (j && j.agora) return { ok: true, txt: '🟢 Dentro da janela', cor: '#16a34a', det: faixa + ' (horário de Brasília)' };
+    return { ok: true, txt: '⏸ Fora da janela', cor: '#d97706', det: (j ? 'Volta ' + j.quando + ' · ' : '') + faixa };
+}
+function integTextoEnvios() {
+    const lim = parseInt(config?.uazapi?.limiteDiario) || 30;
+    const s = _integWA;
+    if (!s || typeof s.enviosHoje !== 'number') return { ok: true, txt: `📨 Limite ${lim}/dia`, cor: '#64748b', det: 'Limite das campanhas por dia' };
+    return { ok: true, txt: `📨 ${s.enviosHoje} enviadas hoje`, cor: s.enviosHoje >= (s.limiteDiarioServidor || 150) ? '#dc2626' : '#0D1330', det: `Limite das campanhas: ${lim} novas/dia · teto do servidor: ${s.limiteDiarioServidor || 150} mensagens/dia (contando Inbox e follow-ups)` };
+}
+function integTextoAlerta() {
+    const n = config.numeroAlerta;
+    const notif = ('Notification' in window) ? Notification.permission : 'indisponivel';
+    const partes = [n ? 'WhatsApp ' + _integTelVer(n) : 'sem número de alerta', notif === 'granted' ? 'notificações ligadas neste aparelho' : 'notificações desligadas neste aparelho'];
+    return { ok: !!n || notif === 'granted', txt: n || notif === 'granted' ? '🔔 Ativo' : '🔕 Desligado', cor: n || notif === 'granted' ? '#16a34a' : '#d97706', det: partes.join(' · ') };
+}
+function integPintar() {
+    const wa = integTextoWA(), ia = integTextoIA();
+    // menu lateral
+    const sw = document.getElementById('sidebar-uazapi-status');
+    if (sw) { sw.textContent = wa.ok ? '✅ Conectado' : wa.ok === null ? '⏳' : wa.txt.replace(/^\S+\s/, '❌ ').replace('❌ Ler QR code', '❌ Ler QR'); sw.style.color = wa.ok ? '#16a34a' : wa.ok === null ? '#64748b' : '#dc2626'; }
+    const sg = document.getElementById('sidebar-gemini-status');
+    if (sg) { sg.textContent = ia.ok ? '✅ ' + ia.nome : '❌ Sem chave'; sg.style.color = ia.ok ? '#16a34a' : '#dc2626'; }
+    const sgl = document.getElementById('sidebar-ia-label'); if (sgl) sgl.textContent = 'IA';
+    // pílula do cartão do WhatsApp + número
+    const pill = document.getElementById('uazapi-status');
+    if (pill) { pill.textContent = wa.txt.replace(/^\S+\s/, ''); pill.className = 'integ-status ' + (wa.ok ? 'conectado' : wa.ok === null ? 'configurado' : 'desconectado'); }
+    const real = document.getElementById('wa-real');
+    if (real) { real.textContent = wa.det; real.style.color = wa.cor; }
+    const sair = document.getElementById('wa-sair'); if (sair) sair.hidden = !(_integWA && _integWA.connected && !_integWA.viaBanco);
+    const iap = document.getElementById('ia-provider-status'); if (iap) { iap.textContent = ia.ok ? ia.nome + ' configurado' : 'Não configurado'; iap.className = 'integ-status ' + (ia.ok ? 'conectado' : 'desconectado'); }
+    const salva = document.getElementById('ia-chave-salva'); if (salva) salva.textContent = ia.ok ? '🔐 Chave salva: ' + _integMascara(config.iaProvider === 'gemini' ? config.gemini?.key : config.openai?.key) + ' (fica guardada só na sua conta, protegida)' : '';
+    const tr = document.getElementById('ia-transcricao'); if (tr) tr.textContent = config.openai?.key ? '🎤 Áudios recebidos são transcritos (usa a chave da OpenAI).' : '🎤 Sem chave da OpenAI os áudios recebidos não são transcritos: aparecem só como "🎤 Áudio".';
+    integPintarHorarioAgora();
+    integPintarLimite();
+    integPintarNotif();
+    // painel do topo
+    const painel = document.getElementById('integ-painel-itens');
+    if (painel) {
+        painel.innerHTML = '';
+        [['💬 WhatsApp', wa, 'integ-card-wa'], ['✨ IA', ia, 'integ-card-ia'], ['⏰ Horário', integTextoHorario(), 'integ-card-horario'], ['📨 Envios', integTextoEnvios(), 'integ-card-humano'], ['🔔 Alertas', integTextoAlerta(), 'integ-card-alerta']].forEach(([tit, x, alvo]) => {
+            const it = prEl('div', 'integ-pi' + (x.ok === false ? ' ruim' : ''));
+            it.appendChild(prEl('small', '', tit));
+            const v = prEl('b', '', x.txt); v.style.color = x.cor; it.appendChild(v);
+            it.appendChild(prEl('span', '', x.det));
+            if (x.ok === false) { const b = prEl('button', 'integ-pi-bt', 'Resolver →'); b.type = 'button'; b.onclick = () => document.getElementById(alvo)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); it.appendChild(b); }
+            painel.appendChild(it);
+        });
+    }
+}
+function integPintarHorarioAgora() {
+    const el = document.getElementById('horario-agora'); if (!el) return;
+    const v = id => document.getElementById(id)?.value || '';
+    const erros = [];
+    if (document.getElementById('horario-semana-ativo')?.checked && v('horario-semana-fim') <= v('horario-semana-inicio')) erros.push('seg–sex: o fim precisa ser depois do início');
+    if (document.getElementById('horario-fds-ativo')?.checked && v('horario-fds-fim') <= v('horario-fds-inicio')) erros.push('fim de semana: o fim precisa ser depois do início');
+    const h = integTextoHorario();
+    el.textContent = erros.length ? '⚠️ ' + erros.join(' · ') : `Agora: ${h.txt.replace(/^\S+\s/, '').toLowerCase()} · ${h.det}`;
+    el.className = 'integ-agora' + (erros.length ? ' erro' : '');
+}
+function integPintarLimite() {
+    const el = document.getElementById('limite-hoje'); if (!el) return;
+    const e = integTextoEnvios();
+    el.textContent = e.txt.replace(/^\S+\s/, '') + ' · ' + e.det;
+    const v = id => parseInt(document.getElementById(id)?.value) || 0;
+    const av = document.getElementById('humano-aviso');
+    if (av) {
+        const erros = [];
+        if (v('uazapi-delay-min') > v('uazapi-delay-max')) erros.push('o intervalo mínimo entre leads está maior que o máximo');
+        if (v('uazapi-typing-min') > v('uazapi-typing-max')) erros.push('a digitação mínima está maior que a máxima');
+        if (v('uazapi-delay-min') && v('uazapi-delay-min') < 30) erros.push('menos de 30 s entre leads aumenta o risco de bloqueio');
+        av.textContent = erros.length ? '⚠️ ' + erros.join(' · ') : '';
+        av.hidden = !erros.length;
+    }
+}
+const INTEG_PRESETS = { seguro: [90, 180, 6, 12, 20], normal: [60, 120, 5, 10, 30], rapido: [40, 80, 3, 7, 50] };
+function integPreset(nome) {
+    const p = INTEG_PRESETS[nome]; if (!p) return;
+    ['uazapi-delay-min', 'uazapi-delay-max', 'uazapi-typing-min', 'uazapi-typing-max', 'uazapi-limite-diario'].forEach((id, i) => { const el = document.getElementById(id); if (el) el.value = p[i]; });
+    salvarHumanizacao();
+}
+async function integDesconectar() {
+    const n = _integWA?.numero;
+    if (!confirm(`Desconectar o WhatsApp${n ? ' ' + _integTelVer(n) : ''} deste servidor?\n\nAs campanhas param até você ler um QR code novo (pode ser outro número). As conversas e os leads não são apagados.`)) return;
+    const base = (config?.uazapi?.url || '').replace(/\/+$/, '');
+    try {
+        const r = await fetch(base + '/logout', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-token': config.uazapi.token } });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || 'HTTP ' + r.status);
+        showToast('🔌 WhatsApp desconectado. Gerando um QR code novo…', 'ok');
+        _integWA = null; integPintar();
+        setTimeout(() => { integStatusWA(); try { gerarQRCodeUazapi(); } catch (e) {} }, 4000);
+    } catch (e) { showToast('❌ Não consegui desconectar: ' + (e && e.message), 'err'); }
+}
+function salvarAlerta() {
+    const v = (document.getElementById('numero-alerta')?.value || '').replace(/\D/g, '');
+    if (v && (v.length < 10 || v.length > 13)) { mostrarStatusMsg('alerta-msg', '// número inválido: use DDD + número (ex.: 11999998888)', 'err'); return false; }
+    config.numeroAlerta = v ? (v.length <= 11 ? '55' + v : v) : '';
+    const el = document.getElementById('numero-alerta'); if (el) el.value = config.numeroAlerta;
+    salvarConfigs();
+    integMarcarLimpo('alerta');
+    mostrarStatusMsg('alerta-msg', v ? '✅ Número de alerta salvo' : 'Alerta por WhatsApp desligado', 'ok');
+    integPintar();
+    return true;
+}
+async function testarAlerta(btn) {
+    if (!salvarAlerta()) return;
+    if (!config.numeroAlerta) { mostrarStatusMsg('alerta-msg', '// coloque o seu número para testar', 'err'); return; }
+    const base = (config?.uazapi?.url || '').replace(/\/+$/, '');
+    if (!base || !config.uazapi?.token) { mostrarStatusMsg('alerta-msg', '// configure o WhatsApp primeiro', 'err'); return; }
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Enviando…'; }
+    try {
+        const r = await fetch(base + '/alerta-teste', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-token': config.uazapi.token }, body: JSON.stringify({ numero: config.numeroAlerta }) });
+        const d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || 'HTTP ' + r.status);
+        mostrarStatusMsg('alerta-msg', '📲 Teste enviado para ' + _integTelVer(config.numeroAlerta) + '. Confira o WhatsApp.', 'ok');
+    } catch (e) { mostrarStatusMsg('alerta-msg', '❌ ' + (e && e.message), 'err'); }
+    if (btn) { btn.disabled = false; btn.textContent = '📲 Enviar teste'; }
+}
+function integPintarNotif() {
+    const el = document.getElementById('notif-estado'), bt = document.getElementById('notif-ativar'), tb = document.getElementById('notif-testar');
+    if (!el) return;
+    if (!('Notification' in window)) { el.textContent = 'Este navegador não mostra notificações. No iPhone, instale o app (Compartilhar → Adicionar à Tela de Início) e abra por ele.'; if (bt) bt.hidden = true; if (tb) tb.hidden = true; return; }
+    const p = Notification.permission;
+    el.textContent = p === 'granted' ? '✅ Ligadas neste aparelho: lead quente, pedido de indicação em grupo e WhatsApp caído.' : p === 'denied' ? '🚫 Bloqueadas neste navegador. Libere nas configurações do site (cadeado ao lado do endereço) e recarregue.' : '🔕 Desligadas neste aparelho.';
+    if (bt) bt.hidden = p !== 'default';
+    if (tb) tb.hidden = p !== 'granted';
+}
+async function integAtivarNotif() {
+    try { await Notification.requestPermission(); } catch (e) {}
+    integPintar();
+    if (Notification.permission === 'granted') integTestarNotif();
+}
+function integTestarNotif() {
+    try { _notificarSistema('🔔 Prospecta+', 'Notificações funcionando neste aparelho.', 'integracoes'); showToast('🔔 Notificação de teste enviada', 'ok'); }
+    catch (e) { showToast('❌ Não consegui notificar: ' + (e && e.message), 'err'); }
+}
+// Alterações não salvas: marca o cartão e avisa antes de sair da página
+function integMarcarSujo(card) { _integSujo[card] = true; const el = document.getElementById('sujo-' + card); if (el) el.hidden = false; }
+function integMarcarLimpo(card) { delete _integSujo[card]; const el = document.getElementById('sujo-' + card); if (el) el.hidden = true; }
+window.addEventListener('beforeunload', e => { if (Object.keys(_integSujo).length) { e.preventDefault(); e.returnValue = ''; } });
+function integLigarCampos() {
+    const ligar = (card, ids, auto) => ids.forEach(id => {
+        const el = document.getElementById(id); if (!el || el.dataset.integ) return;
+        el.dataset.integ = '1';
+        el.addEventListener('input', () => { if (!auto) integMarcarSujo(card); integPintarHorarioAgora(); integPintarLimite(); });
+        if (auto) el.addEventListener('change', () => auto());
+    });
+    ligar('wa', ['uazapi-url', 'uazapi-token']);
+    ligar('ia', ['openai-key', 'gemini-key', 'ia-provider-select']);
+    ligar('alerta', ['numero-alerta']);
+    ligar('horario', ['horario-semana-ativo', 'horario-semana-inicio', 'horario-semana-fim', 'horario-fds-ativo', 'horario-fds-inicio', 'horario-fds-fim'], () => { integPintarHorarioAgora(); if (!document.querySelector('#horario-agora.erro')) salvarHorarioEnvio(true); });
+    ligar('humano', ['uazapi-delay-min', 'uazapi-delay-max', 'uazapi-typing-min', 'uazapi-typing-max', 'uazapi-limite-diario'], () => { integPintarLimite(); if (!/maior/.test(document.getElementById('humano-aviso')?.textContent || '')) salvarHumanizacao(true); });
+}
+function integAbrir() { integLigarCampos(); integPintar(); integStatusWA(); }
+setInterval(() => { if (currentUser && config?.uazapi?.url) integStatusWA(); }, 90000);
+window.addEventListener('load', () => setTimeout(() => { if (currentUser) integStatusWA(); }, 3500));
 
 // Carregar configs ao iniciar
 window.addEventListener('load', () => {
