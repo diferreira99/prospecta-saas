@@ -10914,7 +10914,7 @@ async function gerarCodigoPareamento() {
             tentativas++;
             if (tentativas > 24) { clearInterval(timer); statusEl.textContent = '⏰ Tempo esgotado. Gere um código novo.'; statusEl.style.color = '#d97706'; return; }
             try {
-                const sres = await fetch(`${url}/status?token=${encodeURIComponent(token)}`);
+                const sres = await fetch(`${url}/status`, { headers: { 'x-api-token': token } });
                 const sdata = await sres.json();
                 if (sdata.connected) {
                     clearInterval(timer);
@@ -10959,7 +10959,7 @@ async function gerarQRCodeUazapi() {
 
     async function buscarQR() {
         try {
-            const resp = await fetch(`${url}/qr-image?token=${encodeURIComponent(token)}`);
+            const resp = await fetch(`${url}/qr-image`, { headers: { 'x-api-token': token } });
             const data = await resp.json();
 
             if (data.connected) {
