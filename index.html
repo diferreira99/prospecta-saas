@@ -3487,6 +3487,7 @@ function pkRender() {
                         </span>
                     </div>
                 `;
+                if (lead.phone) ibAvatarFoto(card.querySelector('.pk-avatar'), lead.phone);
                 card.querySelectorAll('.pk-rapido').forEach(b => b.addEventListener('click', e => {
                     e.stopPropagation();
                     if (b.dataset.acao === 'wa') pkOpenWA(lead.id);
@@ -4442,6 +4443,14 @@ document.addEventListener('DOMContentLoaded', () => {
             .ib-busca-tit { font-size:0.68rem; font-weight:800; color:#667781; text-transform:uppercase; letter-spacing:.4px; padding:10px 12px 4px; border-top:1px solid #e9edef; }
             .ib-destaque { box-shadow:0 0 0 2px #f59e0b; }
             .ib-midia { margin:2px 0 4px; }
+            .inbox-avatar, .pk-avatar, .gi-item .inbox-avatar { position:relative; overflow:hidden; }
+            .ib-av-foto { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; border-radius:inherit; background:#fff; }
+            .ib-link { display:block; margin:2px 0 6px; background:rgba(0,0,0,0.04); border-radius:8px; overflow:hidden; text-decoration:none; color:inherit; max-width:300px; border-left:3px solid #25d366; }
+            .ib-link-img { display:block; width:100%; max-height:180px; object-fit:cover; background:#f1f5f9; }
+            .ib-link-txt { display:flex; flex-direction:column; gap:2px; padding:6px 8px; }
+            .ib-link-txt b { font-size:0.78rem; color:#0D1330; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+            .ib-link-desc { font-size:0.72rem; color:#54656f; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+            .ib-link-txt small { font-size:0.66rem; color:#8696a0; }
             .ib-midia audio { width:240px; max-width:100%; }
             .ib-midia .inbox-bubble-img { max-width:240px; border-radius:8px; cursor:pointer; display:block; }
             .ib-midia-doc { font-size:0.8rem; font-weight:600; color:#0b5e3a; }
@@ -11372,7 +11381,9 @@ function renderInboxLista(conversas) {
             ? msgDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
             : msgDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
         const item = prEl('div', 'inbox-item' + (inboxChatAtual?.chave === c.chave ? ' active' : ''));
-        item.appendChild(prEl('div', 'inbox-avatar' + (c.interessado ? ' quente' : '') + (c.grupo ? ' grupo' : ''), c.grupo ? '👥' : c.semNome ? '#' : (c.name || '?').charAt(0).toUpperCase()));
+        const avLista = prEl('div', 'inbox-avatar' + (c.interessado ? ' quente' : '') + (c.grupo ? ' grupo' : ''), c.grupo ? '👥' : c.semNome ? '#' : (c.name || '?').charAt(0).toUpperCase());
+        item.appendChild(avLista);
+        if (!c.nova) ibAvatarFoto(avLista, c.grupo ? c.grupoId : c.phone);
         const info = prEl('div', 'inbox-item-info');
         const r1 = prEl('div', 'inbox-item-row1');
         r1.appendChild(prEl('span', 'inbox-item-name', (c.interessado ? '🔥 ' : '') + c.name));
@@ -11399,7 +11410,7 @@ function ibPintarCabecalho() {
     if (av) { av.onclick = c.grupo ? () => ibInfoGrupo(c) : null; av.classList.toggle('gi-clicavel', !!c.grupo); }
     if (c.grupo) {
         if (nomeEl) nomeEl.textContent = c.name;
-        if (av) av.textContent = '👥';
+        if (av) { av.textContent = '👥'; av.classList.remove('com-foto'); ibAvatarFoto(av, c.grupoId); }
         if (telEl) telEl.textContent = 'Grupo · toque para ver dados e integrantes';
         let b = document.getElementById('inbox-acoes');
         if (!b) { b = prEl('div', 'inbox-acoes'); b.id = 'inbox-acoes'; document.querySelector('#inbox-chat-content .inbox-chat-header')?.after(b); }
@@ -11410,7 +11421,7 @@ function ibPintarCabecalho() {
         return;
     }
     if (nomeEl) nomeEl.textContent = (c.interessado ? '🔥 ' : '') + c.name;
-    if (av) av.textContent = c.semNome ? '#' : (c.name || '?').charAt(0).toUpperCase();
+    if (av) { av.textContent = c.semNome ? '#' : (c.name || '?').charAt(0).toUpperCase(); av.classList.remove('com-foto'); if (!c.nova) ibAvatarFoto(av, c.phone); }
     if (telEl) {
         const etapa = c.pipeCol ? ((typeof PK_COLS !== 'undefined' && PK_COLS.find(x => x.id === c.pipeCol)?.label) || c.pipeCol) : '';
         const partes = [c.semNome ? '' : formatPhoneBR(c.phone), etapa ? 'Pipeline: ' + etapa : '', c.campanha, ibEsperandoVoce(c) ? 'esperando há ' + rsEspera(c.lastTime) : ''].filter(Boolean);
@@ -11534,6 +11545,7 @@ function ibPintarMensagens(area, msgs, t, grupo) {
             else b.appendChild(prEl('span', '', txt));
             const midia = ibMidiaDaMensagem(m);
             if (midia) ibPintarMidia(b, midia);
+            else { const lk = ibLinkDaMensagem(m); if (lk) ibPintarLink(b, lk); }
             if (_ibDestaque && txt.toLowerCase().includes(_ibDestaque.toLowerCase())) { b.classList.add('ib-destaque'); b.dataset.destaque = '1'; }
             const pe = prEl('div', 'inbox-bubble-footer');
             pe.appendChild(prEl('span', 'inbox-bubble-time', dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })));
@@ -11983,7 +11995,7 @@ async function ibCarregarMidias(c) {
     _ibMidiasConversa = [];
     if (!currentUser) return;
     try {
-        let q = supabaseClient.from('midias').select('msg_id,phone,grupo_id,tipo,mime,path,nome_arquivo,criado_em').eq('user_id', currentUser.id);
+        let q = supabaseClient.from('midias').select('msg_id,phone,grupo_id,tipo,mime,path,nome_arquivo,titulo,descricao,url,criado_em').eq('user_id', currentUser.id);
         if (c.grupo) q = q.eq('grupo_id', c.grupoId);
         else { const d = String(c.phone).replace(/\D/g, ''), t = ibChave(d); q = q.in('phone', Array.from(new Set([d, t, '55' + t]))); }
         const { data } = await q.order('criado_em', { ascending: true }).limit(200);
@@ -11994,7 +12006,7 @@ function ibMidiaDaMensagem(m) {
     if (m.fromMe || !/^(📷 Foto|🎥 Vídeo|🎤 Áudio|📄 Documento)/.test(String(m.text || '').trim())) return null;
     if (m.msgId) { const x = _ibMidiasConversa.find(y => y.msg_id === m.msgId); if (x) return x; }
     let melhor = null;
-    _ibMidiasConversa.forEach(x => { const dt = Math.abs(new Date(x.criado_em).getTime() - m.ts); if (dt < 180000 && (!melhor || dt < melhor.dt)) melhor = { dt, x }; });
+    _ibMidiasConversa.forEach(x => { if (x.tipo === 'link') return; const dt = Math.abs(new Date(x.criado_em).getTime() - m.ts); if (dt < 180000 && (!melhor || dt < melhor.dt)) melhor = { dt, x }; });
     return melhor ? melhor.x : null;
 }
 async function ibUrlMidia(path) {
@@ -12017,6 +12029,100 @@ function ibPintarMidia(bolha, midia) {
         else { el = prEl('a', 'ib-midia-doc', '📄 Abrir ' + (midia.nome_arquivo || 'documento')); el.href = url; el.target = '_blank'; el.rel = 'noopener'; }
         lugar.appendChild(el);
     }).catch(() => { lugar.innerHTML = ''; lugar.appendChild(prEl('span', 'inbox-midia', 'Arquivo indisponível')); });
+}
+
+// ---------- Cartão de link (prévia com imagem, título e descrição, como no WhatsApp) ----------
+function ibLinkDaMensagem(m) {
+    if (m.fromMe) return null;
+    const links = _ibMidiasConversa.filter(x => x.tipo === 'link');
+    if (!links.length || !/https?:\/\//i.test(String(m.text || ''))) return null;
+    if (m.msgId) { const x = links.find(y => y.msg_id === m.msgId); if (x) return x; }
+    let melhor = null;
+    links.forEach(x => { const dt = Math.abs(new Date(x.criado_em).getTime() - m.ts); if (dt < 180000 && (!melhor || dt < melhor.dt)) melhor = { dt, x }; });
+    return melhor ? melhor.x : null;
+}
+function ibPintarLink(bolha, x) {
+    let url = String(x.url || '');
+    if (url && !/^https?:\/\//i.test(url)) url = 'https://' + url;
+    let dominio = '';
+    try { dominio = new URL(url).hostname.replace(/^www\./, ''); } catch (e) { url = ''; }
+    const card = prEl(url ? 'a' : 'div', 'ib-link');
+    if (url) { card.href = url; card.target = '_blank'; card.rel = 'noopener noreferrer'; }
+    if (x.path) {
+        const img = document.createElement('img'); img.className = 'ib-link-img'; img.alt = '';
+        ibUrlMidia(x.path).then(u => { img.src = u; }).catch(() => img.remove());
+        card.appendChild(img);
+    }
+    const t = prEl('div', 'ib-link-txt');
+    if (x.titulo) t.appendChild(prEl('b', '', x.titulo));
+    if (x.descricao) t.appendChild(prEl('span', 'ib-link-desc', x.descricao));
+    if (dominio) t.appendChild(prEl('small', '', dominio));
+    card.appendChild(t);
+    const autor = bolha.querySelector('.inbox-bubble-autor');
+    bolha.insertBefore(card, autor ? autor.nextSibling : bolha.firstChild);
+}
+
+// ---------- Fotos de perfil (contatos e grupos) ----------
+// Pede ao servidor só as fotos dos avatares que aparecem na tela; guarda 12h neste aparelho.
+var _ibFotos = null, _ibFotosFila = new Set(), _ibFotosTimer = null, _ibFotosObs = null, _ibFotosBuscando = false;
+const IB_FOTO_TTL = 12 * 3600 * 1000;
+function ibFotosCache() {
+    if (_ibFotos) return _ibFotos;
+    try { _ibFotos = JSON.parse(localStorage.getItem('ibFotos') || '{}') || {}; } catch (e) { _ibFotos = {}; }
+    const agora = Date.now();
+    Object.keys(_ibFotos).forEach(k => { if (!_ibFotos[k] || agora - _ibFotos[k].em > IB_FOTO_TTL) delete _ibFotos[k]; });
+    return _ibFotos;
+}
+function ibFotosSalvar() { try { localStorage.setItem('ibFotos', JSON.stringify(ibFotosCache())); } catch (e) {} }
+function ibIdFoto(v) {
+    v = String(v || '');
+    if (v.endsWith('@g.us')) return v;
+    const d = v.replace(/\D/g, '');
+    return d.length >= 10 && d.length <= 13 ? (d.length <= 11 ? '55' + d : d) : '';
+}
+function ibPorFoto(el, url) {
+    if (!el || !url || el.querySelector('img.ib-av-foto')) return;
+    const img = document.createElement('img'); img.className = 'ib-av-foto'; img.alt = ''; img.referrerPolicy = 'no-referrer'; img.loading = 'lazy';
+    img.onload = () => el.classList.add('com-foto');
+    img.onerror = () => { img.remove(); el.classList.remove('com-foto'); const k = el.dataset.foto; if (k) { ibFotosCache()[k] = { u: null, em: Date.now() }; ibFotosSalvar(); } };
+    img.src = url;
+    el.appendChild(img);
+}
+// Liga um avatar ao telefone (ou id do grupo): mostra a foto se já sabemos, senão pede quando aparecer na tela
+function ibAvatarFoto(el, phoneOuGrupo) {
+    const id = ibIdFoto(phoneOuGrupo);
+    if (!el || !id) return;
+    el.dataset.foto = id;
+    const c = ibFotosCache()[id];
+    if (c) { if (c.u) ibPorFoto(el, c.u); return; }
+    if (!config?.uazapi?.url || !config?.uazapi?.token) return;
+    if (!('IntersectionObserver' in window)) { ibPedirFoto(id); return; }
+    if (!_ibFotosObs) _ibFotosObs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { _ibFotosObs.unobserve(e.target); ibPedirFoto(e.target.dataset.foto); } }), { rootMargin: '200px' });
+    _ibFotosObs.observe(el);
+}
+function ibPedirFoto(id) {
+    if (!id || ibFotosCache()[id]) return;
+    _ibFotosFila.add(id);
+    clearTimeout(_ibFotosTimer); _ibFotosTimer = setTimeout(ibBuscarFotos, 250);
+}
+async function ibBuscarFotos() {
+    if (_ibFotosBuscando || !_ibFotosFila.size) return;
+    const base = (config?.uazapi?.url || '').replace(/\/+$/, ''), token = config?.uazapi?.token;
+    if (!base || !token) return;
+    _ibFotosBuscando = true;
+    const ids = [..._ibFotosFila].slice(0, 60); ids.forEach(i => _ibFotosFila.delete(i));
+    try {
+        const r = await fetch(base + '/fotos', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-token': token }, body: JSON.stringify({ ids }) });
+        if (r.ok) {
+            const { fotos } = await r.json();
+            const cache = ibFotosCache(), agora = Date.now();
+            Object.entries(fotos || {}).forEach(([k, u]) => { cache[k] = { u: u || null, em: agora }; });
+            ibFotosSalvar();
+            Object.entries(fotos || {}).forEach(([k, u]) => { if (u) document.querySelectorAll(`[data-foto="${CSS.escape(k)}"]`).forEach(el => ibPorFoto(el, u)); });
+        }
+    } catch (e) {}
+    _ibFotosBuscando = false;
+    if (_ibFotosFila.size) _ibFotosTimer = setTimeout(ibBuscarFotos, 300);
 }
 
 // ---------- Nova conversa e busca dentro das mensagens ----------
@@ -12152,7 +12258,7 @@ async function ibInfoGrupo(c) {
         vis.slice(0, 300).forEach(p => {
             const tel = formatPhoneBR(p.phone), nome = nomeDe(p), k = ibChave(tel), telVer = String(tel).replace(/^55(\d\d)(\d{4,5})(\d{4})$/, '($1) $2-$3');
             const li = prEl('div', 'gi-item');
-            const av = prEl('div', 'inbox-avatar', nome ? nome.charAt(0).toUpperCase() : '#'); av.style.background = ibCorAutor(nome || tel) + '22'; av.style.color = ibCorAutor(nome || tel);
+            const av = prEl('div', 'inbox-avatar', nome ? nome.charAt(0).toUpperCase() : '#'); av.style.background = ibCorAutor(nome || tel) + '22'; av.style.color = ibCorAutor(nome || tel); ibAvatarFoto(av, p.phone);
             const txt = prEl('div', 'gi-txt');
             const l1 = prEl('div', 'gi-nome', nome || telVer);
             if (p.dono) l1.appendChild(prEl('span', 'gi-tag adm', 'Criador'));
