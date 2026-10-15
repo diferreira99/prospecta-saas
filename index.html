@@ -4376,7 +4376,34 @@ document.addEventListener('DOMContentLoaded', () => {
             .grp-alerta { font-size:0.7rem; color:#92400e; background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:8px 10px; margin-top:10px; line-height:1.45; }
             .inbox-grupos-escolher { width:calc(100% - 20px); margin:8px 10px; padding:8px; border-radius:8px; border:1px dashed #94a3b8; background:#fff; color:#54656f; font-size:0.74rem; font-weight:600; cursor:pointer; }
             .inbox-avatar.grupo { background:#e7f3ef; font-size:1rem; }
-            .inbox-bubble-autor { font-size:0.66rem; font-weight:700; color:#0b7a5a; margin-bottom:2px; }
+            .inbox-bubble-autor { display:block; width:auto; background:none; border:none; padding:0; font-size:0.7rem; font-weight:700; color:#0b7a5a; margin-bottom:2px; cursor:pointer; text-align:left; }
+            .inbox-bubble-autor:hover { text-decoration:underline; }
+            .inbox-filtro.alerta { border-color:#fca5a5; color:#b91c1c; }
+            .ib-oport-box { margin:6px 10px 10px; display:flex; flex-direction:column; gap:8px; }
+            .ib-oport-tit { font-size:0.74rem; font-weight:800; color:#b91c1c; }
+            .ib-oport { background:#fff7ed; border:1px solid #fed7aa; border-radius:10px; padding:8px 10px; display:flex; flex-direction:column; gap:4px; }
+            .ib-oport-quem { font-size:0.66rem; color:#9a3412; font-weight:600; }
+            .ib-oport-msg { font-size:0.78rem; color:#1f2937; }
+            .ib-oport-acoes { display:flex; gap:6px; flex-wrap:wrap; }
+            .ib-oport-acoes .rs-btn { padding:4px 10px; font-size:0.7rem; }
+            .ib-oport-dica { font-size:0.66rem; color:#9a3412; }
+            .ib-menu-autor { position:fixed; z-index:9999; background:#fff; border:1px solid #d1d7db; border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.15); padding:6px; display:flex; flex-direction:column; min-width:210px; }
+            .ib-menu-autor button { width:auto; text-align:left; background:none; border:none; padding:8px 10px; font-size:0.8rem; cursor:pointer; border-radius:6px; }
+            .ib-menu-autor button:hover { background:#f0f2f5; }
+            .ib-menu-tit { font-size:0.7rem; color:#667781; padding:4px 10px 6px; border-bottom:1px solid #e9edef; margin-bottom:4px; }
+            .ib-menu-dica { font-size:0.72rem; color:#667781; padding:6px 10px; }
+            .ib-ia { display:flex; gap:6px; }
+            .ib-ia-btn { width:auto; background:#fff; border:1px solid #c7d2fe; color:#3730a3; border-radius:99px; padding:4px 10px; font-size:0.72rem; font-weight:600; cursor:pointer; }
+            .ib-ia-btn:disabled { opacity:.5; cursor:wait; }
+            .rs-link.destaque { color:#b45309; }
+            .ib-nova .inbox-avatar { background:#d9fdd3; color:#0b5e3a; }
+            .ib-dica-lista { font-size:0.7rem; color:#667781; padding:6px 12px; }
+            .ib-busca-tit { font-size:0.68rem; font-weight:800; color:#667781; text-transform:uppercase; letter-spacing:.4px; padding:10px 12px 4px; border-top:1px solid #e9edef; }
+            .ib-destaque { box-shadow:0 0 0 2px #f59e0b; }
+            .ib-midia { margin:2px 0 4px; }
+            .ib-midia audio { width:240px; max-width:100%; }
+            .ib-midia .inbox-bubble-img { max-width:240px; border-radius:8px; cursor:pointer; display:block; }
+            .ib-midia-doc { font-size:0.8rem; font-weight:600; color:#0b5e3a; }
             .inbox-chat-header > div:not([class]):not([style]) { min-width:0; flex:1; }
             .inbox-chat-phone { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
             .inbox-chat-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -11207,8 +11234,10 @@ async function carregarInbox(silencioso) {
             }
         }
         _ibUltimas = {}; conversas.forEach(c => { _ibUltimas[c.chave] = c.lastTime; });
-        await ibCarregarGrupos();
-        inboxConversas = conversas.concat(_ibGrupos);
+        await Promise.all([ibCarregarGrupos(), ibCarregarOportunidades()]);
+        // grupos entram na lista como qualquer conversa, por ordem da última mensagem
+        inboxConversas = conversas.concat(_ibGrupos).sort((a, b) => b.lastTime - a.lastTime);
+        ibLigarTempoReal();
         if (inboxChatAtual) {
             const atual = conversas.find(c => c.chave === inboxChatAtual.chave);
             if (atual) { inboxChatAtual = Object.assign(inboxChatAtual, atual, { unread: false }); ibPintarCabecalho(); }
@@ -11233,13 +11262,15 @@ function ibLigarAoVivo() {
     }, 20000);
 }
 
-function ibEsperandoVoce(c) { return !c.grupo && !c.fromMe && !c.robo && !c.pare; }
+function ibEsperandoVoce(c) { return !c.grupo && !c.fromMe && !c.robo && !c.pare && !ibArquivada(c); }
 const IB_FILTROS = [
     ['esperando', 'Esperando você', ibEsperandoVoce],
-    ['interessados', '🔥 Interessados', c => !c.grupo && c.interessado],
-    ['naolidas', 'Não lidas', c => c.unread],
+    ['interessados', '🔥 Interessados', c => !c.grupo && c.interessado && !ibArquivada(c)],
+    ['naolidas', 'Não lidas', c => c.unread && !ibArquivada(c)],
+    ['esfriaram', '🧊 Esfriaram', c => ibEsfriou(c)],
     ['grupos', '👥 Grupos', c => c.grupo],
-    ['todas', 'Todas', c => !c.grupo],
+    ['todas', 'Todas', c => !ibArquivada(c)],
+    ['arquivadas', '🗂 Arquivadas', c => ibArquivada(c)],
 ];
 function ibPintarFiltros() {
     let barra = document.getElementById('inbox-filtros');
@@ -11251,7 +11282,9 @@ function ibPintarFiltros() {
     barra.innerHTML = '';
     IB_FILTROS.forEach(([k, t, f]) => {
         const n = (inboxConversas || []).filter(f).length;
-        const b = prEl('button', 'inbox-filtro' + (_ibFiltro === k ? ' ativo' : ''), t + (k !== 'todas' && k !== 'grupos' && n ? ' ' + n : ''));
+        const nOp = (_ibOport || []).filter(o => o.status === 'nova').length;
+        const rot = k === 'grupos' ? t + (nOp ? ' · 🔥' + nOp : '') : t + (!['todas', 'arquivadas'].includes(k) && n ? ' ' + n : '');
+        const b = prEl('button', 'inbox-filtro' + (_ibFiltro === k ? ' ativo' : '') + (k === 'grupos' && nOp ? ' alerta' : ''), rot);
         b.type = 'button';
         b.onclick = () => { _ibFiltro = k; userSet('inboxFiltro', k); renderInboxLista(inboxConversas); };
         barra.appendChild(b);
@@ -11264,16 +11297,30 @@ function renderInboxLista(conversas) {
     ibPintarFiltros();
     const termo = (document.getElementById('inbox-search-input')?.value || '').toLowerCase().trim();
     const dig = termo.replace(/\D/g, '');
-    const filtro = (IB_FILTROS.find(f => f[0] === _ibFiltro) || IB_FILTROS[4])[2];
+    const filtro = (IB_FILTROS.find(f => f[0] === _ibFiltro) || IB_FILTROS.find(f => f[0] === 'todas'))[2];
     const filtradas = (conversas || []).filter(c => (termo ? (c.name.toLowerCase().includes(termo) || (dig.length >= 3 && String(c.phone).includes(dig))) : filtro(c)));
     lista.innerHTML = '';
     if (_ibFiltro === 'grupos' && !termo) {
         const esc = prEl('button', 'inbox-grupos-escolher', '⚙ Escolher grupos para ver aqui'); esc.type = 'button';
         esc.onclick = () => abrirGrupos('inbox');
         lista.appendChild(esc);
+        ibCardsOportunidades(lista);
     }
+    // Número digitado que não está na lista: começar conversa nova
+    if (dig.length >= 10 && !filtradas.some(c => !c.grupo && c.chave === ibChave(dig))) {
+        const nova = prEl('div', 'inbox-item ib-nova');
+        nova.appendChild(prEl('div', 'inbox-avatar', '＋'));
+        const inf = prEl('div', 'inbox-item-info');
+        inf.appendChild(prEl('div', 'inbox-item-name', 'Começar conversa com ' + formatPhoneBR(dig)));
+        inf.appendChild(prEl('div', 'inbox-item-preview', 'Confere se tem WhatsApp e se não está em Não contatar'));
+        nova.appendChild(inf);
+        nova.onclick = () => ibNovaConversa(dig);
+        lista.appendChild(nova);
+    }
+    if (_ibFiltro === 'esfriaram' && !termo && filtradas.length) lista.appendChild(prEl('div', 'ib-dica-lista', 'Sem resposta há mais de 7 dias. Abra e toque em "🔁 Retomar" para a IA sugerir a mensagem, ou arquive o que não interessa.'));
+    if (termo.length >= 3 && dig.length < 3) setTimeout(() => ibBuscarMensagens(termo, lista), 0);
     if (!filtradas.length) {
-        lista.appendChild(prEl('div', 'inbox-empty', termo ? 'Nenhuma conversa encontrada' : _ibFiltro === 'grupos' ? 'Nenhum grupo no Inbox ainda. Escolha acima; as mensagens aparecem a partir de agora.' : 'Nada aqui agora 🎉'));
+        if (!(dig.length >= 10)) lista.appendChild(prEl('div', 'inbox-empty', termo ? 'Nenhuma conversa com esse nome' : _ibFiltro === 'grupos' ? 'Nenhum grupo no Inbox ainda. Escolha acima; as mensagens aparecem a partir de agora.' : 'Nada aqui agora 🎉'));
         return;
     }
     const agora = new Date();
@@ -11346,7 +11393,11 @@ function ibPintarCabecalho() {
     const bloq = bloqueadoLead({ phone: c.phone });
     const nc = prEl('button', 'rs-link' + (bloq ? ' desligado' : ''), bloq ? '🚫 Em Não contatar' : '🚫 Não contatar'); nc.type = 'button'; nc.disabled = bloq;
     nc.onclick = async () => { await rsNaoContatar(g, false); ibPintarCabecalho(); };
-    barra.append(sel, ret, reu, nc, painel);
+    const arq = prEl('button', 'rs-link', ibArquivada(c) ? '📤 Desarquivar' : '🗂 Arquivar'); arq.type = 'button';
+    arq.onclick = () => ibArquivar(c, !ibArquivada(c));
+    barra.append(sel, ret, reu, nc, arq);
+    if (ibEsfriou(c)) { const rt = prEl('button', 'rs-link destaque', '🔁 Retomar com IA'); rt.type = 'button'; rt.onclick = () => ibSugerirIA('retomar'); barra.appendChild(rt); }
+    barra.appendChild(painel);
     ibPintarAjudas();
 }
 
@@ -11369,6 +11420,11 @@ function ibPintarAjudas() {
         s.appendChild(usar);
         box.appendChild(s);
     }
+    const ia = prEl('div', 'ib-ia');
+    const sug = prEl('button', 'ib-ia-btn', '✨ Sugerir resposta'); sug.type = 'button'; sug.onclick = () => ibSugerirIA(c.ctxGrupo && !c.lastTime ? 'grupo_privado' : 'sugerir');
+    const mel = prEl('button', 'ib-ia-btn', '✍️ Melhorar meu texto'); mel.type = 'button'; mel.onclick = () => ibSugerirIA('melhorar');
+    ia.append(sug, mel);
+    box.appendChild(ia);
     const chips = prEl('div', 'inbox-rapidas');
     ibRapidas().forEach((t, i) => {
         const ch = prEl('span', 'inbox-rapida');
@@ -11399,7 +11455,10 @@ function ibRecibo(chave, quandoMs) {
     return melhor ? melhor.e.status : null;
 }
 
+const IB_CORES_AUTOR = ['#0b7a5a', '#1d4ed8', '#b45309', '#9333ea', '#be123c', '#0e7490', '#4d7c0f', '#c2410c'];
+function ibCorAutor(nome) { let h = 0; for (const ch of String(nome)) h = (h * 31 + ch.charCodeAt(0)) % 997; return IB_CORES_AUTOR[h % IB_CORES_AUTOR.length]; }
 function ibPintarMensagens(area, msgs, t, grupo) {
+        _ibMsgsAtual = msgs;
         const noFundo = area.scrollHeight - area.scrollTop - area.clientHeight < 60;
         area.innerHTML = '';
         let ultimaData = '';
@@ -11415,10 +11474,18 @@ function ibPintarMensagens(area, msgs, t, grupo) {
             }
             const b = prEl('div', 'inbox-bubble ' + (m.fromMe ? 'me' : 'them') + (m.campanha ? ' campanha' : ''));
             if (m.campanha) b.appendChild(prEl('div', 'inbox-bubble-rotulo', 'Mensagem da campanha'));
-            if (m.autor) b.appendChild(prEl('div', 'inbox-bubble-autor', m.autor));
+            if (m.autor) {
+                const au = prEl('button', 'inbox-bubble-autor', m.autor); au.type = 'button';
+                au.style.color = ibCorAutor(m.autor); au.title = 'Chamar no privado ou pôr no Pipeline';
+                au.onclick = e => ibMenuAutor(e, m);
+                b.appendChild(au);
+            }
             const txt = String(m.text || '');
             if (!txt.replace(/[\s‎‏​]/g, '')) b.appendChild(prEl('span', 'inbox-midia', '📎 Áudio, foto ou figurinha (veja no WhatsApp)'));
             else b.appendChild(prEl('span', '', txt));
+            const midia = ibMidiaDaMensagem(m);
+            if (midia) ibPintarMidia(b, midia);
+            if (_ibDestaque && txt.toLowerCase().includes(_ibDestaque.toLowerCase())) { b.classList.add('ib-destaque'); b.dataset.destaque = '1'; }
             const pe = prEl('div', 'inbox-bubble-footer');
             pe.appendChild(prEl('span', 'inbox-bubble-time', dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })));
             if (m.fromMe && !grupo) {
@@ -11430,7 +11497,9 @@ function ibPintarMensagens(area, msgs, t, grupo) {
             b.appendChild(pe);
             area.appendChild(b);
         });
-        if (noFundo || !area.dataset.rolou) { area.scrollTop = area.scrollHeight; area.dataset.rolou = '1'; }
+        const alvo = area.querySelector('[data-destaque="1"]');
+        if (alvo) { alvo.scrollIntoView({ block: 'center' }); area.dataset.rolou = '1'; _ibDestaque = ''; }
+        else if (noFundo || !area.dataset.rolou) { area.scrollTop = area.scrollHeight; area.dataset.rolou = '1'; }
         ibMarcarVisto(t);
 }
 
@@ -11440,11 +11509,12 @@ async function atualizarMensagens() {
     if (!area || !currentUser) return;
     try {
         const c = inboxChatAtual;
-        if (c.grupo) { ibPintarMensagens(area, await ibMensagensGrupo(c), c.chave, true); return; }
+        if (c.grupo) { const [ms] = await Promise.all([ibMensagensGrupo(c), ibCarregarMidias(c)]); ibPintarMensagens(area, ms, c.chave, true); return; }
         const d = String(c.phone).replace(/\D/g, ''), t = ibChave(d);
         const [{ data, error }] = await Promise.all([
             supabaseClient.from('respostas_historico').select('direcao, mensagem, criado_em').eq('user_id', currentUser.id).in('phone', Array.from(new Set([d, t, '55' + t]))).order('criado_em', { ascending: true }).limit(300),
             ibCarregarEntregas(c.phone),
+            ibCarregarMidias(c),
         ]);
         if (error) return;
         let msgs = (data || []).map(r => ({ fromMe: r.direcao === 'enviada', ts: r.criado_em ? new Date(r.criado_em).getTime() : Date.now(), text: r.mensagem || '' }));
@@ -11518,6 +11588,7 @@ async function waChecarConexao() {
     } catch (e) { /* tabela ainda não existe ou sem rede: sem aviso */ }
 }
 setInterval(waChecarConexao, 60000);
+window.addEventListener('load', () => setTimeout(() => { try { ibLigarTempoReal(); } catch (e) {} }, 6000));
 window.addEventListener('load', () => setTimeout(waChecarConexao, 4000));
 
 // ---------- Leitura nas Campanhas ----------
@@ -11681,8 +11752,261 @@ async function ibCarregarGrupos() {
     return _ibGrupos;
 }
 async function ibMensagensGrupo(c) {
-    const { data } = await supabaseClient.from('grupo_mensagens').select('autor_nome,autor_phone,mensagem,de_mim,criado_em').eq('user_id', currentUser.id).eq('grupo_id', c.grupoId).order('criado_em', { ascending: false }).limit(300);
-    return (data || []).reverse().map(r => ({ fromMe: !!r.de_mim, ts: new Date(r.criado_em).getTime(), text: r.mensagem || '', autor: r.de_mim ? '' : (r.autor_nome || (r.autor_phone ? formatPhoneBR(r.autor_phone) : 'Participante')) }));
+    const { data } = await supabaseClient.from('grupo_mensagens').select('msg_id,autor_nome,autor_phone,mensagem,de_mim,criado_em').eq('user_id', currentUser.id).eq('grupo_id', c.grupoId).order('criado_em', { ascending: false }).limit(300);
+    return (data || []).reverse().map(r => ({ fromMe: !!r.de_mim, ts: new Date(r.criado_em).getTime(), text: r.mensagem || '', msgId: r.msg_id, autorPhone: r.autor_phone || null, autor: r.de_mim ? '' : (r.autor_nome || (r.autor_phone ? formatPhoneBR(r.autor_phone) : 'Participante')) }));
+}
+
+// ===================== INBOX 2: tempo real, mídias, IA, esfriaram, nova conversa, busca, oportunidades em grupos =====================
+const IB_DIA = 86400000;
+function ibArquivadas() { return userGet('inboxArquivadas', {}) || {}; }
+function ibArquivada(c) { const t = ibArquivadas()[c.chave]; return !!t && c.lastTime <= t; }   // mensagem nova desarquiva sozinha
+function ibEsfriou(c) {
+    return !c.grupo && !c.robo && !c.pare && !ibArquivada(c) && (Date.now() - c.lastTime) > 7 * IB_DIA && !['fechado', 'descartado'].includes(c.pipeCol);
+}
+function ibArquivar(c, sim) {
+    const a = Object.assign({}, ibArquivadas());
+    if (sim) a[c.chave] = Date.now(); else delete a[c.chave];
+    userSet('inboxArquivadas', a);
+    showToast(sim ? '🗂 Conversa arquivada (volta sozinha se chegar mensagem nova)' : 'Conversa de volta na lista', 'ok');
+    renderInboxLista(inboxConversas);
+    ibPintarCabecalho();
+}
+
+// ---------- Tempo real (Supabase Realtime): mensagem nova aparece na hora ----------
+var _ibCanal = null, _ibRtTimer = null;
+function ibLigarTempoReal() {
+    if (_ibCanal || !currentUser || !supabaseClient || typeof supabaseClient.channel !== 'function') return;
+    const uid = currentUser.id;
+    const atualizar = () => {
+        clearTimeout(_ibRtTimer);
+        _ibRtTimer = setTimeout(() => {
+            if (document.getElementById('tab-inbox')?.classList.contains('active')) { carregarInbox(true); if (inboxChatAtual) atualizarMensagens(); }
+        }, 700);
+    };
+    try {
+        _ibCanal = supabaseClient.channel('inbox-' + uid)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'respostas_historico', filter: 'user_id=eq.' + uid }, atualizar)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'grupo_mensagens', filter: 'user_id=eq.' + uid }, atualizar)
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'oportunidades_grupo', filter: 'user_id=eq.' + uid }, p => ibNovaOportunidade(p && p.new))
+            .subscribe();
+    } catch (e) { _ibCanal = null; }
+}
+function ibNovaOportunidade(o) {
+    if (!o) return;
+    _ibOport = [o].concat((_ibOport || []).filter(x => x.id !== o.id));
+    const titulo = `🔥 Pediram indicação em ${o.grupo_nome || 'um grupo'}`;
+    const corpo = `${o.autor_nome || 'Alguém'}: ${String(o.mensagem || '').slice(0, 120)}`;
+    showToast(titulo + ' · ' + corpo, 'ok');
+    try { _notificarSistema(titulo, corpo, 'inbox'); } catch (e) {}
+    if (document.getElementById('tab-inbox')?.classList.contains('active')) renderInboxLista(inboxConversas);
+}
+
+// ---------- Oportunidades em grupos (pedidos de indicação) ----------
+var _ibOport = null;
+async function ibCarregarOportunidades() {
+    if (!currentUser) return [];
+    try {
+        const desde = new Date(Date.now() - 14 * IB_DIA).toISOString();
+        const { data } = await supabaseClient.from('oportunidades_grupo').select('id,grupo_id,grupo_nome,autor_phone,autor_nome,mensagem,status,criado_em')
+            .eq('user_id', currentUser.id).in('status', ['nova', 'vista']).gte('criado_em', desde).order('criado_em', { ascending: false }).limit(50);
+        _ibOport = data || [];
+    } catch (e) { _ibOport = _ibOport || []; }
+    return _ibOport;
+}
+async function ibMarcarOportunidade(o, status) {
+    try { await supabaseClient.from('oportunidades_grupo').update({ status }).eq('id', o.id); } catch (e) {}
+    _ibOport = (_ibOport || []).filter(x => x.id !== o.id);
+    renderInboxLista(inboxConversas);
+}
+function ibCardsOportunidades(lista) {
+    const ops = (_ibOport || []);
+    if (!ops.length) return;
+    const box = prEl('div', 'ib-oport-box');
+    box.appendChild(prEl('div', 'ib-oport-tit', `🔥 Pedidos de indicação em grupos (${ops.length})`));
+    ops.slice(0, 10).forEach(o => {
+        const card = prEl('div', 'ib-oport');
+        card.appendChild(prEl('div', 'ib-oport-quem', `${o.autor_nome || 'Alguém'} · ${o.grupo_nome || 'grupo'} · ${prHa(o.criado_em)}`));
+        card.appendChild(prEl('div', 'ib-oport-msg', o.mensagem || ''));
+        const ac = prEl('div', 'ib-oport-acoes');
+        if (o.autor_phone) {
+            const b = prEl('button', 'rs-btn verde', '💬 Chamar no privado'); b.type = 'button';
+            b.onclick = () => { ibMarcarOportunidade(o, 'chamada'); ibChamarNoPrivado(o.autor_phone, o.autor_nome, { grupo: o.grupo_nome, mensagem: o.mensagem }); };
+            ac.appendChild(b);
+        } else ac.appendChild(prEl('span', 'ib-oport-dica', 'Número escondido pelo WhatsApp: responda no grupo.'));
+        const g = (inboxConversas || []).find(c => c.grupo && c.grupoId === o.grupo_id);
+        if (g) { const vg = prEl('button', 'rs-btn', 'Ver no grupo'); vg.type = 'button'; vg.onclick = () => abrirChat(g); ac.appendChild(vg); }
+        const d = prEl('button', 'rs-btn', 'Descartar'); d.type = 'button'; d.onclick = () => ibMarcarOportunidade(o, 'descartada');
+        ac.appendChild(d);
+        card.appendChild(ac);
+        box.appendChild(card);
+    });
+    lista.appendChild(box);
+}
+
+// ---------- Do grupo para o privado ----------
+async function ibChamarNoPrivado(phone, nome, ctxGrupo) {
+    const tel = formatPhoneBR(phone);
+    const k = ibChave(tel);
+    let c = (inboxConversas || []).find(x => !x.grupo && x.chave === k);
+    if (!c) c = { chave: k, phone: tel, chatid: tel + '@s.whatsapp.net', name: nome || formatPhoneBR(tel), semNome: !nome, lastMsg: '', lastTime: 0, fromMe: true, pendentes: [], sugestao: null, nova: true };
+    c.ctxGrupo = ctxGrupo || null;
+    if (_ibFiltro === 'grupos') { _ibFiltro = 'todas'; }
+    await abrirChat(c);
+    if (ctxGrupo) ibSugerirIA('grupo_privado');
+}
+function ibMenuAutor(ev, m) {
+    ev.stopPropagation();
+    document.getElementById('ib-menu-autor')?.remove();
+    const menu = prEl('div', 'ib-menu-autor'); menu.id = 'ib-menu-autor';
+    menu.appendChild(prEl('div', 'ib-menu-tit', m.autor + (m.autorPhone ? ' · ' + formatPhoneBR(m.autorPhone) : '')));
+    if (m.autorPhone) {
+        const p = prEl('button', '', '💬 Chamar no privado'); p.type = 'button';
+        p.onclick = () => { menu.remove(); ibChamarNoPrivado(m.autorPhone, m.autor, { grupo: inboxChatAtual?.name, mensagem: m.text }); };
+        const pl = prEl('button', '', '📋 Pôr no Pipeline'); pl.type = 'button';
+        pl.onclick = () => { menu.remove(); rsPipeline({ k: ibChave(m.autorPhone), nome: m.autor, ultimo: { phone: formatPhoneBR(m.autorPhone) }, itens: [] }, l => { if (!l.nota) l.nota = 'Veio do grupo ' + (inboxChatAtual?.name || ''); }, '📋 ' + m.autor + ' no Pipeline'); };
+        menu.append(p, pl);
+    } else menu.appendChild(prEl('div', 'ib-menu-dica', 'O WhatsApp esconde o número desta pessoa.'));
+    const r = ev.target.getBoundingClientRect();
+    menu.style.top = (r.bottom + 4) + 'px'; menu.style.left = Math.min(r.left, innerWidth - 230) + 'px';
+    document.body.appendChild(menu);
+    setTimeout(() => document.addEventListener('click', () => menu.remove(), { once: true }), 0);
+}
+
+// ---------- IA no campo de digitar ----------
+var _ibMsgsAtual = [];
+async function ibChamarIA(prompt) {
+    const provider = config.iaProvider || 'openai';
+    if (provider === 'gemini') {
+        if (!config.gemini?.key) throw new Error('Configure a IA em Integrações');
+        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${config.gemini.key}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }] }) });
+        if (!r.ok) throw new Error('IA ' + r.status);
+        const d = await r.json(); return (d.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+    }
+    if (!config.openai?.key) throw new Error('Configure a IA em Integrações');
+    const r = await fetch('https://api.openai.com/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + config.openai.key }, body: JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 300, messages: [{ role: 'user', content: prompt }] }) });
+    if (!r.ok) throw new Error('IA ' + r.status);
+    const d = await r.json(); return (d.choices?.[0]?.message?.content || '').trim();
+}
+function ibContextoNegocio() { return (document.getElementById('ia-prompt-livre')?.value || userGet('ia_prompt', '') || '').trim(); }
+function ibConversaTexto() {
+    return _ibMsgsAtual.slice(-14).map(m => (m.fromMe ? 'Vendedor' : (m.autor || 'Lead')) + ': ' + String(m.text || '').replace(/\s+/g, ' ').slice(0, 400)).join('\n');
+}
+async function ibSugerirIA(modo) {
+    const c = inboxChatAtual; if (!c) return;
+    const input = document.getElementById('inbox-input');
+    const btns = document.querySelectorAll('.ib-ia-btn'); btns.forEach(b => b.disabled = true);
+    const antes = input.placeholder; input.placeholder = '✨ A IA está escrevendo…';
+    const regras = '\nRegras: português do Brasil, 1 a 3 frases curtas, natural (sem parecer robô), sem trechos entre colchetes nem campos para preencher, sem emojis em excesso. Responda APENAS com o texto da mensagem.';
+    const negocio = ibContextoNegocio();
+    let prompt;
+    if (modo === 'melhorar') {
+        if (!input.value.trim()) { showToast('Escreva algo no campo para a IA melhorar', 'err'); btns.forEach(b => b.disabled = false); input.placeholder = antes; return; }
+        prompt = 'Reescreva a mensagem abaixo para WhatsApp, mais clara, curta e natural, mantendo o sentido e o tom de conversa.' + regras + '\n\nMensagem: ' + input.value.trim();
+    } else if (modo === 'grupo_privado' && c.ctxGrupo) {
+        prompt = `Você é vendedor B2B. Contexto do seu negócio: "${negocio || 'não informado'}".\nNo grupo de WhatsApp "${c.ctxGrupo.grupo}", ${c.name} escreveu: "${c.ctxGrupo.mensagem}".\nEscreva a PRIMEIRA mensagem no privado para essa pessoa: diga que viu a mensagem dela no grupo, ofereça ajuda de forma relevante ao que ela pediu e termine com uma pergunta simples.` + regras;
+    } else if (modo === 'retomar') {
+        const dias = Math.round((Date.now() - c.lastTime) / IB_DIA);
+        prompt = `Você é vendedor B2B. Contexto do seu negócio: "${negocio || 'não informado'}".\nEsta conversa de WhatsApp parou há ${dias} dias. Conversa (mais antiga para a mais recente):\n${ibConversaTexto() || '(sem histórico)'}\n\nEscreva uma mensagem curta para retomar o contato, citando de leve o que foi falado, sem pressionar, terminando com uma pergunta de sim ou não.` + regras;
+    } else {
+        prompt = `Você é vendedor B2B respondendo no WhatsApp. Contexto do seu negócio: "${negocio || 'não informado'}".\n${c.grupo ? 'Esta é a conversa de um GRUPO; responda como participante, sem vender de forma agressiva.' : ''}\nConversa (mais antiga para a mais recente):\n${ibConversaTexto() || '(sem histórico)'}\n\nEscreva a próxima mensagem do Vendedor, respondendo ao que foi dito por último.` + regras;
+    }
+    try {
+        const t = await ibChamarIA(prompt);
+        if (t) { input.value = t.replace(/^["“]|["”]$/g, ''); input.dispatchEvent(new Event('input')); input.focus(); }
+    } catch (e) { showToast('❌ ' + (e && e.message), 'err'); }
+    btns.forEach(b => b.disabled = false); input.placeholder = antes;
+}
+
+// ---------- Mídias recebidas: foto, áudio, vídeo e documento dentro da conversa ----------
+var _ibMidiasConversa = [];
+const _ibUrlMidia = {};
+async function ibCarregarMidias(c) {
+    _ibMidiasConversa = [];
+    if (!currentUser) return;
+    try {
+        let q = supabaseClient.from('midias').select('msg_id,phone,grupo_id,tipo,mime,path,nome_arquivo,criado_em').eq('user_id', currentUser.id);
+        if (c.grupo) q = q.eq('grupo_id', c.grupoId);
+        else { const d = String(c.phone).replace(/\D/g, ''), t = ibChave(d); q = q.in('phone', Array.from(new Set([d, t, '55' + t]))); }
+        const { data } = await q.order('criado_em', { ascending: true }).limit(200);
+        _ibMidiasConversa = data || [];
+    } catch (e) {}
+}
+function ibMidiaDaMensagem(m) {
+    if (m.fromMe || !/^(📷 Foto|🎥 Vídeo|🎤 Áudio|📄 Documento)/.test(String(m.text || '').trim())) return null;
+    if (m.msgId) { const x = _ibMidiasConversa.find(y => y.msg_id === m.msgId); if (x) return x; }
+    let melhor = null;
+    _ibMidiasConversa.forEach(x => { const dt = Math.abs(new Date(x.criado_em).getTime() - m.ts); if (dt < 180000 && (!melhor || dt < melhor.dt)) melhor = { dt, x }; });
+    return melhor ? melhor.x : null;
+}
+async function ibUrlMidia(path) {
+    if (_ibUrlMidia[path] && _ibUrlMidia[path].ate > Date.now()) return _ibUrlMidia[path].url;
+    const { data, error } = await supabaseClient.storage.from('midias').createSignedUrl(path, 3600);
+    if (error || !data) throw error || new Error('sem link');
+    _ibUrlMidia[path] = { url: data.signedUrl, ate: Date.now() + 50 * 60000 };
+    return data.signedUrl;
+}
+function ibPintarMidia(bolha, midia) {
+    const lugar = prEl('div', 'ib-midia');
+    lugar.appendChild(prEl('span', 'inbox-midia', 'carregando…'));
+    bolha.insertBefore(lugar, bolha.firstChild.nextSibling || null);
+    ibUrlMidia(midia.path).then(url => {
+        lugar.innerHTML = '';
+        let el;
+        if (midia.tipo === 'imagem') { el = document.createElement('img'); el.src = url; el.className = 'inbox-bubble-img'; el.alt = 'Foto'; el.onclick = () => window.open(url, '_blank'); }
+        else if (midia.tipo === 'audio') { el = document.createElement('audio'); el.controls = true; el.preload = 'none'; el.src = url; }
+        else if (midia.tipo === 'video') { el = document.createElement('video'); el.controls = true; el.preload = 'metadata'; el.src = url; el.style.maxWidth = '100%'; }
+        else { el = prEl('a', 'ib-midia-doc', '📄 Abrir ' + (midia.nome_arquivo || 'documento')); el.href = url; el.target = '_blank'; el.rel = 'noopener'; }
+        lugar.appendChild(el);
+    }).catch(() => { lugar.innerHTML = ''; lugar.appendChild(prEl('span', 'inbox-midia', 'Arquivo indisponível')); });
+}
+
+// ---------- Nova conversa e busca dentro das mensagens ----------
+async function ibNovaConversa(digitos) {
+    const tel = formatPhoneBR(digitos);
+    if (!tel || tel.length < 12) { showToast('Digite o número com DDD', 'err'); return; }
+    await carregarNaoContatar();
+    if (bloqueadoLead({ phone: tel }) && !confirm('Este número está na lista Não contatar. Abrir a conversa mesmo assim?')) return;
+    const s = _waServ(); if (!s) return;
+    try {
+        const r = await fetch(s.base + '/check-number', { method: 'POST', headers: s.hdr, body: JSON.stringify({ phone: tel }) });
+        const d = await r.json().catch(() => ({}));
+        if (r.ok && d.exists === false) { showToast('Esse número não tem WhatsApp', 'err'); return; }
+    } catch (e) { /* sem conferir: segue */ }
+    const inp = document.getElementById('inbox-search-input'); if (inp) inp.value = '';
+    ibChamarNoPrivado(tel, '', null);
+}
+var _ibBuscaSeq = 0, _ibDestaque = '';
+async function ibBuscarMensagens(termo, lista) {
+    const seq = ++_ibBuscaSeq;
+    await new Promise(r => setTimeout(r, 300));
+    if (seq !== _ibBuscaSeq || !currentUser) return;
+    const padrao = '%' + termo.replace(/[%_]/g, '') + '%';
+    let achados = [];
+    try {
+        const [a, b] = await Promise.all([
+            supabaseClient.from('respostas_historico').select('phone,mensagem,criado_em,direcao').eq('user_id', currentUser.id).ilike('mensagem', padrao).order('criado_em', { ascending: false }).limit(30),
+            supabaseClient.from('grupo_mensagens').select('grupo_id,grupo_nome,autor_nome,mensagem,criado_em').eq('user_id', currentUser.id).ilike('mensagem', padrao).order('criado_em', { ascending: false }).limit(20),
+        ]);
+        achados = (a.data || []).map(x => ({ conv: (inboxConversas || []).find(c => !c.grupo && c.chave === ibChave(x.phone)), texto: x.mensagem, quando: x.criado_em, quem: x.direcao === 'enviada' ? 'Você' : '' }))
+            .concat((b.data || []).map(x => ({ conv: (inboxConversas || []).find(c => c.grupo && c.grupoId === x.grupo_id), texto: x.mensagem, quando: x.criado_em, quem: x.autor_nome || '' })))
+            .filter(x => x.conv);
+    } catch (e) { return; }
+    if (seq !== _ibBuscaSeq || !achados.length) return;
+    lista.appendChild(prEl('div', 'ib-busca-tit', `Mensagens com "${termo}"`));
+    achados.slice(0, 30).forEach(x => {
+        const it = prEl('div', 'inbox-item ib-busca-item');
+        const info = prEl('div', 'inbox-item-info');
+        const r1 = prEl('div', 'inbox-item-row1');
+        r1.appendChild(prEl('span', 'inbox-item-name', x.conv.name));
+        r1.appendChild(prEl('span', 'inbox-item-time', new Date(x.quando).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })));
+        const txt = String(x.texto || '').replace(/\s+/g, ' ');
+        const i = txt.toLowerCase().indexOf(termo.toLowerCase());
+        const trecho = (i > 30 ? '…' + txt.slice(i - 30) : txt).slice(0, 90);
+        info.append(r1, prEl('div', 'inbox-item-preview', (x.quem ? x.quem + ': ' : '') + trecho));
+        it.appendChild(info);
+        it.onclick = () => { _ibDestaque = termo; abrirChat(x.conv); };
+        lista.appendChild(it);
+    });
 }
 
 async function abrirChat(conversa) {
@@ -11831,7 +12155,7 @@ let _midiaTipo = null;
 let _midiaUrl  = null;
 
 async function enviarMidiaInbox(tipo, inputEl) {
-    if (inboxChatAtual && inboxChatAtual.grupo) { inputEl.value = ''; showToast('Em grupo, por enquanto só texto. Mande a mídia pelo celular.', 'err'); return; }
+    if (inboxChatAtual && !ibPodeEnviar('')) { inputEl.value = ''; return; }   // Não contatar vale para mídia também
     refreshUazapiCreds();
     if (!inboxChatAtual || !inputEl.files[0]) return;
     const file = inputEl.files[0];
@@ -11888,6 +12212,7 @@ function cancelarMidiaInbox() {
 async function confirmarMidiaInbox() {
     refreshUazapiCreds();
     if (!_midiaFile || !inboxChatAtual) return;
+    const conversaMidia = inboxChatAtual;
 
     const file     = _midiaFile;
     const tipo     = _midiaTipo;
@@ -11938,7 +12263,7 @@ async function confirmarMidiaInbox() {
                 method:  'POST',
                 headers: { 'Content-Type': 'application/json', 'x-api-token': config.uazapi.token },
                 body:    JSON.stringify({
-                    phone: number, base64, filename: file.name, mimetype: file.type,
+                    ...(conversaMidia.grupo ? { grupoId: conversaMidia.grupoId } : { phone: number }), base64, filename: file.name, mimetype: file.type,
                     tipo: tipo === 'image' ? 'image' : tipo === 'document' ? 'document' : 'audio',
                     caption: tipo === 'document' ? '' : ''
                 })
@@ -11949,11 +12274,14 @@ async function confirmarMidiaInbox() {
                 // Registra no histórico como texto descritivo (ainda não guardamos mídia recebida/enviada
                 // como arquivo no histórico — é o próximo passo natural dessa função)
                 try {
-                    await supabaseClient.from('respostas_historico').insert({
-                        user_id: currentUser.id, phone: number, lead_nome: inboxChatAtual.name || '',
-                        direcao: 'enviada', mensagem: `📎 [${tipo}] ${file.name}`, criado_em: new Date().toISOString()
+                    const rotulo = (tipo === 'image' ? '📷 Foto enviada: ' : tipo === 'audio' ? '🎤 Áudio enviado: ' : '📎 Arquivo enviado: ') + file.name;
+                    if (conversaMidia.grupo) await supabaseClient.from('grupo_mensagens').insert({ user_id: currentUser.id, grupo_id: conversaMidia.grupoId, grupo_nome: conversaMidia.name || '', autor_nome: 'Você', mensagem: rotulo, tipo, de_mim: true, criado_em: new Date().toISOString() });
+                    else await supabaseClient.from('respostas_historico').insert({
+                        user_id: currentUser.id, phone: number, lead_nome: conversaMidia.name || '',
+                        direcao: 'enviada', mensagem: rotulo, criado_em: new Date().toISOString()
                     });
                 } catch (e) {}
+                if (!conversaMidia.grupo) ibTirarDaFila(conversaMidia);
             } else {
                 const err = await resp.json().catch(() => ({}));
                 showToast('❌ Erro ao enviar: ' + (err.error || resp.status), 'err');
@@ -11976,74 +12304,7 @@ let audioTimer    = null;
 let audioSegundos = 0;
 let audioBlob     = null; // blob gravado aguardando confirmação
 
-async function toggleGravacao() {
-    const btn = document.getElementById('inbox-mic-btn');
-
-    // Se já está gravando → para e mostra preview
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-        mediaRecorder.stop();
-        return;
-    }
-
-    // Se há um preview aguardando → cancela
-    if (audioBlob) {
-        cancelarAudio();
-        return;
-    }
-
-    // Inicia gravação
-    try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioChunks  = [];
-        audioSegundos = 0;
-
-        // Escolhe codec compatível (Safari não suporta ogg)
-        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-            ? 'audio/webm;codecs=opus'
-            : MediaRecorder.isTypeSupported('audio/mp4')
-                ? 'audio/mp4'
-                : '';
-        mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
-
-        mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
-
-        mediaRecorder.onstop = async function() {
-            stream.getTracks().forEach(t => t.stop());
-            clearInterval(audioTimer);
-
-            const ext      = mediaRecorder.mimeType.includes('mp4') ? 'mp4' : 'webm';
-            audioBlob      = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
-            const url      = URL.createObjectURL(audioBlob);
-            const durTotal = audioSegundos;
-
-            // Mostra preview com botão confirmar/cancelar
-            mostrarPreviewAudio(url, durTotal, ext);
-        };
-
-        mediaRecorder.start(200); // coleta a cada 200ms
-
-        // Timer visual
-        audioTimer = setInterval(() => {
-            audioSegundos++;
-            const m = Math.floor(audioSegundos / 60);
-            const s = String(audioSegundos % 60).padStart(2, '0');
-            const timerEl = document.getElementById('inbox-audio-timer');
-            if (timerEl) timerEl.textContent = m + ':' + s;
-            // Anima barras
-            animarBarras();
-        }, 1000);
-
-        // Muda botão para ⏹ e mostra timer
-        btn.innerHTML = '⏹';
-        btn.title = 'Parar gravação';
-        btn.classList.add('recording');
-        mostrarTimerGravacao();
-
-    } catch(e) {
-        showToast('❌ Microfone bloqueado: ' + e.message, 'err');
-    }
-}
-
+// (a gravação de áudio usada é a versão mais abaixo, com envio direto)
 function mostrarTimerGravacao() {
     // Substitui o textarea por barra de gravação
     const inputArea = document.querySelector('.inbox-input-area');
@@ -12120,67 +12381,6 @@ function playPreviewAudio(btn, url) {
     _previewAudioEl.play();
     btn.textContent = '⏸';
     _previewAudioEl.onended = () => { btn.textContent = '▶'; };
-}
-
-async function enviarAudioGravado(url, ext) {
-    if (!audioBlob || !inboxChatAtual) return;
-    const blobParaEnviar = audioBlob;
-    const durTotal = audioSegundos;
-    cancelarAudio(); // limpa UI
-
-    // Mostra bolha de áudio imediatamente
-    const area = document.getElementById('inbox-messages');
-    const tickId = 'tick-aud-' + Date.now();
-    if (area) {
-        const agora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        const bars  = Array.from({length:30}, () =>
-            `<div style="width:3px;background:#00a884;border-radius:2px;height:${3+Math.random()*14}px;flex-shrink:0;"></div>`
-        ).join('');
-        const m = Math.floor(durTotal/60), s = String(durTotal%60).padStart(2,'0');
-        const bubble = document.createElement('div');
-        bubble.className = 'inbox-bubble me';
-        bubble.innerHTML = `<div class="inbox-bubble-audio">
-            <button class="audio-play" onclick="playAudioBubble(this,'${url}')">▶</button>
-            <div style="flex:1;display:flex;align-items:center;gap:1.5px;height:24px;overflow:hidden;">${bars}</div>
-            <span class="audio-dur">${m}:${s}</span>
-        </div>
-        <div class="inbox-bubble-footer"><span class="inbox-bubble-time">${agora}</span><span class="inbox-bubble-tick" id="${tickId}">🕐</span></div>`;
-        area.appendChild(bubble);
-        area.scrollTop = area.scrollHeight;
-    }
-
-    const base64 = await new Promise((res, rej) => {
-        const r = new FileReader();
-        r.onload = () => res(r.result.split(',')[1]);
-        r.onerror = rej;
-        r.readAsDataURL(blobParaEnviar);
-    });
-
-    const mimeType = blobParaEnviar.type || 'audio/webm';
-    const number   = inboxChatAtual.phone || inboxChatAtual.chatid?.replace('@s.whatsapp.net','');
-
-    // Envia em background sem bloquear a UI
-    ;(async () => {
-        try {
-            const resp = await fetch(UAZAPI_BASE + '/send/media?token=' + UAZAPI_TOKEN, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ number, type: 'ptt', file: 'data:' + mimeType + ';base64,' + base64, mimetype: mimeType })
-            });
-            const tickEl = document.getElementById(tickId);
-            if (resp.ok) {
-                if (tickEl) { tickEl.textContent = '✓✓'; tickEl.style.color = '#4DA8FF'; }
-                setTimeout(atualizarMensagens, 3000);
-            } else {
-                showToast('❌ Erro ao enviar áudio', 'err');
-                if (tickEl) { tickEl.textContent = '❌'; tickEl.style.color = '#ef4444'; }
-            }
-        } catch(e) {
-            showToast('❌ ' + e.message, 'err');
-            const tickEl = document.getElementById(tickId);
-            if (tickEl) { tickEl.textContent = '❌'; tickEl.style.color = '#ef4444'; }
-        }
-    })();
 }
 
 function cancelarAudio() {
@@ -14803,8 +15003,9 @@ async function toggleGravacao() {
 }
 
 async function enviarAudioGravado(blob) {
-    if (inboxChatAtual && inboxChatAtual.grupo) { showToast('Em grupo, por enquanto só texto. Mande o áudio pelo celular.', 'err'); return; }
     if (!inboxChatAtual) return;
+    if (!ibPodeEnviar('')) return;
+    const conversaAudio = inboxChatAtual;
     if (!config.uazapi?.url || !config.uazapi?.token) {
         showToast('Configure o servidor WhatsApp em Integrações primeiro', 'err');
         return;
@@ -14830,21 +15031,23 @@ async function enviarAudioGravado(blob) {
         });
 
         const baseUrl = config.uazapi.url.replace(/\/$/, '');
-        const number = inboxChatAtual.phone;
+        const number = conversaAudio.phone;
         const resp = await fetch(`${baseUrl}/send-document`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-token': config.uazapi.token },
-            body: JSON.stringify({ phone: number, base64, tipo: 'audio', mimetype: blob.type, filename: 'audio.webm' })
+            body: JSON.stringify({ ...(conversaAudio.grupo ? { grupoId: conversaAudio.grupoId } : { phone: number }), base64, tipo: 'audio', mimetype: blob.type, filename: 'audio.webm' })
         });
         const tickEl = document.getElementById(tickId);
         if (resp.ok) {
             if (tickEl) { tickEl.textContent = '✓✓'; tickEl.style.color = '#4DA8FF'; }
             try {
-                await supabaseClient.from('respostas_historico').insert({
-                    user_id: currentUser.id, phone: number, lead_nome: inboxChatAtual.name || '',
-                    direcao: 'enviada', mensagem: '🎤 [áudio gravado]', criado_em: new Date().toISOString()
+                if (conversaAudio.grupo) await supabaseClient.from('grupo_mensagens').insert({ user_id: currentUser.id, grupo_id: conversaAudio.grupoId, grupo_nome: conversaAudio.name || '', autor_nome: 'Você', mensagem: '🎤 Áudio enviado', tipo: 'audio', de_mim: true, criado_em: new Date().toISOString() });
+                else await supabaseClient.from('respostas_historico').insert({
+                    user_id: currentUser.id, phone: number, lead_nome: conversaAudio.name || '',
+                    direcao: 'enviada', mensagem: '🎤 Áudio enviado', criado_em: new Date().toISOString()
                 });
             } catch (e) {}
+            if (!conversaAudio.grupo) ibTirarDaFila(conversaAudio);
         } else {
             const err = await resp.json().catch(() => ({}));
             if (tickEl) { tickEl.textContent = '❌'; tickEl.style.color = '#ef4444'; }
