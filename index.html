@@ -11463,6 +11463,7 @@ function ibPintarMensagens(area, msgs, t, grupo) {
         area.innerHTML = '';
         let ultimaData = '';
         const hoje = new Date().toLocaleDateString('pt-BR'), ontem = new Date(Date.now() - 86400000).toLocaleDateString('pt-BR');
+        if (grupo && !msgs.length) area.appendChild(prEl('div', 'ph-mudo', '👥 Você está acompanhando este grupo. O WhatsApp não entrega o histórico antigo: as mensagens aparecem aqui assim que alguém escrever.'));
         msgs.forEach(m => {
             const dt = new Date(m.ts);
             const dataStr = dt.toLocaleDateString('pt-BR');
@@ -11740,13 +11741,23 @@ var _ibGrupos = [];
 async function ibCarregarGrupos() {
     if (!currentUser) return [];
     try {
-        const { data } = await supabaseClient.from('v_inbox_grupos').select('grupo_id,grupo_nome,ultimo_autor,ultima_mensagem,ultima_de_mim,ultima_em').eq('user_id', currentUser.id).order('ultima_em', { ascending: false });
+        const [{ data }, { data: cfg }] = await Promise.all([
+            supabaseClient.from('v_inbox_grupos').select('grupo_id,grupo_nome,ultimo_autor,ultima_mensagem,ultima_de_mim,ultima_em').eq('user_id', currentUser.id).order('ultima_em', { ascending: false }),
+            supabaseClient.from('grupos_config').select('grupo_id,nome,acompanhar,atualizado_em').eq('user_id', currentUser.id).eq('acompanhar', true),
+        ]);
         const vistos = ibVistos();
         _ibGrupos = (data || []).map(g => {
             const k = 'g:' + g.grupo_id, t = g.ultima_em ? new Date(g.ultima_em).getTime() : 0;
             return { grupo: true, grupoId: g.grupo_id, chave: k, phone: g.grupo_id, name: g.grupo_nome || 'Grupo', semNome: false,
                 lastMsg: (g.ultima_de_mim ? '' : (g.ultimo_autor ? g.ultimo_autor + ': ' : '')) + (g.ultima_mensagem || ''), lastTime: t, fromMe: !!g.ultima_de_mim,
                 unread: !g.ultima_de_mim && t > (vistos[k] || 0) && inboxChatAtual?.chave !== k, pendentes: [], sugestao: null };
+        });
+        // Grupo acompanhado que ainda não teve mensagem nova também aparece (vazio até a primeira chegar)
+        const tem = new Set(_ibGrupos.map(g => g.grupoId));
+        (cfg || []).filter(g => !tem.has(g.grupo_id)).forEach(g => {
+            _ibGrupos.push({ grupo: true, grupoId: g.grupo_id, chave: 'g:' + g.grupo_id, phone: g.grupo_id, name: g.nome || 'Grupo', semNome: false, vazio: true,
+                lastMsg: 'Acompanhando · as mensagens aparecem aqui a partir de agora', lastTime: g.atualizado_em ? new Date(g.atualizado_em).getTime() : 0, fromMe: false,
+                unread: false, pendentes: [], sugestao: null });
         });
     } catch (e) { _ibGrupos = []; }
     return _ibGrupos;
