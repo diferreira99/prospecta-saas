@@ -2058,7 +2058,8 @@ function iniciarAppPosLogin() {
 .content:has(#tab-inbox.active) { padding:0!important; overflow:hidden!important; }
 @media (max-width: 900px) {
   body:has(#tab-inbox.active) #export-mobile, body:has(#tab-inbox.active) #campanha-mobile, body:has(#tab-inbox.active) .topbar-btn.hide-mobile,
-  body:has(#tab-historico.active) #export-mobile, body:has(#tab-historico.active) #campanha-mobile { display:none!important; }
+  body:has(#tab-historico.active) #export-mobile, body:has(#tab-historico.active) #campanha-mobile,
+  body:has(#tab-meusleads.active) #export-mobile, body:has(#tab-meusleads.active) #campanha-mobile { display:none!important; }
   #tab-inbox .inbox-wrap { box-shadow:none; }
   #tab-inbox .inbox-list { padding-bottom:env(safe-area-inset-bottom); }
 }
@@ -4445,6 +4446,47 @@ document.addEventListener('DOMContentLoaded', () => {
             .ib-destaque { box-shadow:0 0 0 2px #f59e0b; }
             .ib-midia { margin:2px 0 4px; }
             .hist-wrap { padding:0 4px; max-width:1100px; }
+            .ml-wrap { padding:0 4px; max-width:1100px; }
+            .ml-filtros { display:flex; gap:6px; flex-wrap:wrap; }
+            .ml-chip { width:auto; font-size:0.72rem; font-weight:600; padding:6px 12px; border-radius:99px; border:1.5px solid var(--border); background:var(--surface); color:var(--text); cursor:pointer; white-space:nowrap; }
+            .ml-chip.ativo { background:#0D1330; border-color:#0D1330; color:#fff; }
+            .ml-massa { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+            .ml-massa:empty { display:none; }
+            .ml-lista { display:flex; flex-direction:column; gap:8px; }
+            .ml-row { background:var(--surface); border:1.5px solid var(--border); border-left-width:4px; border-radius:12px; padding:10px 12px; display:flex; align-items:flex-start; gap:12px; }
+            .ml-row.resp { border-left-color:#22c55e; }
+            .ml-row.pipe { border-left-color:#8b5cf6; }
+            .ml-row.robo { border-left-color:#94a3b8; }
+            .ml-row.espera { border-left-color:#f59e0b; }
+            .ml-row.bloq { border-left-color:#ef4444; opacity:0.75; }
+            .ml-av { width:38px; height:38px; flex-shrink:0; font-size:0.85rem; }
+            .ml-info { flex:1; min-width:0; }
+            .ml-l1 { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+            .ml-l1 b { font-size:0.84rem; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
+            .ml-sit { font-size:0.64rem; font-weight:700; padding:2px 8px; border-radius:99px; background:#f1f5f9; color:#475569; white-space:nowrap; }
+            .ml-sit.resp { background:#dcfce7; color:#166534; }
+            .ml-sit.pipe { background:#ede9fe; color:#5b21b6; }
+            .ml-sit.espera { background:#fef3c7; color:#92400e; }
+            .ml-sit.bloq { background:#fee2e2; color:#991b1b; }
+            .ml-l2 { font-size:0.7rem; color:var(--muted); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+            .ml-resp { margin-top:6px; background:#f0fdf4; border-radius:8px; padding:6px 9px; font-size:0.74rem; color:#14532d; display:flex; flex-direction:column; gap:2px; }
+            .ml-resp.robo { background:#f8fafc; color:#64748b; }
+            .ml-resp-txt { font-style:italic; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; word-break:break-word; }
+            .ml-resp small { font-size:0.64rem; color:var(--muted); }
+            .ml-bts { display:flex; gap:4px; flex-shrink:0; }
+            .ml-bt { width:32px; height:32px; border-radius:50%; border:1px solid var(--border); background:#fff; cursor:pointer; font-size:0.85rem; padding:0; }
+            .ml-bt:disabled { opacity:0.3; cursor:default; }
+            .ml-mais { width:100%; padding:10px; border-radius:10px; border:1.5px dashed var(--border); background:transparent; color:var(--muted); font-weight:600; cursor:pointer; }
+            .ml-vazio { text-align:center; padding:50px 24px; color:var(--muted); background:var(--surface); border:1px solid var(--border); border-radius:16px; font-size:0.8rem; }
+            .ml-vazio-ic { font-size:2.6rem; opacity:0.25; margin-bottom:8px; }
+            @media (max-width: 700px) {
+                .ml-row { flex-wrap:wrap; }
+                .ml-bts { width:100%; justify-content:flex-end; }
+                .ml-l2 { white-space:normal; }
+                .ml-filtros { flex-wrap:nowrap; overflow-x:auto; padding-bottom:4px; scrollbar-width:none; }
+                .ml-filtros::-webkit-scrollbar { display:none; }
+                .ml-chip { flex-shrink:0; }
+            }
             .hist-cab { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
             .hist-cab-tit { font-size:1.05rem; font-weight:800; color:var(--text); }
             .hist-cab-sub { font-size:0.74rem; color:var(--muted); margin-top:2px; }
@@ -4981,29 +5023,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <!-- MEUS LEADS (banco de leads prospectados) -->
         <div class="tab-content" id="tab-meusleads">
-            <style>
-                .ml-row { background: var(--surface); border: 1.5px solid var(--border); border-radius: 12px; padding: 14px 16px; display:flex; align-items:center; gap:14px; flex-wrap:wrap; }
-                .ml-row.enviado { background: #f0fdf4; border-color: #bbf7d0; }
-                .ml-badge { font-family:'Inter',sans-serif; font-size:0.6rem; font-weight:700; padding:3px 9px; border-radius:99px; white-space:nowrap; }
-                .ml-badge.on   { background:#16a34a; color:#fff; }
-                .ml-badge.off  { background:#f1f5f9; color:#94a3b8; border:1px solid #e2e8f0; }
-            </style>
-            <div style="padding:0 4px;">
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+            <div class="ml-wrap">
+                <div class="hist-cab">
                     <div>
-                        <div style="font-family:'Inter',sans-serif;font-size:0.6rem;color:var(--muted);letter-spacing:0.5px;text-transform:uppercase;margin-bottom:4px;">📇 Banco de Leads</div>
-                        <div style="font-family:'Inter',sans-serif;font-size:0.68rem;color:var(--muted);">// todo lead que já entrou em alguma campanha — verde = já enviado</div>
+                        <div class="hist-cab-tit">📇 Meus Leads</div>
+                        <div class="hist-cab-sub" id="ml-contagem">Todo lead que já entrou em campanha, com o que aconteceu depois</div>
                     </div>
-                    <div style="display:flex;gap:8px;">
-                        <button onclick="carregarMeusLeads()" style="font-family:'Inter',sans-serif;font-size:0.62rem;padding:7px 14px;border-radius:8px;border:1.5px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;">🔄 Atualizar</button>
-                    </div>
+                    <div class="hist-cab-bts"><button type="button" class="hist-bt" onclick="carregarMeusLeads()">🔄 Atualizar</button></div>
                 </div>
-                <input type="text" id="ml-search" oninput="filtrarMeusLeads()" placeholder="🔎 Buscar por nome ou telefone..."
-                    style="width:100%;box-sizing:border-box;padding:10px 14px;border-radius:10px;border:1.5px solid var(--border);background:var(--surface);color:var(--text);font-family:'Inter',sans-serif;font-size:0.72rem;margin-bottom:14px;">
-                <div style="display:flex;gap:10px;margin-bottom:14px;font-family:'Inter',sans-serif;font-size:0.62rem;color:var(--muted);">
-                    <span id="ml-contagem">—</span>
+                <div class="ml-filtros" id="ml-filtros"></div>
+                <div class="hist-ferr">
+                    <input type="search" id="ml-search" oninput="_mlPagina = 1; filtrarMeusLeads()" placeholder="🔎 Nome, telefone, campanha ou o que a pessoa respondeu">
+                    <select id="ml-camp" onchange="mlCampanha(this.value)"><option value="">Todas as campanhas</option></select>
+                    <select id="ml-ordem" onchange="mlOrdenar(this.value)">
+                        <option value="recentes">Enviados mais recentes</option>
+                        <option value="resposta">Respostas mais recentes</option>
+                        <option value="esperando">Esperando há mais tempo</option>
+                        <option value="nome">Nome (A-Z)</option>
+                    </select>
                 </div>
-                <div id="meusleads-lista" style="display:flex;flex-direction:column;gap:10px;"></div>
+                <div class="ml-massa" id="ml-massa"></div>
+                <div id="meusleads-lista" class="ml-lista"></div>
             </div>
         </div>
 
@@ -10248,95 +10288,269 @@ async function sincronizarEnvioNaNuvem(cleanPhone, leadTitle, variant, gatilho, 
 // Puxa direto da tabela `leads` do Supabase (RLS: só os do usuário logado).
 // Um lead só aparece aqui depois de ter entrado em alguma campanha/envio —
 // é o "cadastro" persistente, por telefone, que não se perde entre campanhas.
-let _meusLeadsCache = [];
+// Situação real de cada lead (respondeu, robô, sem resposta, Pipeline, Não contatar), filtros com ação em massa,
+// resposta da pessoa na linha, ações por lead e planilha. Busca tudo (sem o teto de 1000 linhas).
+let _meusLeadsCache = [], _mlCamp = {}, _mlFiltro = 'todos', _mlCampFiltro = '', _mlOrdem = 'recentes', _mlPagina = 1, _mlJaNaFila = new Set();
+const ML_POR_PAGINA = 50;
+const ML_FILTROS = [
+    ['todos', 'Todos'],
+    ['responderam', '💬 Responderam'],
+    ['fora', '📋 Responderam, fora do Pipeline'],
+    ['semresp', '⏳ Sem resposta +3 dias'],
+    ['robo', '🤖 Só resposta automática'],
+    ['pipeline', 'No Pipeline'],
+    ['bloq', '⛔ Não contatar'],
+];
+function _mlDias(iso) { const t = iso ? new Date(iso).getTime() : 0; return t ? Math.floor((Date.now() - t) / 86400000) : null; }
+function _mlTelVer(t) { return String(t || '').replace(/^55(\d\d)(\d{4,5})(\d{4})$/, '($1) $2-$3'); }
+function _mlSituacao(l) {
+    if (l.bloq) return { k: 'bloq', txt: '⛔ Não contatar', cls: 'bloq' };
+    if (l.pipeCol) { const c = (PK_COLS.find(x => x.id === l.pipeCol) || {}).label || l.pipeCol; return { k: 'pipeline', txt: '📋 ' + c, cls: 'pipe' }; }
+    if (l.humano) return { k: 'resp', txt: '💬 Respondeu', cls: 'resp' };
+    if (l.robo) return { k: 'robo', txt: '🤖 Só resposta automática', cls: 'robo' };
+    if (l.enviado) { const d = l.dias; return { k: 'semresp', txt: d === null ? '⏳ Sem resposta' : d < 1 ? '📤 Enviado hoje' : d === 1 ? '📤 Enviado ontem' : `⏳ Sem resposta há ${d} dias`, cls: d >= 3 ? 'espera' : 'novo' }; }
+    return { k: 'nao', txt: '⏸ Não enviado', cls: 'novo' };
+}
+function _mlNoFiltro(l, f) {
+    switch (f) {
+        case 'responderam': return l.humano;
+        case 'fora': return l.humano && !l.pipeCol && !l.bloq;
+        case 'semresp': return l.enviado && !l.respondeu && l.dias >= 3 && !l.pipeCol && !l.bloq;
+        case 'robo': return l.robo && !l.pipeCol && !l.bloq;
+        case 'pipeline': return !!l.pipeCol;
+        case 'bloq': return l.bloq;
+        default: return true;
+    }
+}
 
 async function carregarMeusLeads() {
     const lista = document.getElementById('meusleads-lista');
-    const contagem = document.getElementById('ml-contagem');
     if (!lista) return;
-    if (!currentUser) {
-        lista.innerHTML = `<div style="text-align:center;padding:40px 16px;color:var(--muted);font-family:'Inter',sans-serif;font-size:0.68rem;">Faça login para ver seus leads.</div>`;
-        return;
-    }
-
-    lista.innerHTML = `<div style="text-align:center;padding:40px 16px;color:var(--muted);font-family:'Inter',sans-serif;font-size:0.68rem;">⏳ Carregando do seu banco de leads...</div>`;
-
+    if (!currentUser) { lista.innerHTML = ''; lista.appendChild(prEl('div', 'ph-mudo', 'Faça login para ver seus leads.')); return; }
+    lista.innerHTML = ''; lista.appendChild(prEl('div', 'ph-mudo', '⏳ Carregando seu banco de leads…'));
     try {
-        const { data, error } = await supabaseClient
-            .from('leads')
-            .select('phone, title, address, website, rating, campanha_id, status_envio, enviado_em, criado_em')
-            .eq('user_id', currentUser.id)
-            .not('phone', 'is', null)
-            .order('enviado_em', { ascending: false, nullsFirst: false })
-            .order('criado_em', { ascending: false });
-
-        if (error) throw error;
-
-        // Dedup por telefone: fica só o registro mais "forte" (enviado > mais recente)
-        const porTelefone = new Map();
-        (data || []).forEach(l => {
-            const tel = formatPhoneBR(l.phone) || l.phone;
-            if (!tel) return;
-            const atual = porTelefone.get(tel);
-            const ehEnviado = l.status_envio === 'enviado';
-            if (!atual || (ehEnviado && atual.status_envio !== 'enviado')) {
-                porTelefone.set(tel, { ...l, phone: tel });
-            }
+        const uid = currentUser.id;
+        const [rows, camps, pks, fila, fuEnv] = await Promise.all([
+            prBuscarTudo(() => supabaseClient.from('leads').select('phone,title,address,website,rating,campanha_id,status_envio,enviado_em,criado_em,respondeu,resposta_texto,respondido_em,resposta_delay_segundos,resposta_suspeita_bot,opt_out').eq('user_id', uid).not('phone', 'is', null).order('criado_em', { ascending: false })),
+            prBuscarTudo(() => supabaseClient.from('campanhas').select('id,nome,nicho,local').eq('user_id', uid).order('id')).catch(() => []),
+            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('phone,col').eq('user_id', uid).order('id')).catch(() => []),
+            prBuscarTudo(() => supabaseClient.from('fila_followups').select('phone').eq('user_id', uid).order('id')).catch(() => []),
+            prBuscarTudo(() => supabaseClient.from('followups_enviados').select('phone').eq('user_id', uid).order('id')).catch(() => []),
+            carregarNaoContatar().catch(() => {}),
+        ]);
+        _mlCamp = {};
+        (camps || []).forEach(c => { _mlCamp[String(c.id)] = c; });
+        (typeof campanhas !== 'undefined' ? campanhas : []).forEach(c => { if (!_mlCamp[String(c.id)]) _mlCamp[String(c.id)] = { id: c.id, nome: c.nome, nicho: c.nicho, local: c.local }; });
+        const pipe = {};
+        (pks || []).forEach(p => { pipe[pkTel(p.phone)] = p.col; });
+        try { pkLoad(); (pkLeads || []).forEach(p => { const k = pkTel(p.phone); if (k && !pipe[k]) pipe[k] = p.col; }); } catch (e) {}
+        _mlJaNaFila = new Set((fila || []).concat(fuEnv || []).map(f => pkTel(f.phone)));
+        // um por telefone: fica o registro enviado mais recente, juntando a resposta se outro registro tiver
+        const porTel = new Map();
+        (rows || []).forEach(r => {
+            const k = pkTel(r.phone); if (!k) return;
+            const a = porTel.get(k);
+            if (!a) { porTel.set(k, Object.assign({}, r)); return; }
+            const melhor = (r.status_envio === 'enviado' && a.status_envio !== 'enviado') || (r.status_envio === a.status_envio && new Date(r.enviado_em || 0) > new Date(a.enviado_em || 0));
+            const base = melhor ? Object.assign({}, r) : a;
+            const outro = melhor ? a : r;
+            if (!base.respondeu && outro.respondeu) Object.assign(base, { respondeu: true, resposta_texto: outro.resposta_texto, respondido_em: outro.respondido_em, resposta_delay_segundos: outro.resposta_delay_segundos, resposta_suspeita_bot: outro.resposta_suspeita_bot });
+            if (outro.opt_out) base.opt_out = true;
+            porTel.set(k, base);
         });
-        _meusLeadsCache = Array.from(porTelefone.values());
-        if (contagem) {
-            const totalEnviados = _meusLeadsCache.filter(l => l.status_envio === 'enviado').length;
-            contagem.textContent = `${_meusLeadsCache.length} lead(s) no banco · ✅ ${totalEnviados} já enviado(s)`;
-        }
+        _meusLeadsCache = [...porTel.entries()].map(([k, l]) => {
+            const c = l.campanha_id != null ? _mlCamp[String(l.campanha_id)] : null;
+            const enviado = l.status_envio === 'enviado';
+            return Object.assign(l, {
+                k, tel: formatPhoneBR(l.phone) || l.phone, enviado, dias: enviado ? _mlDias(l.enviado_em || l.criado_em) : null,
+                humano: !!l.respondeu && !l.resposta_suspeita_bot, robo: !!l.respondeu && !!l.resposta_suspeita_bot,
+                pipeCol: pipe[k] || null, bloq: !!l.opt_out || bloqueadoLead({ phone: l.phone, title: l.title }),
+                campNome: c ? c.nome : (l.campanha_id != null ? 'Campanha #' + l.campanha_id : ''), nicho: c ? c.nicho || '' : '', local: c ? c.local || '' : '',
+            });
+        });
+        _mlPagina = 1;
+        mlPintarTopo();
         filtrarMeusLeads();
     } catch (e) {
         console.warn('[MEUS LEADS]', e);
-        lista.innerHTML = `<div style="text-align:center;padding:40px 16px;color:var(--muted);font-family:'Inter',sans-serif;font-size:0.68rem;">⚠️ Não deu pra carregar agora. Tenta de novo em instantes.</div>`;
+        lista.innerHTML = ''; lista.appendChild(prEl('div', 'ph-mudo', '⚠️ Não deu pra carregar agora: ' + (e && e.message ? e.message : 'tente de novo em instantes') + '.'));
     }
 }
-
+function mlPintarTopo() {
+    const cont = document.getElementById('ml-contagem');
+    const tot = _meusLeadsCache.length, env = _meusLeadsCache.filter(l => l.enviado).length, hum = _meusLeadsCache.filter(l => l.humano).length;
+    if (cont) cont.textContent = `${tot} leads · ${env} receberam mensagem · ${hum} responderam (${env ? Math.round(hum / env * 100) : 0}%)`;
+    const chips = document.getElementById('ml-filtros');
+    if (chips) {
+        chips.innerHTML = '';
+        ML_FILTROS.forEach(([k, t]) => {
+            const n = _meusLeadsCache.filter(l => _mlNoFiltro(l, k)).length;
+            if (k !== 'todos' && !n && _mlFiltro !== k) return;
+            const b = prEl('button', 'ml-chip' + (_mlFiltro === k ? ' ativo' : ''), `${t} ${n}`); b.type = 'button';
+            b.onclick = () => { _mlFiltro = k; _mlPagina = 1; mlPintarTopo(); filtrarMeusLeads(); };
+            chips.appendChild(b);
+        });
+    }
+    const sel = document.getElementById('ml-camp');
+    if (sel) {
+        const cont2 = {};
+        _meusLeadsCache.forEach(l => { const k = l.campanha_id != null ? String(l.campanha_id) : ''; cont2[k] = (cont2[k] || 0) + 1; });
+        sel.innerHTML = '';
+        const op = (v, t) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); };
+        op('', 'Todas as campanhas');
+        Object.keys(cont2).filter(k => k).sort((a, b) => Number(b) - Number(a)).forEach(k => { const c = _mlCamp[k]; op(k, `${c ? c.nome : 'Campanha #' + k} (${cont2[k]})`); });
+        if (cont2['']) op('_sem', `Sem campanha (${cont2['']})`);
+        sel.value = _mlCampFiltro;
+    }
+}
+function mlListaFiltrada() {
+    const termo = _normNicho(document.getElementById('ml-search')?.value || ''), dig = (document.getElementById('ml-search')?.value || '').replace(/\D/g, '');
+    let ls = _meusLeadsCache.filter(l => _mlNoFiltro(l, _mlFiltro));
+    if (_mlCampFiltro === '_sem') ls = ls.filter(l => l.campanha_id == null);
+    else if (_mlCampFiltro) ls = ls.filter(l => String(l.campanha_id) === _mlCampFiltro);
+    if (termo || dig) ls = ls.filter(l => (termo && (_normNicho(l.title).includes(termo) || _normNicho(l.campNome).includes(termo) || _normNicho(l.resposta_texto).includes(termo))) || (dig.length >= 3 && String(l.tel).includes(dig)));
+    const t = x => new Date(x || 0).getTime();
+    const ord = {
+        recentes: (a, b) => t(b.enviado_em || b.criado_em) - t(a.enviado_em || a.criado_em),
+        resposta: (a, b) => (b.respondeu ? t(b.respondido_em) || 1 : 0) - (a.respondeu ? t(a.respondido_em) || 1 : 0),
+        esperando: (a, b) => (b.dias ?? -1) - (a.dias ?? -1),
+        nome: (a, b) => String(a.title || '').localeCompare(String(b.title || ''), 'pt-BR'),
+    };
+    return ls.sort(ord[_mlOrdem] || ord.recentes);
+}
 function filtrarMeusLeads() {
     const lista = document.getElementById('meusleads-lista');
     if (!lista) return;
-    const termo = (document.getElementById('ml-search')?.value || '').toLowerCase().trim();
-
-    const leads = termo
-        ? _meusLeadsCache.filter(l => (l.title || '').toLowerCase().includes(termo) || (l.phone || '').includes(termo))
-        : _meusLeadsCache;
-
-    if (!leads.length) {
-        lista.innerHTML = `
-            <div style="text-align:center;padding:50px 24px;color:var(--muted);background:var(--surface);border:1px solid var(--border);border-radius:16px;">
-                <div style="font-size:3rem;opacity:0.2;margin-bottom:12px;">📇</div>
-                <p style="font-family:'Inter',sans-serif;font-size:0.72rem;">
-                    ${_meusLeadsCache.length === 0
-                        ? 'Nenhum lead entrou em campanha ainda.<br>Assim que você gerar/enviar uma campanha, ele aparece aqui.'
-                        : 'Nenhum lead encontrado para essa busca.'}
-                </p>
-            </div>`;
+    const ls = mlListaFiltrada();
+    mlPintarAcoesMassa(ls);
+    lista.innerHTML = '';
+    if (!ls.length) {
+        const v = prEl('div', 'ml-vazio');
+        v.appendChild(prEl('div', 'ml-vazio-ic', '📇'));
+        v.appendChild(prEl('p', '', _meusLeadsCache.length ? 'Nenhum lead com esse filtro ou busca.' : 'Nenhum lead entrou em campanha ainda. Assim que você enviar uma campanha, ele aparece aqui.'));
+        lista.appendChild(v);
         return;
     }
-
-    lista.innerHTML = leads.map(l => {
-        const enviado = l.status_envio === 'enviado';
-        const dataRef = l.enviado_em || l.criado_em;
-        const dataFmt = dataRef ? new Date(dataRef).toLocaleString('pt-BR') : '—';
-        const campNome = (() => {
-            if (!l.campanha_id) return null;
-            const c = campanhas.find(c => c.id == l.campanha_id);
-            return c ? c.nome : `Campanha #${l.campanha_id}`;
-        })();
-        return `
-        <div class="ml-row ${enviado ? 'enviado' : ''}">
-            <div style="flex:1;min-width:180px;">
-                <div style="font-weight:700;font-size:0.8rem;color:var(--text);">${l.title || 'Sem nome'}</div>
-                <div style="font-family:'Inter',sans-serif;font-size:0.65rem;color:var(--muted);">📞 ${l.phone || '—'}${campNome ? ` &nbsp;·&nbsp; 📁 ${campNome}` : ''}</div>
-            </div>
-            <div style="font-family:'Inter',sans-serif;font-size:0.62rem;color:var(--muted);white-space:nowrap;">${enviado ? '✅ enviado em' : 'registrado em'} ${dataFmt}</div>
-            <span class="ml-badge ${enviado ? 'on' : 'off'}">${enviado ? '✅ Já enviado' : '⏳ Pendente'}</span>
-        </div>`;
-    }).join('');
+    ls.slice(0, _mlPagina * ML_POR_PAGINA).forEach(l => lista.appendChild(mlLinha(l)));
+    if (ls.length > _mlPagina * ML_POR_PAGINA) {
+        const mais = prEl('button', 'ml-mais', `Mostrar mais (${ls.length - _mlPagina * ML_POR_PAGINA} restantes)`); mais.type = 'button';
+        mais.onclick = () => { _mlPagina++; filtrarMeusLeads(); };
+        lista.appendChild(mais);
+    }
 }
+function mlLinha(l) {
+    const s = _mlSituacao(l);
+    const row = prEl('div', 'ml-row ' + s.cls);
+    const av = prEl('div', 'inbox-avatar ml-av', (l.title || '#').charAt(0).toUpperCase());
+    row.appendChild(av);
+    try { ibAvatarFoto(av, l.tel); } catch (e) {}
+    const info = prEl('div', 'ml-info');
+    const l1 = prEl('div', 'ml-l1');
+    l1.appendChild(prEl('b', '', l.title || _mlTelVer(l.tel)));
+    l1.appendChild(prEl('span', 'ml-sit ' + s.cls, s.txt));
+    info.appendChild(l1);
+    const origem = [_mlTelVer(l.tel), l.campNome ? '📁 ' + l.campNome : '', [l.nicho, l.local].filter(Boolean).join(' · ')].filter(Boolean).join('  ·  ');
+    info.appendChild(prEl('div', 'ml-l2', origem));
+    if (l.respondeu && l.resposta_texto) {
+        const r = prEl('div', 'ml-resp' + (l.robo ? ' robo' : ''));
+        r.appendChild(prEl('span', 'ml-resp-txt', '“' + String(l.resposta_texto).slice(0, 220) + '”'));
+        const seg = Number(l.resposta_delay_segundos) || 0;
+        const quando = [l.respondido_em ? _histQuando(new Date(l.respondido_em).getTime()) : '', seg ? 'respondeu em ' + (seg < 3600 ? Math.max(1, Math.round(seg / 60)) + ' min' : seg < 86400 ? Math.round(seg / 3600) + ' h' : Math.round(seg / 86400) + ' dias') : ''].filter(Boolean).join(' · ');
+        if (quando) r.appendChild(prEl('small', '', quando));
+        info.appendChild(r);
+    } else if (l.enviado && l.enviado_em) info.appendChild(prEl('div', 'ml-l2 mudo', 'Enviado ' + _histQuando(new Date(l.enviado_em).getTime())));
+    row.appendChild(info);
+    const bts = prEl('div', 'ml-bts');
+    const bt = (ic, tit, fn, off) => { const b = prEl('button', 'ml-bt', ic); b.type = 'button'; b.title = tit; b.disabled = !!off; b.onclick = e => { e.stopPropagation(); fn(b); }; bts.appendChild(b); };
+    bt('💬', 'Abrir a conversa no Inbox', () => mlAbrirInbox(l));
+    bt('📋', l.pipeCol ? 'Já está no Pipeline' : 'Pôr no Pipeline', b => { mlPorNoPipeline([l]); }, !!l.pipeCol || l.bloq);
+    bt('🟢', 'Abrir no WhatsApp', () => window.open(buildWaLink(l.tel), '_blank', 'noopener'));
+    bt('⛔', l.bloq ? 'Já está em Não contatar' : 'Não contatar mais', () => mlNaoContatar(l), l.bloq);
+    row.appendChild(bts);
+    return row;
+}
+function mlAbrirInbox(l) {
+    trocarAba('inbox', document.querySelector(`.nav-item[onclick*="'inbox'"]`));
+    setTimeout(() => { try { ibChamarNoPrivado(l.tel, l.title || null, null); } catch (e) {} }, 900);
+}
+async function mlPorNoPipeline(lista) {
+    lista = lista.filter(l => !l.pipeCol && !l.bloq);
+    if (!lista.length) return;
+    try {
+        await pkSincronizarDaNuvem(); pkLoad();
+        let n = 0;
+        lista.forEach(l => {
+            if (pkLeads.some(x => pkTel(x.phone) === l.k)) return;
+            const nota = l.respondeu && l.resposta_texto ? 'Respondeu: "' + String(l.resposta_texto).slice(0, 200) + '"' : (l.campNome ? 'Veio da campanha ' + l.campNome : '');
+            pkLeads.push({ id: Date.now() + Math.random(), name: l.title || l.tel, cat: l.nicho || '', phone: l.tel, website: l.website || '', rating: Number(l.rating) || 0, reviews: 0,
+                col: l.humano ? 'respondeu' : 'contatado', dias: 0, movedAt: Date.now(), nota });
+            n++;
+        });
+        pkSave();
+        lista.forEach(l => { l.pipeCol = l.humano ? 'respondeu' : 'contatado'; });
+        mlPintarTopo(); filtrarMeusLeads();
+        showToast(`📋 ${n} lead${n === 1 ? '' : 's'} no Pipeline` + (n && lista[0].humano ? ' (etapa Respondeu, com a resposta na nota)' : ''), 'ok');
+    } catch (e) { showToast('❌ Não consegui salvar no Pipeline: ' + (e && e.message), 'err'); }
+}
+async function mlNaoContatar(l) {
+    if (!confirm(`Colocar "${l.title || l.tel}" em Não contatar? Ele nunca mais recebe campanha nem follow-up.`)) return;
+    try {
+        const { error } = await supabaseClient.from('nao_contatar').insert({ user_id: currentUser.id, phone: l.tel || null, nome: l.title || null, motivo: 'marcado em Meus Leads' });
+        if (error && !String(error.message).includes('duplicate')) throw error;
+        await carregarNaoContatar(true);
+        l.bloq = true;
+        mlPintarTopo(); filtrarMeusLeads();
+        showToast('⛔ ' + (l.title || 'Lead') + ' em Não contatar', 'ok');
+    } catch (e) { showToast('❌ ' + (e && e.message), 'err'); }
+}
+// Repescagem: segunda mensagem para quem não respondeu (ou só o robô respondeu), revisada na aba Respostas
+function mlElegiveisRepescagem(ls) {
+    return ls.filter(l => l.enviado && (!l.respondeu || l.robo) && l.dias >= 3 && !l.pipeCol && !l.bloq && !_mlJaNaFila.has(l.k));
+}
+async function mlRepescar(ls) {
+    const eleg = mlElegiveisRepescagem(ls);
+    if (!eleg.length) { showToast('Ninguém aqui para repescar: todos já estão na fila de follow-up, no Pipeline ou em Não contatar', 'err'); return; }
+    const txt = typeof CP_FU_TEXTO !== 'undefined' ? CP_FU_TEXTO : 'Oi! Passando para retomar minha mensagem de alguns dias atrás. Faz sentido conversarmos rapidinho?';
+    if (!confirm(`Colocar ${eleg.length} lead(s) na fila de follow-up?\n\nNada é enviado agora: eles aparecem na aba Respostas com a mensagem\n"${txt}"\npara você revisar e aprovar.`)) return;
+    try {
+        const linhas = eleg.map(l => ({ user_id: currentUser.id, phone: l.tel, lead_nome: l.title || null, campanha_id: l.campanha_id != null ? String(l.campanha_id) : 'avulso',
+            campanha_nome: l.campNome || 'Sem campanha', dia_etapa: Math.min(99, l.dias || 3), tipo: 'followup', mensagem: txt, status: 'pendente' }));
+        for (let i = 0; i < linhas.length; i += 200) {
+            const { error } = await supabaseClient.from('fila_followups').insert(linhas.slice(i, i + 200));
+            if (error) throw error;
+        }
+        eleg.forEach(l => _mlJaNaFila.add(l.k));
+        filtrarMeusLeads();
+        showToast(`🔁 ${linhas.length} follow-up(s) na fila. Revise e aprove na aba Respostas.`, 'ok');
+        try { if (typeof carregarFilaFollowups === 'function') carregarFilaFollowups(); } catch (e) {}
+    } catch (e) { showToast('❌ Não consegui criar a fila: ' + (e && e.message), 'err'); }
+}
+function mlPintarAcoesMassa(ls) {
+    const box = document.getElementById('ml-massa');
+    if (!box) return;
+    box.innerHTML = '';
+    const fora = ls.filter(l => l.humano && !l.pipeCol && !l.bloq);
+    const rep = mlElegiveisRepescagem(ls);
+    if (fora.length && (_mlFiltro === 'fora' || _mlFiltro === 'responderam')) {
+        const b = prEl('button', 'hist-bt prim', fora.length === 1 ? '📋 Pôr no Pipeline' : `📋 Pôr os ${fora.length} no Pipeline`); b.type = 'button';
+        b.title = 'Entram na etapa Respondeu, com a resposta da pessoa na nota'; b.onclick = () => mlPorNoPipeline(fora); box.appendChild(b);
+    }
+    if (rep.length && (_mlFiltro === 'semresp' || _mlFiltro === 'robo')) {
+        const b = prEl('button', 'hist-bt prim', `🔁 Repescagem: segunda mensagem para ${rep.length}`); b.type = 'button';
+        b.title = 'Vão para a fila de follow-up da aba Respostas, para você revisar antes de enviar'; b.onclick = () => mlRepescar(ls); box.appendChild(b);
+    }
+    const xl = prEl('button', 'hist-bt', `📥 Planilha (${ls.length})`); xl.type = 'button'; xl.onclick = () => mlExportar(ls); box.appendChild(xl);
+}
+function mlExportar(ls) {
+    const headers = ['Nome', 'Telefone', 'Link WhatsApp', 'Situação', 'Campanha', 'Nicho', 'Cidade', 'Enviado em', 'Respondeu', 'Resposta automática', 'Resposta', 'Respondeu em', 'Tempo para responder (min)', 'Etapa no Pipeline', 'Não contatar', 'Site', 'Endereço'];
+    const d = x => x ? new Date(x).toLocaleString('pt-BR') : '';
+    const rows = ls.map(l => [l.title || '', l.tel || '', buildWaLink(l.tel), _mlSituacao(l).txt.replace(/^\S+\s/, ''), l.campNome || '', l.nicho || '', l.local || '', d(l.enviado_em), l.respondeu ? 'Sim' : 'Não', l.robo ? 'Sim' : '', l.resposta_texto || '', d(l.respondido_em),
+        l.resposta_delay_segundos ? Math.round(l.resposta_delay_segundos / 60) : '', l.pipeCol ? ((PK_COLS.find(c => c.id === l.pipeCol) || {}).label || l.pipeCol) : '', l.bloq ? 'Sim' : '', l.website || '', l.address || '']);
+    gerarXLS(headers, rows, `meus-leads-${new Date().toLocaleDateString('pt-BR').replace(/\//g, '-')}.xls`);
+    showToast(`📥 ${rows.length} leads na planilha`, 'ok');
+}
+function mlCampanha(v) { _mlCampFiltro = v || ''; _mlPagina = 1; filtrarMeusLeads(); }
+function mlOrdenar(v) { _mlOrdem = v || 'recentes'; _mlPagina = 1; filtrarMeusLeads(); }
 
 // Depois de uma busca: quantas destas empresas já receberam mensagem (o n8n também pula essas na campanha).
 async function avisarJaContatados(leads) {
