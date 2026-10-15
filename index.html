@@ -4363,6 +4363,40 @@ document.addEventListener('DOMContentLoaded', () => {
             .wa-aviso button { width:auto; background:#b91c1c; color:#fff; border:none; border-radius:8px; padding:7px 14px; font-weight:700; cursor:pointer; }
             .cp-st.leu { background:#e0f2fe; color:#075985; }
             .grp-modal { max-width:620px; }
+            .gi-clicavel { cursor:pointer; }
+            .grp-info .gi-topo { display:flex; align-items:center; gap:12px; }
+            .gi-foto { width:56px; height:56px; border-radius:50%; background:#e7f3ef; display:flex; align-items:center; justify-content:center; font-size:1.6rem; flex-shrink:0; overflow:hidden; }
+            .gi-foto img { width:100%; height:100%; object-fit:cover; }
+            .gi-titulo { flex:1; min-width:0; }
+            .gi-titulo .modal-title { margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+            .gi-sub { font-size:0.74rem; color:var(--muted); margin-top:2px; }
+            .gi-fechar { width:auto; background:none; border:none; font-size:1.1rem; color:var(--muted); cursor:pointer; padding:4px 8px; align-self:flex-start; }
+            .gi-chips { display:flex; flex-wrap:wrap; gap:6px; margin:4px 0 10px; }
+            .gi-chip { font-size:0.7rem; font-weight:600; background:#f1f5f9; color:#334155; border-radius:99px; padding:4px 10px; }
+            .gi-chip.ok { background:#d9fdd3; color:#0b5e3a; }
+            .gi-chip.alerta { background:#fef3c7; color:#92400e; }
+            .gi-desc { background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:8px 10px; font-size:0.76rem; margin-bottom:10px; }
+            .gi-desc-txt { white-space:pre-wrap; word-break:break-word; color:#334155; margin-top:3px; max-height:120px; overflow-y:auto; }
+            .gi-acoes { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px; }
+            .gi-acoes .modal-btn { width:auto; flex:1 1 180px; }
+            .gi-sec { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+            .gi-sec b { font-size:0.82rem; }
+            .gi-busca { flex:1; min-width:0; padding:6px 10px; border:1px solid var(--border); border-radius:8px; font-size:0.78rem; }
+            .gi-lista { display:flex; flex-direction:column; }
+            .gi-item { display:flex; align-items:center; gap:10px; padding:7px 4px; border-bottom:1px solid #f1f5f9; }
+            .gi-item .inbox-avatar { width:36px; height:36px; font-size:0.85rem; flex-shrink:0; }
+            .gi-txt { flex:1; min-width:0; }
+            .gi-nome { font-size:0.82rem; font-weight:600; color:#0D1330; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+            .gi-info { font-size:0.7rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:4px; align-items:center; }
+            .gi-tag { display:inline-block; font-size:0.62rem; font-weight:700; border-radius:99px; padding:1px 7px; margin-left:4px; }
+            .gi-tag.adm { background:#e0f2fe; color:#075985; }
+            .gi-tag.nao { background:#fee2e2; color:#991b1b; margin-left:0; }
+            .gi-tag.pipe { background:#ede9fe; color:#5b21b6; margin-left:0; }
+            .gi-tag.ja { background:#f1f5f9; color:#475569; margin-left:0; }
+            .gi-bts { display:flex; gap:4px; flex-shrink:0; }
+            .gi-bt { width:34px; height:34px; border-radius:50%; border:1px solid var(--border); background:#fff; cursor:pointer; font-size:0.9rem; padding:0; }
+            .gi-bt:disabled { opacity:0.35; cursor:default; }
+            .gi-rodape { font-size:0.7rem; color:var(--muted); margin-top:10px; line-height:1.45; }
             .grp-corpo { max-height:60vh; overflow-y:auto; margin:8px 0; }
             .grp-resumo { font-size:0.74rem; color:var(--muted); margin-bottom:8px; }
             .grp-lista { display:flex; flex-direction:column; gap:6px; }
@@ -11353,11 +11387,18 @@ function ibPintarCabecalho() {
     const c = inboxChatAtual;
     if (!c) return;
     const nomeEl = document.getElementById('inbox-chat-name'), telEl = document.getElementById('inbox-chat-phone'), av = document.getElementById('inbox-chat-avatar');
+    const cab = nomeEl?.parentElement;
+    if (cab) { cab.onclick = c.grupo ? () => ibInfoGrupo(c) : null; cab.classList.toggle('gi-clicavel', !!c.grupo); }
+    if (av) { av.onclick = c.grupo ? () => ibInfoGrupo(c) : null; av.classList.toggle('gi-clicavel', !!c.grupo); }
     if (c.grupo) {
         if (nomeEl) nomeEl.textContent = c.name;
         if (av) av.textContent = '👥';
-        if (telEl) telEl.textContent = 'Grupo do WhatsApp';
-        const b = document.getElementById('inbox-acoes'); if (b) b.innerHTML = '';
+        if (telEl) telEl.textContent = 'Grupo · toque para ver dados e integrantes';
+        let b = document.getElementById('inbox-acoes');
+        if (!b) { b = prEl('div', 'inbox-acoes'); b.id = 'inbox-acoes'; document.querySelector('#inbox-chat-content .inbox-chat-header')?.after(b); }
+        b.innerHTML = '';
+        const info = prEl('button', 'rs-link destaque', 'ℹ️ Dados e integrantes'); info.type = 'button'; info.onclick = () => ibInfoGrupo(c);
+        b.appendChild(info);
         ibPintarAjudas();
         return;
     }
@@ -11701,7 +11742,7 @@ async function grpImportar(grupos, btn, fundo) {
         const vistos = new Set(), leads = [];
         let jaContatados = 0, bloqueados = 0, escondidos = 0;
         for (const g of grupos) {
-            const r = await fetch(s.base + '/groups/' + encodeURIComponent(g.id) + '/participants', { headers: s.hdr });
+            const r = await fetch(s.base + '/groups/' + encodeURIComponent(g.id) + '/participants?foto=0', { headers: s.hdr });
             const d = await r.json().catch(() => ({}));
             if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
             escondidos += d.escondidos || 0;
@@ -12018,6 +12059,122 @@ async function ibBuscarMensagens(termo, lista) {
         it.onclick = () => { _ibDestaque = termo; abrirChat(x.conv); };
         lista.appendChild(it);
     });
+}
+
+// ---------- Dados do grupo: informações e integrantes (abre ao tocar no nome do grupo) ----------
+async function ibInfoGrupo(c) {
+    if (!c || !c.grupo) return;
+    const s = _waServ(); if (!s) return;
+    document.getElementById('grp-info')?.remove();
+    const fundo = prEl('div', 'modal-backdrop active'); fundo.id = 'grp-info';
+    const m = prEl('div', 'modal ia-modal grp-modal grp-info');
+    const topo = prEl('div', 'gi-topo');
+    const foto = prEl('div', 'gi-foto', '👥');
+    const tt = prEl('div', 'gi-titulo');
+    tt.appendChild(prEl('div', 'modal-title', c.name));
+    const sub = prEl('div', 'gi-sub', 'Lendo o grupo no WhatsApp…'); tt.appendChild(sub);
+    const x = prEl('button', 'gi-fechar', '✕'); x.type = 'button'; x.title = 'Fechar'; x.onclick = () => fundo.remove();
+    topo.append(foto, tt, x);
+    m.appendChild(topo);
+    const corpo = prEl('div', 'grp-corpo gi-corpo');
+    m.appendChild(corpo);
+    fundo.appendChild(m);
+    fundo.onclick = e => { if (e.target === fundo) fundo.remove(); };
+    document.body.appendChild(fundo);
+    let d, falas = {};
+    try {
+        const desde = new Date(Date.now() - 30 * 86400000).toISOString();
+        const [r, msgs] = await Promise.all([
+            fetch(s.base + '/groups/' + encodeURIComponent(c.grupoId) + '/participants', { headers: s.hdr }),
+            supabaseClient.from('grupo_mensagens').select('autor_phone,autor_nome,de_mim').eq('user_id', currentUser.id).eq('grupo_id', c.grupoId).gte('criado_em', desde).limit(3000).then(x => x.data || [], () => []),
+            carregarNaoContatar().catch(() => {}), (typeof carregarLeadsEnviadosDaNuvem === 'function' ? carregarLeadsEnviadosDaNuvem() : Promise.resolve()).catch(() => {}),
+        ]);
+        d = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(d.error || ('HTTP ' + r.status));
+        msgs.forEach(x => { if (x.de_mim || !x.autor_phone) return; const k = String(x.autor_phone); falas[k] = falas[k] || { n: 0, nome: x.autor_nome }; falas[k].n++; if (x.autor_nome) falas[k].nome = x.autor_nome; });
+    } catch (e) {
+        sub.textContent = 'Grupo do WhatsApp';
+        corpo.appendChild(prEl('div', 'ia-aviso', 'Não consegui ler o grupo: ' + (e && e.message) + '. Confira se o WhatsApp está conectado.'));
+        return;
+    }
+    if (d.fotoUrl) { foto.textContent = ''; const img = document.createElement('img'); img.src = d.fotoUrl; img.alt = ''; img.referrerPolicy = 'no-referrer'; img.onerror = () => { img.remove(); foto.textContent = '👥'; }; foto.appendChild(img); }
+    const parts = d.participantes || [];
+    sub.textContent = `Grupo · ${d.total || parts.length} integrantes` + (d.criadoEm ? ' · criado em ' + new Date(d.criadoEm).toLocaleDateString('pt-BR') : '');
+
+    // Resumo em números
+    const chips = prEl('div', 'gi-chips');
+    const chip = (t, cls) => chips.appendChild(prEl('span', 'gi-chip' + (cls ? ' ' + cls : ''), t));
+    chip(`👤 ${d.total || parts.length} integrantes`);
+    chip(`📱 ${parts.length} com número visível`);
+    if (d.escondidos) chip(`🙈 ${d.escondidos} com número escondido`);
+    chip(`⭐ ${d.admins || 0} admins`);
+    const falaram = parts.filter(p => falas[p.phone]).length;
+    if (falaram) chip(`💬 ${falaram} falaram nos últimos 30 dias`, 'ok');
+    if (d.souAdmin) chip('Você é admin', 'ok');
+    if (d.soAdminsFalam) chip('🔒 Só admins mandam mensagem', 'alerta');
+    corpo.appendChild(chips);
+    if (d.descricao) {
+        const desc = prEl('div', 'gi-desc');
+        desc.appendChild(prEl('b', '', 'Descrição'));
+        desc.appendChild(prEl('div', 'gi-desc-txt', d.descricao));
+        corpo.appendChild(desc);
+    }
+    // Ações do grupo
+    const acoes = prEl('div', 'gi-acoes');
+    const imp = prEl('button', 'modal-btn primary', `📥 Importar ${parts.length} números como leads`); imp.type = 'button'; imp.disabled = !parts.length;
+    imp.onclick = () => grpImportar([{ id: c.grupoId, nome: c.name, comNumero: parts.length }], imp, fundo);
+    const parar = prEl('button', 'modal-btn', '🔕 Parar de acompanhar'); parar.type = 'button';
+    parar.onclick = async () => { if (!confirm(`Parar de acompanhar "${c.name}" no Inbox? As mensagens já guardadas continuam até completar 30 dias.`)) return; await grpAcompanhar({ id: c.grupoId, nome: c.name }, false); fundo.remove(); };
+    acoes.append(imp, parar);
+    corpo.appendChild(acoes);
+
+    // Integrantes: quem fala mais primeiro, depois admins
+    const tit = prEl('div', 'gi-sec');
+    tit.appendChild(prEl('b', '', 'Integrantes'));
+    const busca = document.createElement('input'); busca.type = 'search'; busca.className = 'gi-busca'; busca.placeholder = 'Buscar nome ou número';
+    tit.appendChild(busca);
+    corpo.appendChild(tit);
+    const lista = prEl('div', 'gi-lista');
+    corpo.appendChild(lista);
+    const nomeDe = p => p.nome || falas[p.phone]?.nome || '';
+    parts.sort((a, b) => (falas[b.phone]?.n || 0) - (falas[a.phone]?.n || 0) || (b.dono - a.dono) || (b.admin - a.admin) || (nomeDe(b) ? 1 : 0) - (nomeDe(a) ? 1 : 0));
+    const pintar = () => {
+        lista.innerHTML = '';
+        const q = busca.value.trim().toLowerCase(), qd = q.replace(/\D/g, '');
+        const vis = parts.filter(p => !q || nomeDe(p).toLowerCase().includes(q) || (qd && p.phone.includes(qd)));
+        vis.slice(0, 300).forEach(p => {
+            const tel = formatPhoneBR(p.phone), nome = nomeDe(p), k = ibChave(tel), telVer = String(tel).replace(/^55(\d\d)(\d{4,5})(\d{4})$/, '($1) $2-$3');
+            const li = prEl('div', 'gi-item');
+            const av = prEl('div', 'inbox-avatar', nome ? nome.charAt(0).toUpperCase() : '#'); av.style.background = ibCorAutor(nome || tel) + '22'; av.style.color = ibCorAutor(nome || tel);
+            const txt = prEl('div', 'gi-txt');
+            const l1 = prEl('div', 'gi-nome', nome || telVer);
+            if (p.dono) l1.appendChild(prEl('span', 'gi-tag adm', 'Criador'));
+            else if (p.admin) l1.appendChild(prEl('span', 'gi-tag adm', 'Admin'));
+            txt.appendChild(l1);
+            const info = [nome ? telVer : ''];
+            if (falas[p.phone]) info.push(`💬 ${falas[p.phone].n} msg${falas[p.phone].n > 1 ? 's' : ''} no grupo`);
+            const bloq = bloqueadoLead({ phone: tel, title: nome });
+            const pipe = _ibCtx?.pipe?.[k];
+            const etiquetas = prEl('div', 'gi-info', info.filter(Boolean).join(' · '));
+            if (bloq) etiquetas.appendChild(prEl('span', 'gi-tag nao', '⛔ Não contatar'));
+            else if (pipe) etiquetas.appendChild(prEl('span', 'gi-tag pipe', '📋 No Pipeline'));
+            else if (typeof leadJaFoiEnviado === 'function' && leadJaFoiEnviado(tel)) etiquetas.appendChild(prEl('span', 'gi-tag ja', '✓ Já contatado'));
+            txt.appendChild(etiquetas);
+            const bts = prEl('div', 'gi-bts');
+            const pv = prEl('button', 'gi-bt', '💬'); pv.type = 'button'; pv.title = 'Chamar no privado'; pv.disabled = bloq;
+            pv.onclick = () => { fundo.remove(); ibChamarNoPrivado(p.phone, nome || null, { grupo: c.name, mensagem: '' }); };
+            const pl = prEl('button', 'gi-bt', '📋'); pl.type = 'button'; pl.title = pipe ? 'Já está no Pipeline' : 'Pôr no Pipeline'; pl.disabled = bloq || !!pipe;
+            pl.onclick = () => { pl.disabled = true; rsPipeline({ k, nome: nome || tel, ultimo: { phone: tel }, itens: [] }, l => { if (!l.nota) l.nota = 'Veio do grupo ' + c.name; }, '📋 ' + (nome || tel) + ' no Pipeline'); if (_ibCtx?.pipe) _ibCtx.pipe[k] = 'respondeu'; pintar(); };
+            bts.append(pv, pl);
+            li.append(av, txt, bts);
+            lista.appendChild(li);
+        });
+        if (!vis.length) lista.appendChild(prEl('div', 'ph-mudo', q ? 'Ninguém com esse nome ou número.' : 'Nenhum integrante com número visível.'));
+        if (vis.length > 300) lista.appendChild(prEl('div', 'ph-mudo', `Mostrando 300 de ${vis.length}. Use a busca para achar os outros.`));
+    };
+    busca.oninput = pintar;
+    pintar();
+    if (d.escondidos) corpo.appendChild(prEl('div', 'gi-rodape', `🙈 ${d.escondidos} integrante${d.escondidos > 1 ? 's' : ''} com número escondido pelo WhatsApp. Eles aparecem no chat quando escrevem, mas não dá para chamar no privado.`));
 }
 
 async function abrirChat(conversa) {
