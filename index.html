@@ -3703,7 +3703,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <!-- IA -->
         <div class="tab-content" id="tab-ia">
-            <div style="display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:20px;height:calc(100vh - 200px);" id="ia-dashboard">
+            <div style="display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:20px;height:calc(100vh - 200px);min-height:720px;" id="ia-dashboard">
 
             <!-- COLUNA 1: SELEÇÃO DE LEADS -->
             <div style="display:flex;flex-direction:column;background:var(--surface);border:1.5px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 4px 18px var(--shadow);">
@@ -3798,7 +3798,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
 
             <!-- COLUNA 3: ENVIO -->
-            <div style="display:flex;flex-direction:column;background:var(--surface);border:1.5px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 4px 18px var(--shadow);">
+            <div style="display:flex;flex-direction:column;background:var(--surface);border:1.5px solid var(--border);border-radius:16px;overflow-x:hidden;overflow-y:auto;box-shadow:0 4px 18px var(--shadow);">
                 <!-- inputs hidden para manter compatibilidade com JS -->
                 <input type="number" id="ia-batch-dash" style="display:none;" value="10" min="5" max="50" oninput="atualizarEstimativaModal()">
                 <input type="number" id="ia-pause-dash" style="display:none;" value="30" min="5" max="120" oninput="atualizarEstimativaModal()">
@@ -3814,7 +3814,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <label class="field-label" for="ia-numero-teste" style="margin-bottom:5px;font-size:0.55rem;color:#92400e;">Seu número (com DDI)</label>
                     <input type="text" id="ia-numero-teste" placeholder="Ex: 5511999999999" autocomplete="off" style="width:100%;padding:8px 10px;border:1.5px solid #fde68a;border-radius:7px;font-size:0.78rem;margin-bottom:8px;background:#fff;font-family:'Inter',sans-serif;">
                     <div style="display:flex;gap:6px;margin-bottom:6px;">
-                        <button class="ia-copy-btn" style="flex:1;padding:8px;background:#fff;border-color:#fde68a;color:#92400e;font-size:0.65rem;" onclick="salvarNumeroTeste()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Salvar</button>
                         <button class="ia-copy-btn" style="flex:1;padding:8px;background:#fbbf24;border-color:#f59e0b;color:#fff;font-weight:700;font-size:0.65rem;" onclick="enviarTeste()" id="btn-enviar-teste">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M9 3h6M9 3l-5 18h16L15 3"/><path d="M6 15h12"/></svg> Enviar Teste
                         </button>
@@ -10219,12 +10218,11 @@ function salvarNumeroTeste() {
     }, 2000);
 }
 
+// O campo do número de teste começa sempre vazio (antes ele voltava sozinho, e com aspas).
 function carregarNumeroTeste() {
-    const numero = localStorage.getItem(userKey('numeroTeste'));
-    if (numero) {
-        const input = document.getElementById('ia-numero-teste');
-        if (input) input.value = numero;
-    }
+    try { localStorage.removeItem(userKey('numeroTeste')); } catch (e) {}
+    const input = document.getElementById('ia-numero-teste');
+    if (input) input.value = '';
 }
 
 async function enviarTeste() {
@@ -10262,8 +10260,6 @@ async function enviarTeste() {
         status.style.color = '#dc2626';
         return;
     }
-
-    salvarNumeroTeste();
 
     btn.disabled = true;
     btn.textContent = '⏳ Gerando mensagem...';
