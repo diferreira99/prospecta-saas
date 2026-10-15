@@ -1129,6 +1129,7 @@
 .ps-sug { font-family:'Inter',sans-serif; font-size:0.68rem; font-weight:700; padding:5px 10px; border-radius:99px; border:1.5px solid #bbf7d0; background:#f0fdf4; color:#166534; cursor:pointer; }
 .ps-sug:hover, .ps-sug:focus-visible { border-color:#16a34a; outline:none; }
 .ps-sug small { font-weight:600; opacity:.8; margin-left:4px; }
+.ps-sug.ativo, .ps-sug.sin.ativo { background:#16a34a !important; border-color:#16a34a !important; color:#fff !important; }
 .ps-aprende { width:100%; font-size:0.62rem; color:var(--muted); margin-top:2px; }
 .ps-aviso { margin:2px 0 8px; padding:8px 12px; border-radius:10px; background:#FFF7ED; border:1px solid #fed7aa; color:#9a3412; font-family:'Inter',sans-serif; font-size:0.72rem; line-height:1.45; }
 .ps-chip { font-family:'Inter',sans-serif; font-size:0.6rem; font-weight:700; padding:4px 10px; border-radius:20px; border:1.5px solid #d1d5db; background:#fff; color:#6b7280; cursor:pointer; white-space:nowrap; }
@@ -3019,7 +3020,10 @@ function rsPintarPainel(painel, g, tipo) {
             linha.appendChild(b);
         });
         painel.appendChild(linha);
+    } else if (_agendaDono === true) {
+        rsPainelAgenda(painel, g);
     } else {
+        if (_agendaDono === null) agendaSouDono().then(ok => { if (ok && _rsAbertos[g.k] === 'reuniao') rsPintarPainel(painel, g, 'reuniao'); });
         painel.appendChild(prEl('div', 'rs-painel-tit', 'Dia e hora da reunião. O lead vai para Negociando no Pipeline.'));
         const linha = prEl('div', 'rs-painel-linha');
         const inp = document.createElement('input'); inp.type = 'datetime-local';
@@ -3033,6 +3037,94 @@ function rsPintarPainel(painel, g, tipo) {
         linha.append(inp, ok);
         painel.appendChild(linha);
     }
+}
+// ── Reunião na agenda (com a sua aprovação) ──
+// Só para o dono da agenda: busca horários livres no Google Agenda e cria o evento com Google Meet.
+// Nada vai para o lead sozinho: o app só escreve a mensagem na caixa de resposta para você revisar e enviar.
+const AGENDA_URL = 'https://primary-production-c1c7c.up.railway.app/webhook/prospecta-reuniao';
+var _agendaDono = null;
+async function agendaSouDono() {
+    if (_agendaDono !== null) return _agendaDono;
+    try { const { data, error } = await supabaseClient.rpc('sou_dono_agenda'); _agendaDono = !error && data === true; }
+    catch (e) { _agendaDono = false; }
+    return _agendaDono;
+}
+async function agendaChamar(corpo) {
+    const { data } = await supabaseClient.auth.getSession();
+    const token = data && data.session && data.session.access_token;
+    if (!token) throw new Error('entre de novo no Prospecta+');
+    const r = await fetch(AGENDA_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ access_token: token }, corpo)) });
+    const j = await r.json().catch(() => null);
+    if (!r.ok || !j) throw new Error('a agenda não respondeu (' + r.status + ')');
+    return j;
+}
+function rsEscreverResposta(g, texto) {
+    const ta = document.getElementById('fila-texto-' + g.ultimo.id);
+    if (!ta) return;
+    ta.value = texto;
+    ta.dispatchEvent(new Event('input'));
+    ta.focus();
+}
+const AGENDA_ERROS = { ocupado: 'esse horário já está ocupado na agenda', muito_cedo_ou_passado: 'precisa de pelo menos 2 horas de antecedência', fim_de_semana: 'só marcamos de segunda a sexta', fora_do_expediente: 'só das 8h às 18h', data_invalida: 'data ou hora inválida', sem_permissao: 'sua conta não tem agenda ligada', login_invalido: 'entre de novo no Prospecta+', agenda_falhou: 'o Google Agenda não criou o evento' };
+function rsPainelAgenda(painel, g) {
+    painel.innerHTML = '';
+    painel.appendChild(prEl('div', 'rs-painel-tit', '📅 Horários livres na sua agenda (30 min, com Google Meet). Nada vai para o lead sem você enviar.'));
+    const linha = prEl('div', 'rs-painel-linha');
+    linha.appendChild(prEl('span', 'ph-mudo', 'Buscando horários livres…'));
+    painel.appendChild(linha);
+    const acoes = prEl('div', 'rs-painel-linha');
+    painel.appendChild(acoes);
+    const outro = prEl('div', 'rs-painel-linha');
+    const inp = document.createElement('input'); inp.type = 'datetime-local';
+    const btOutro = prEl('button', 'rs-btn', 'Marcar este horário');
+    outro.append(prEl('span', 'ph-mudo', 'Outro dia:'), inp, btOutro);
+    painel.appendChild(outro);
+    let escolhido = null, slots = [];
+    const info = _rsCtx.leads[g.k] || {};
+    const marcar = async (dia, hora, texto, btn) => {
+        btn.disabled = true; const antes = btn.textContent; btn.textContent = '⏳ Marcando…';
+        try {
+            const r = await agendaChamar({ acao: 'marcar', dia, hora, nome: g.nome, empresa: info.title || g.nome, phone: formatPhoneBR(g.ultimo.phone), produto: (prodAtual() && prodAtual().nome) || '' });
+            if (!r.ok) {
+                const alt = (r.alternativas || []).map(x => x.texto).join(', ');
+                showToast('❌ Não marquei: ' + (AGENDA_ERROS[r.motivo] || AGENDA_ERROS[r.erro] || r.erro) + (alt ? '. Livres: ' + alt : ''), 'err');
+                return;
+            }
+            const quando = new Date(r.inicio).getTime();
+            const txt = (r.escolhido && r.escolhido.texto) || texto;
+            await rsPipeline(g, l => { l.reuniaoEm = quando; l.reuniaoMarcada = true; if (r.meet) l.reuniaoLink = r.meet; if (['novo', 'contatado', 'respondeu'].includes(l.col)) { l.col = 'negociando'; l.movedAt = Date.now(); } },
+                '📅 Reunião criada no Google Agenda' + (r.meet ? ' com Meet' : '') + '. Revise a mensagem e envie.');
+            // o Pipeline redesenha o cartão: a confirmação entra na caixa depois disso
+            rsEscreverResposta(g, 'Combinado! Deixei marcada a nossa conversa para ' + txt + ' (30 minutos, por vídeo).' + (r.meet ? '\nO link da chamada é este: ' + r.meet : '') + '\nQualquer coisa, é só me avisar por aqui.');
+        } catch (e) { showToast('❌ ' + (e && e.message), 'err'); }
+        finally { btn.disabled = false; btn.textContent = antes; }
+    };
+    btOutro.onclick = () => {
+        if (!inp.value) { showToast('Escolha o dia e a hora', 'err'); return; }
+        const d = new Date(inp.value), p2 = n => String(n).padStart(2, '0');
+        marcar(p2(d.getDate()) + '/' + p2(d.getMonth() + 1), p2(d.getHours()) + ':' + p2(d.getMinutes()), d.toLocaleString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }), btOutro);
+    };
+    agendaChamar({ acao: 'horarios' }).then(r => {
+        linha.innerHTML = '';
+        if (!r.ok) { _agendaDono = r.erro === 'sem_permissao' ? false : _agendaDono; linha.appendChild(prEl('span', 'ph-mudo', 'Não consegui ler a agenda: ' + (AGENDA_ERROS[r.erro] || r.erro))); return; }
+        slots = r.slots || [];
+        if (!slots.length) { linha.appendChild(prEl('span', 'ph-mudo', 'Nenhum horário livre nos próximos dias. Use "Outro dia".')); return; }
+        slots.forEach(sl => {
+            const b = prEl('button', 'ps-sug sin', sl.texto);
+            b.onclick = () => { escolhido = sl; linha.querySelectorAll('button').forEach(x => x.classList.toggle('ativo', x === b)); btMarcar.disabled = false; btMarcar.textContent = '📅 Marcar ' + sl.dia_semana.split('-')[0] + ' ' + sl.dia_mes + ' ' + sl.hora; };
+            linha.appendChild(b);
+        });
+        const btProp = prEl('button', 'rs-btn', '💬 Propor estes horários na resposta');
+        btProp.onclick = () => {
+            const t = slots.map(x => x.texto);
+            rsEscreverResposta(g, 'Que tal uma conversa rápida de 30 minutos por vídeo? Tenho ' + (t.length > 1 ? t.slice(0, -1).join(', ') + ' ou ' + t[t.length - 1] : t[0]) + '. Qual fica melhor para você?');
+            showToast('💬 Horários na caixa de resposta. Revise e envie.', 'ok');
+        };
+        const btMarcar = prEl('button', 'rs-btn verde', '📅 Escolha um horário acima');
+        btMarcar.disabled = true;
+        btMarcar.onclick = () => escolhido && marcar(escolhido.dia_mes, escolhido.hora, escolhido.texto, btMarcar);
+        acoes.append(btProp, btMarcar);
+    }).catch(e => { linha.innerHTML = ''; linha.appendChild(prEl('span', 'ph-mudo', 'Não consegui ler a agenda: ' + (e && e.message))); });
 }
 // Acha (ou cria) o lead no Pipeline e aplica a mudança, sempre partindo da versão da nuvem.
 async function rsPipeline(g, mudar, aviso) {
