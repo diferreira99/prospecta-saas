@@ -1452,6 +1452,19 @@ const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_
     }
     window.fetch = async function (input, init) {
         const url = typeof input === 'string' ? input : (input && input.url) || '';
+        // Servidor WhatsApp: toda chamada que leva x-api-token sai com o login do Supabase. O navegador não guarda
+        // mais o token de verdade (só uma máscara "••••"), então a máscara sai do cabeçalho e o login entra no lugar.
+        if (!url.startsWith(N8N) && !url.startsWith(API) && init && init.headers && !(init.headers instanceof Headers) && !Array.isArray(init.headers)) {
+            const chave = Object.keys(init.headers).find(k => k.toLowerCase() === 'x-api-token');
+            if (chave) {
+                const h = Object.assign({}, init.headers);
+                const v = String(h[chave] == null ? '' : h[chave]);
+                if (!v || v === 'undefined' || /[^\x20-\x7e]/.test(v)) delete h[chave];
+                const tk = await tokenAtual();
+                if (tk) h['Authorization'] = 'Bearer ' + tk;
+                return fetchOriginal(input, Object.assign({}, init, { headers: h }));
+            }
+        }
         if (!url.startsWith(N8N) && !url.startsWith(API)) return fetchOriginal(input, init);
         const token = await tokenAtual();
         if (!token) return fetchOriginal(input, init);
@@ -5062,6 +5075,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 .integ-status.configurado { background: #E0EBFF; color: #1040CC; border: 1px solid #C2D8FF; }
                 .integ-desc { font-family: 'Inter', sans-serif; font-size: 0.68rem; color: var(--muted); margin-bottom: 16px; line-height: 1.6; }
                 .integ-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+                .integ-fields[hidden], #ia-como-obter[hidden], .integ-btn[hidden] { display: none !important; }
+                .integ-gerenciado { font-family: 'Inter', sans-serif; font-size: 0.7rem; color: #0A5FD4; background: #EEF5FF; border: 1px solid #C0D8FF; border-radius: 10px; padding: 10px 12px; margin: 4px 0 14px; line-height: 1.5; }
                 .integ-fields.full { grid-template-columns: 1fr; }
                 @media (max-width: 900px) { .integ-fields { grid-template-columns: 1fr; } }
                 .integ-field { display: flex; flex-direction: column; }
@@ -5157,7 +5172,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div id="metodo-qr-card" style="background:#f0f9ff;border:1.5px solid #C0D8FF;border-radius:12px;padding:16px;margin-bottom:14px;">
                     <div style="font-family:'Inter',sans-serif;font-size:0.58rem;color:#0A5FD4;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:10px;font-weight:700;">📱 CONECTAR VIA QR CODE</div>
                     <ol style="font-family:'Inter',sans-serif;font-size:0.78rem;color:#0852B8;margin:0 0 12px;padding-left:18px;line-height:1.9;">
-                        <li>Preencha a <strong>URL do servidor</strong> e o <strong>Token</strong> acima e salve</li>
+                        <li class="passo-servidor">Preencha a <strong>URL do servidor</strong> e o <strong>Token</strong> acima e salve</li>
                         <li>Clique em <strong>Gerar QR Code</strong> abaixo</li>
                         <li>Abra o WhatsApp no celular → <strong>Dispositivos vinculados</strong> → <strong>Vincular dispositivo</strong></li>
                         <li>Aponte a câmera para o QR — conexão detectada automaticamente ✅</li>
@@ -5179,7 +5194,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div id="metodo-codigo-card" style="display:none;background:#f0f9ff;border:1.5px solid #C0D8FF;border-radius:12px;padding:16px;margin-bottom:14px;">
                     <div style="font-family:'Inter',sans-serif;font-size:0.58rem;color:#0A5FD4;letter-spacing:0.5px;text-transform:uppercase;margin-bottom:10px;font-weight:700;">🔢 CONECTAR COM CÓDIGO DE 8 DÍGITOS</div>
                     <ol style="font-family:'Inter',sans-serif;font-size:0.78rem;color:#0852B8;margin:0 0 12px;padding-left:18px;line-height:1.9;">
-                        <li>Preencha a <strong>URL do servidor</strong> e o <strong>Token</strong> acima e salve</li>
+                        <li class="passo-servidor">Preencha a <strong>URL do servidor</strong> e o <strong>Token</strong> acima e salve</li>
                         <li>Digite o número do WhatsApp que vai conectar (com DDD) abaixo</li>
                         <li>Clique em <strong>Gerar Código</strong></li>
                         <li>No celular: WhatsApp → <strong>Dispositivos vinculados</strong> → <strong>Vincular com número de telefone</strong> → digite o código</li>
@@ -5373,11 +5388,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="integ-real" id="ia-chave-salva"></div>
                 <div class="integ-real mudo" id="ia-transcricao"></div>
 
-                <p style="font-family:'Inter',sans-serif;font-size:0.62rem;color:var(--muted);margin:10px 0;">Como obter sua chave:</p>
+                <div id="ia-como-obter"><p style="font-family:'Inter',sans-serif;font-size:0.62rem;color:var(--muted);margin:10px 0;">Como obter sua chave:</p>
                 <ol style="font-family:'Inter',sans-serif;font-size:0.62rem;color:var(--muted);margin:0;padding-left:20px;line-height:1.8;">
                     <li><strong>OpenAI:</strong> <a href="https://platform.openai.com/api-keys" target="_blank" style="color:#FF6A00;text-decoration:underline;">platform.openai.com/api-keys</a> → Create new secret key</li>
                     <li><strong>Gemini:</strong> <a href="https://aistudio.google.com/app/apikeys" target="_blank" style="color:#FF6A00;text-decoration:underline;">aistudio.google.com/app/apikeys</a> → Create API Key (grátis)</li>
-                </ol>
+                </ol></div>
 
                 <div class="integ-actions" style="margin-top:16px;">
                     <button class="integ-btn primary" id="ia-testar" onclick="testarIAProvider(this)"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg> Testar IA</button>
@@ -9621,10 +9636,10 @@ async function iniciarEnvioNoServidor({ min, max, typing, batchSize, batchPause 
         userId: currentUser?.id || '',   // o n8n usa para escolher a mensagem que mais traz resposta (A/B que aprende)
         config: {
             uazapiUrl:   config.uazapi?.url   || '',
-            uazapiToken: config.uazapi?.token || '',
+            uazapiToken: '',   // o n8n lê token e chaves do banco (configuração gerenciada)
             iaProvider:  config.iaProvider    || 'openai',
-            openaiKey:   config.openai?.key   || '',
-            geminiKey:   config.gemini?.key   || '',
+            openaiKey:   '',
+            geminiKey:   '',
             horario:     config.horario       || null,
             delayMin:    min  || config.uazapi?.delayMin  || 30,
             delayMax:    max  || config.uazapi?.delayMax  || 60,
@@ -10714,6 +10729,31 @@ function carregarConfigs() {
         atualizarStatusIntegracoes();
         setTimeout(atualizarConfigStatusDashboard, 100);
     }
+    try { integAplicarTrava(); } catch (e) {}
+}
+
+// Conta gerenciada: servidor, token e chave da IA ficam escondidos e travados (o administrador cuida disso)
+function integAplicarTrava() {
+    const g = !!config.gerenciado;
+    ['uazapi-url', 'uazapi-token', 'openai-key', 'gemini-key', 'ia-provider-select'].forEach(id => { const el = document.getElementById(id); if (el) { el.disabled = g; el.title = g ? 'Gerenciado pelo administrador' : ''; } });
+    document.querySelectorAll('[onclick="salvarUAZAPI()"], [onclick="salvarIAProvider()"]').forEach(b => { b.hidden = g; });
+    const waCampos = document.getElementById('uazapi-url')?.closest('.integ-fields');
+    if (waCampos) waCampos.hidden = g;
+    const iaSel = document.getElementById('ia-provider-select')?.closest('.integ-fields');
+    if (iaSel) iaSel.hidden = g;
+    ['openai-fields', 'gemini-fields', 'ia-como-obter'].forEach(id => { const el = document.getElementById(id); if (el) { if (g) el.hidden = true; else { el.hidden = false; } } });
+    if (!g) try { alternarProviderIA(); } catch (e) {}
+    document.querySelectorAll('.passo-servidor').forEach(li => { li.style.display = g ? 'none' : ''; });
+    const nota = (cardId, txt) => {
+        const card = document.getElementById(cardId); if (!card) return;
+        let n = card.querySelector('.integ-gerenciado');
+        if (!g) { if (n) n.remove(); return; }
+        if (!n) { n = document.createElement('div'); n.className = 'integ-gerenciado'; const d = card.querySelector('.integ-desc'); if (d) d.after(n); else card.appendChild(n); }
+        n.textContent = txt;
+    };
+    nota('integ-card-wa', '🔒 Servidor Prospecta+ · configurado e mantido pelo administrador. Aqui você só conecta o seu WhatsApp (QR code ou código).');
+    const ia = (config.iaProvider === 'gemini') ? 'Google Gemini' : 'OpenAI';
+    nota('integ-card-ia', '🔒 IA: ' + ia + ' · gerenciada pelo administrador. Você não precisa de chave: é só usar.');
 }
 
 function salvarConfigs() {
@@ -10729,33 +10769,45 @@ function salvarConfigs() {
 // Lê da nuvem (user_config, protegido por RLS: só a própria conta) o que foi salvo por outro
 // navegador ou pelo painel do administrador, e preenche SOMENTE os campos que estão vazios
 // neste navegador. O que o usuário já digitou aqui nunca é sobrescrito.
+// Configuração gerenciada: o administrador grava servidor WhatsApp, token e chaves da IA no banco (painel admin).
+// O app NUNCA recebe esses segredos: minha_config() devolve só se existem e uma máscara. Conta gerenciada
+// (todo cliente) não consegue trocar nada disso — o banco ignora (gatilho proteger_user_config).
+const MASCARA_TOKEN = '••••••••';
+function _ehMascara(v) { return typeof v === 'string' && v.startsWith('••'); }
 async function carregarConfigDaNuvem() {
     if (!currentUser) return false;
     try {
-        const { data, error } = await supabaseClient.from('user_config')
-            .select('uazapi_url,uazapi_token,numero_alerta,ia_provider,openai_key,gemini_key,ia_prompt,delay_min,delay_max')
-            .eq('user_id', currentUser.id).maybeSingle();
-        if (error || !data) return false;
+        const [r1, r2] = await Promise.all([
+            supabaseClient.rpc('minha_config'),
+            supabaseClient.from('user_config').select('numero_alerta,ia_prompt,delay_min,delay_max').eq('user_id', currentUser.id).maybeSingle()
+        ]);
+        const mc = (!r1.error && r1.data) ? r1.data : null;
+        const data = (!r2.error && r2.data) ? r2.data : null;
+        if (!mc && !data) return false;
         const vazio = v => v === undefined || v === null || String(v).trim() === '';
         let cfg = {};
         try { cfg = JSON.parse(localStorage.getItem(userKey('prospectaConfig')) || '{}') || {}; } catch (e) { cfg = {}; }
         cfg.uazapi = cfg.uazapi || { authType: 'token', typingMin: 5, typingMax: 10 };
         cfg.gemini = cfg.gemini || {};
         cfg.openai = cfg.openai || {};
-        let mudou = false;
-        if (vazio(cfg.uazapi.url) && !vazio(data.uazapi_url)) { cfg.uazapi.url = String(data.uazapi_url).trim().replace(/\/$/, ''); cfg.uazapi.device = 'baileys'; mudou = true; }
-        if (vazio(cfg.uazapi.token) && !vazio(data.uazapi_token)) { cfg.uazapi.token = String(data.uazapi_token).trim(); mudou = true; }
-        if (vazio(cfg.numeroAlerta) && !vazio(data.numero_alerta)) { cfg.numeroAlerta = String(data.numero_alerta).replace(/\D/g, ''); mudou = true; }
-        if (vazio(cfg.gemini.key) && !vazio(data.gemini_key)) { cfg.gemini.key = data.gemini_key; mudou = true; }
-        if (vazio(cfg.openai.key) && !vazio(data.openai_key)) { cfg.openai.key = data.openai_key; mudou = true; }
-        if (vazio(cfg.iaProvider) && !vazio(data.ia_provider) && (!vazio(data.openai_key) || !vazio(data.gemini_key))) { cfg.iaProvider = data.ia_provider; mudou = true; }
-        if (cfg.uazapi.delayMin === undefined && data.delay_min) cfg.uazapi.delayMin = data.delay_min;
-        if (cfg.uazapi.delayMax === undefined && data.delay_max) cfg.uazapi.delayMax = data.delay_max;
-        if (mudou) {
-            localStorage.setItem(userKey('prospectaConfig'), JSON.stringify(cfg));
-            try { showToast('☁️ Configuração carregada da sua conta', 'ok'); } catch (e) {}
+        const antes = JSON.stringify(cfg);
+        if (mc) {
+            cfg.gerenciado = !!mc.gerenciado;
+            if (!vazio(mc.uazapi_url) && (mc.gerenciado || vazio(cfg.uazapi.url))) { cfg.uazapi.url = String(mc.uazapi_url).trim().replace(/\/+$/, ''); cfg.uazapi.device = 'baileys'; }
+            // no navegador fica só a máscara (o que estava salvo de verdade aqui é apagado)
+            cfg.uazapi.token = mc.tem_whatsapp ? MASCARA_TOKEN : '';
+            cfg.openai.key = mc.tem_openai ? '••••' + (mc.gerenciado ? '' : (mc.openai_fim || '')) : '';
+            cfg.gemini.key = mc.tem_gemini ? '••••' + (mc.gerenciado ? '' : (mc.gemini_fim || '')) : '';
+            if (!vazio(mc.ia_provider) && (mc.gerenciado || vazio(cfg.iaProvider))) cfg.iaProvider = mc.ia_provider;
         }
-        if (vazio(userGet('ia_prompt', '')) && !vazio(data.ia_prompt)) userSet('ia_prompt', data.ia_prompt);
+        if (data) {
+            if (vazio(cfg.numeroAlerta) && !vazio(data.numero_alerta)) cfg.numeroAlerta = String(data.numero_alerta).replace(/\D/g, '');
+            if (cfg.uazapi.delayMin === undefined && data.delay_min) cfg.uazapi.delayMin = data.delay_min;
+            if (cfg.uazapi.delayMax === undefined && data.delay_max) cfg.uazapi.delayMax = data.delay_max;
+            if (vazio(userGet('ia_prompt', '')) && !vazio(data.ia_prompt)) userSet('ia_prompt', data.ia_prompt);
+        }
+        const mudou = JSON.stringify(cfg) !== antes;
+        if (mudou) localStorage.setItem(userKey('prospectaConfig'), JSON.stringify(cfg));
         return mudou;
     } catch (e) {
         console.warn('Erro ao carregar config da nuvem:', e.message);
@@ -10783,7 +10835,20 @@ async function sincronizarConfigNaNuvem(preservarVazios) {
             // sync automático do login: nunca apaga na nuvem um valor só porque este navegador está vazio
             ['openai_key', 'gemini_key', 'ia_prompt', 'uazapi_url', 'uazapi_token', 'numero_alerta'].forEach(k => { if (linha[k] === '') delete linha[k]; });
         }
-        await supabaseClient.from('user_config').upsert(linha, { onConflict: 'user_id' });
+        // Segredos: só sobe chave/token digitados agora (máscara ou vazio não mudam nada no banco)
+        ['openai_key', 'gemini_key', 'uazapi_token'].forEach(k => { if (!linha[k] || _ehMascara(linha[k])) delete linha[k]; });
+        // Conta gerenciada pelo administrador não mexe em servidor, token, chaves nem IA
+        if (config.gerenciado) ['uazapi_url', 'uazapi_token', 'openai_key', 'gemini_key', 'ia_provider'].forEach(k => delete linha[k]);
+        const { error } = await supabaseClient.from('user_config').upsert(linha, { onConflict: 'user_id' });
+        if (!error && (linha.openai_key || linha.gemini_key || linha.uazapi_token)) {
+            // já está guardado no banco: aqui fica só a máscara
+            if (linha.openai_key) config.openai = Object.assign({}, config.openai, { key: '••••' + linha.openai_key.slice(-4) });
+            if (linha.gemini_key) config.gemini = Object.assign({}, config.gemini, { key: '••••' + linha.gemini_key.slice(-4) });
+            if (linha.uazapi_token) config.uazapi = Object.assign({}, config.uazapi, { token: MASCARA_TOKEN });
+            userSet('prospectaConfig', config);
+            const pr = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+            pr('openai-key', config.openai?.key); pr('gemini-key', config.gemini?.key); pr('uazapi-token', config.uazapi?.token);
+        }
     } catch (e) {
         console.warn('Erro ao sincronizar config na nuvem:', e.message);
     }
@@ -10807,6 +10872,7 @@ function salvarHumanizacao(silencioso) {
 }
 
 function salvarUAZAPI() {
+    if (config.gerenciado) { mostrarStatusMsg('uazapi-msg', '🔒 Gerenciado pelo administrador', 'err'); return; }
     // confere antes de mexer na configuração (antes, salvar com campo vazio apagava o token da memória)
     if (!document.getElementById('uazapi-url').value.trim() || !document.getElementById('uazapi-token').value.trim()) {
         mostrarStatusMsg('uazapi-msg', '// preencha a URL do servidor e o token', 'err');
@@ -11153,6 +11219,7 @@ function alternarProviderIA() {
 }
 
 function salvarIAProvider() {
+    if (config.gerenciado) { mostrarStatusMsg('gemini-msg', '🔒 Gerenciado pelo administrador', 'err'); return; }
     const provider   = document.getElementById('ia-provider-select').value;
     const openaiKey  = document.getElementById('openai-key').value.trim();
     const geminiKey  = document.getElementById('gemini-key').value.trim();
@@ -11242,35 +11309,22 @@ async function gerarMensagemIA(lead, promptLivre, chaveForcada, providerForcado,
 
     const prompt = iaPromptServidor(lead, promptLivre, variant, escolha.gatilho);
 
-    if (provider === 'gemini') {
-        const key = chaveForcada || config.gemini?.key;
-        if (!key) throw new Error('Gemini não configurado. Configure na aba Integrações.');
-        const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }] })
-        });
-        if (!res.ok) {
-            const errBody = await res.text().catch(() => '');
-            throw new Error(`Gemini ${res.status}${errBody ? ': ' + errBody.substring(0,150) : ''}`);
-        }
-        const data = await res.json();
-        return iaComoServidorEnvia(data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '');
-    } else {
-        const key = chaveForcada || config.openai?.key;
-        if (!key) throw new Error('OpenAI não configurado. Configure na aba Integrações.');
-        const res = await fetch('https://api.openai.com/v1/chat/completions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
-            body: JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 800, messages: [{ role: 'user', content: prompt }] })
-        });
-        if (!res.ok) {
-            const errBody = await res.text().catch(() => '');
-            throw new Error(`OpenAI ${res.status}${errBody ? ': ' + errBody.substring(0,150) : ''}`);
-        }
-        const data = await res.json();
-        return iaComoServidorEnvia(data.choices?.[0]?.message?.content?.trim() || '');
-    }
+    // A chave fica no banco: o servidor chama a IA (o navegador nunca vê a chave)
+    const temChave = chaveForcada || (provider === 'gemini' ? config.gemini?.key : config.openai?.key);
+    if (!temChave) throw new Error((provider === 'gemini' ? 'Gemini' : 'OpenAI') + ' não configurado. Configure na aba Integrações.');
+    return iaComoServidorEnvia(await iaServidor(prompt, 800, provider));
+}
+
+// IA pelo servidor WhatsApp (POST /ia): a chave fica no banco e o servidor chama a OpenAI/Gemini
+async function iaServidor(prompt, maxTokens, provider) {
+    const base = (config?.uazapi?.url || '').replace(/\/+$/, '');
+    if (!base) throw new Error('Servidor não configurado. Configure em Integrações.');
+    const r = await fetch(base + '/ia', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-token': config?.uazapi?.token || '' }, body: JSON.stringify({ prompt, max_tokens: maxTokens || 800, provider: provider || undefined }) });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error((j.error || ('IA ' + r.status)) + (j.detalhe ? ': ' + j.detalhe : ''));
+    const texto = String(j.texto || '').trim();
+    if (!texto) throw new Error('A IA não devolveu texto. Tente de novo.');
+    return texto;
 }
 
 function mostrarStatusMsg(elId, msg, tipo = '') {
@@ -11357,7 +11411,7 @@ function integTextoIA() {
     const p = config.iaProvider || 'openai', nome = p === 'gemini' ? 'Gemini' : 'OpenAI';
     const k = p === 'gemini' ? config.gemini?.key : config.openai?.key;
     if (!k) return { ok: false, txt: '❌ Sem chave', cor: '#dc2626', det: 'Coloque a chave da ' + nome, nome };
-    const det = nome + ' · chave ' + _integMascara(k) + (p === 'gemini' && !config.openai?.key ? ' · áudios não são transcritos (precisa de chave OpenAI)' : '');
+    const det = nome + (config.gerenciado ? ' · gerenciada pelo administrador' : ' · chave ' + _integMascara(k)) + (p === 'gemini' && !config.openai?.key ? ' · áudios não são transcritos (precisa de chave OpenAI)' : '');
     return { ok: true, txt: '✅ ' + nome, cor: '#16a34a', det, nome };
 }
 function integTextoHorario() {
@@ -11396,7 +11450,7 @@ function integPintar() {
     if (real) { real.textContent = wa.det; real.style.color = wa.cor; }
     const sair = document.getElementById('wa-sair'); if (sair) sair.hidden = !(_integWA && _integWA.connected && !_integWA.viaBanco);
     const iap = document.getElementById('ia-provider-status'); if (iap) { iap.textContent = ia.ok ? ia.nome + ' configurado' : 'Não configurado'; iap.className = 'integ-status ' + (ia.ok ? 'conectado' : 'desconectado'); }
-    const salva = document.getElementById('ia-chave-salva'); if (salva) salva.textContent = ia.ok ? '🔐 Chave salva: ' + _integMascara(config.iaProvider === 'gemini' ? config.gemini?.key : config.openai?.key) + ' (fica guardada só na sua conta, protegida)' : '';
+    const salva = document.getElementById('ia-chave-salva'); if (salva) salva.textContent = ia.ok ? (config.gerenciado ? '🔐 Chave guardada pelo administrador' : '🔐 Chave salva: ' + _integMascara(config.iaProvider === 'gemini' ? config.gemini?.key : config.openai?.key) + ' (fica guardada só no banco, o navegador não vê)') : '';
     const tr = document.getElementById('ia-transcricao'); if (tr) tr.textContent = config.openai?.key ? '🎤 Áudios recebidos são transcritos (usa a chave da OpenAI).' : '🎤 Sem chave da OpenAI os áudios recebidos não são transcritos: aparecem só como "🎤 Áudio".';
     integPintarHorarioAgora();
     integPintarLimite();
@@ -11675,18 +11729,7 @@ INSTRUÇÕES:
 
 Gere em Português do Brasil.`;
 
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${config.gemini.model || 'gemini-2.5-flash'}:generateContent?key=${config.gemini.key}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            contents: [{ role: 'user', parts: [{ text: prompt }] }]
-        })
-    });
-
-    if (!res.ok) throw new Error(`Gemini error ${res.status}`);
-    
-    const data = await res.json();
-    const msg = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+    const msg = await iaServidor(prompt, 800, 'gemini');
     if (!msg) throw new Error('Resposta vazia da IA');
     
     return msg;
@@ -12858,16 +12901,8 @@ function ibMenuAutor(ev, m) {
 var _ibMsgsAtual = [];
 async function ibChamarIA(prompt) {
     const provider = config.iaProvider || 'openai';
-    if (provider === 'gemini') {
-        if (!config.gemini?.key) throw new Error('Configure a IA em Integrações');
-        const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${config.gemini.key}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: prompt }] }] }) });
-        if (!r.ok) throw new Error('IA ' + r.status);
-        const d = await r.json(); return (d.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
-    }
-    if (!config.openai?.key) throw new Error('Configure a IA em Integrações');
-    const r = await fetch('https://api.openai.com/v1/chat/completions', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + config.openai.key }, body: JSON.stringify({ model: 'gpt-4o-mini', max_tokens: 300, messages: [{ role: 'user', content: prompt }] }) });
-    if (!r.ok) throw new Error('IA ' + r.status);
-    const d = await r.json(); return (d.choices?.[0]?.message?.content || '').trim();
+    if (!(provider === 'gemini' ? config.gemini?.key : config.openai?.key)) throw new Error('Configure a IA em Integrações');
+    return iaServidor(prompt, 300, provider);
 }
 function ibContextoNegocio() { return (document.getElementById('ia-prompt-livre')?.value || userGet('ia_prompt', '') || '').trim(); }
 function ibConversaTexto() {
@@ -16786,6 +16821,7 @@ async function dispararSequenciaIA(ci) {
     // Payload unificado — funciona para apresentação e follow-up
     const payload = {
         campanhaId: c.campanhaId || ('camp_seq_' + Date.now()),
+        userId: currentUser?.id || '',
         etapa: {
             dia:      etapaPendente.dia,
             tipo:     etapaPendente.tipo,
@@ -16798,10 +16834,10 @@ async function dispararSequenciaIA(ci) {
         diasFollowup: etapaPendente.dia || 3,
         config: {
             uazapiUrl:    cfg.uazapi.url,
-            uazapiToken:  cfg.uazapi.token,
+            uazapiToken:  '',   // o n8n lê token e chaves do banco (configuração gerenciada)
             iaProvider:   cfg.iaProvider || 'openai',
-            openaiKey:    cfg.openai?.key || '',
-            geminiKey:    cfg.gemini?.key || '',
+            openaiKey:    '',
+            geminiKey:    '',
             promptLivre:  promptIA,
             delayMin,
             delayMax,
