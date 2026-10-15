@@ -3931,6 +3931,38 @@ document.addEventListener('DOMContentLoaded', () => {
             .ia-lib-item { display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-top:1px solid var(--border); }
             .ia-link { background:none; border:none; color:#FF6A00; cursor:pointer; font-size:0.62rem; font-weight:600; text-decoration:underline; width:auto; padding:0; }
             .ia-ab-box { max-height:60vh; overflow:auto; margin-bottom:6px; }
+            /* Prévia em formato de iPhone com WhatsApp */
+            #ia-message-preview-area.wa-on { background: var(--surface2) !important; align-items:center; gap:10px !important; }
+            .ia-selo.wa-cripto { align-self:center; max-width:90%; background:#FFF3C4; border:none; color:#54656f; font-family:-apple-system,'Helvetica Neue',Arial,sans-serif; font-size:11px; text-align:center; border-radius:8px; padding:5px 10px; margin-bottom:8px; box-shadow:0 1px 1px rgba(0,0,0,.06); }
+            .ia-selo.wa-cripto b { color:#3b4a54; }
+            .ia-selo.wa-cripto small { display:none; }
+            .wa-sub { display:block; font-size:11px; font-weight:400; color:#8a8a8e; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+            .wa-fone { width:100%; max-width:290px; flex:1 1 0; min-height:400px; max-height:600px; display:flex; background:#1c1c1e; border-radius:44px; padding:10px; box-shadow:0 0 0 2px #3a3a3c inset, 0 14px 34px rgba(13,19,48,.22); box-sizing:border-box; }
+            .wa-tela { flex:1; min-height:0; border-radius:35px; overflow:hidden; display:flex; flex-direction:column; background:#F6F6F6; font-family:-apple-system,'SF Pro Text','Helvetica Neue',Arial,sans-serif; color:#111; }
+            .wa-status { position:relative; display:flex; align-items:center; justify-content:space-between; padding:11px 18px 4px 26px; font-size:13px; font-weight:600; height:22px; }
+            .wa-ilha { position:absolute; left:50%; top:9px; transform:translateX(-50%); width:72px; height:22px; background:#000; border-radius:16px; }
+            .wa-icones { display:flex; align-items:center; gap:4px; transform:scale(.88); transform-origin:right center; }
+            .wa-topo { display:flex; align-items:center; gap:8px; padding:6px 12px 8px 10px; border-bottom:1px solid #dcdcdc; background:#F6F6F6; }
+            .wa-azul { color:#007AFF; display:inline-flex; align-items:center; flex-shrink:0; }
+            .wa-acoes { gap:20px; margin-left:auto; }
+            .wa-avatar { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#FF6A00,#165DFF); color:#fff; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+            .wa-nome { display:flex; flex-direction:column; background:none; border:none; padding:0; width:auto; min-width:0; cursor:pointer; text-align:left; font:inherit; font-size:15px; font-weight:700; color:#111; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+            .wa-chat { flex:1; overflow-y:auto; padding:10px 10px 12px; display:flex; flex-direction:column; gap:3px; background:#EFE7DD url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140' fill='none' stroke='%23d6cbbd' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 18h22a4 4 0 0 1 4 4v12a4 4 0 0 1-4 4H24l-7 6v-6h-3a4 4 0 0 1-4-4V22a4 4 0 0 1 4-4z'/%3E%3Cpath d='M98 14l3 7 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z'/%3E%3Cpath d='M30 86c-4-5-12-1-9 5l9 8 9-8c3-6-5-10-9-5z'/%3E%3Ccircle cx='108' cy='96' r='9'/%3E%3Cpath d='M104 94h.1M112 94h.1M104 99c2 2 6 2 8 0'/%3E%3Crect x='62' y='52' width='16' height='26' rx='3'/%3E%3Cpath d='M68 74h4'/%3E%3Cpath d='M66 118l6-10 6 10z'/%3E%3Cpath d='M118 56c0-4 6-4 6 0s-6 4-6 8M121 70h.1'/%3E%3Cpath d='M20 124a6 6 0 1 0 12 0a6 6 0 1 0-12 0M26 118v-8l8-2'/%3E%3C/svg%3E") repeat; background-size:140px; }
+            .wa-dia { align-self:center; background:#DEE6F7; color:#3b3b3b; font-size:11.5px; padding:3px 12px; border-radius:7px; margin:4px 0 8px; box-shadow:0 1px 1px rgba(0,0,0,.06); }
+            .wa-dia.wa-ok { background:#E3F7E8; color:#166534; margin-top:8px; }
+            .wa-aviso { margin:auto 14px; text-align:center; font-size:12px; color:#6b6b6b; background:rgba(255,255,255,.85); border-radius:10px; padding:10px 12px; line-height:1.4; }
+            .wa-bolha { position:relative; align-self:flex-start; max-width:84%; background:#fff; border-radius:12px; padding:6px 9px 6px 10px; font-size:14px; line-height:1.36; box-shadow:0 1px .5px rgba(0,0,0,.13); word-break:break-word; white-space:pre-wrap; }
+            .wa-bolha.cauda { border-top-left-radius:3px; margin-top:2px; }
+            .wa-bolha.cauda::before { content:''; position:absolute; top:0; left:-7px; border-top:0 solid transparent; border-right:8px solid #fff; border-bottom:9px solid transparent; }
+            .wa-hora { float:right; font-size:10.5px; color:#8c8c8c; margin:7px 0 -3px 10px; white-space:nowrap; }
+            .wa-digitando { display:flex; gap:4px; padding:11px 13px; }
+            .wa-digitando i { width:7px; height:7px; border-radius:50%; background:#b5b5b5; animation:ia-bounce 1s infinite; }
+            .wa-digitando i:nth-child(2) { animation-delay:.2s; } .wa-digitando i:nth-child(3) { animation-delay:.4s; }
+            @keyframes ia-bounce{0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-5px)}}
+            .wa-barra { display:flex; align-items:center; gap:12px; padding:7px 12px 4px; background:#F6F6F6; border-top:1px solid #dcdcdc; }
+            .wa-campo { flex:1; height:30px; border:1px solid #d6d6d6; border-radius:16px; background:#fff; display:flex; align-items:center; justify-content:flex-end; padding-right:9px; color:#007AFF; }
+            .wa-home { width:110px; height:4px; border-radius:3px; background:#111; margin:8px auto 7px; }
+            @media (max-width:1200px) { .wa-fone { min-height:520px; } }
 
                 .ia-header-card {
                     background: var(--surface);
@@ -7513,6 +7545,96 @@ async function mostrarPanoramaAB() {
     }
 }
 
+// ── Prévia em formato de iPhone com WhatsApp: a mensagem como o lead vai ver ──
+// Cada parágrafo vira uma bolha, porque o servidor envia um parágrafo por vez.
+function _iaNomeRemetente() {
+    const salvo = userGet('waNomeExibicao', '');
+    if (salvo) return salvo;
+    const s = document.getElementById('sidebar-user-name')?.textContent?.trim();
+    return s && s !== 'Usuário' ? s : 'Sua empresa';
+}
+function iaTrocarNomeRemetente() {
+    const novo = prompt('Nome que aparece no topo da prévia (o nome do seu WhatsApp):', _iaNomeRemetente());
+    if (novo === null) return;
+    userSet('waNomeExibicao', novo.trim());
+    document.querySelectorAll('.wa-nome-txt').forEach(e => { e.textContent = _iaNomeRemetente(); });
+    document.querySelectorAll('.wa-avatar').forEach(e => { e.textContent = _iaIniciais(_iaNomeRemetente()); });
+}
+function _iaIniciais(n) {
+    const p = String(n || '').trim().split(/\s+/).filter(Boolean);
+    return ((p[0] || '?')[0] + (p.length > 1 ? p[p.length - 1][0] : '')).toUpperCase();
+}
+const _WA_SVG = {
+    voltar: '<svg width="13" height="20" viewBox="0 0 13 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 2 3 10 11 18"/></svg>',
+    video: '<svg width="24" height="18" viewBox="0 0 26 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="1" y="2" width="16" height="14" rx="3"/><path d="M17 7l7-4v12l-7-4z"/></svg>',
+    tel: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>',
+    mais: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4v16M4 12h16"/></svg>',
+    figurinha: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M20 12V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6z"/><path d="M12 20a8 8 0 0 0 8-8h-5a3 3 0 0 0-3 3z"/></svg>',
+    camera: '<svg width="22" height="20" viewBox="0 0 24 22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 6h4l2-3h6l2 3h4a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1z"/><circle cx="12" cy="12.5" r="4"/></svg>',
+    mic: '<svg width="16" height="22" viewBox="0 0 16 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="2" width="8" height="13" rx="4"/><path d="M1 11a7 7 0 0 0 14 0M8 18v4"/></svg>',
+    sinal: '<svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>',
+    wifi: '<svg width="15" height="11" viewBox="0 0 15 11" fill="currentColor"><path d="M7.5 2.2c2.2 0 4.2.8 5.7 2.2l1.3-1.3A9.8 9.8 0 0 0 7.5.4 9.8 9.8 0 0 0 .5 3.1l1.3 1.3a8 8 0 0 1 5.7-2.2zm0 3.4c1.3 0 2.5.5 3.4 1.3l1.3-1.3a6.4 6.4 0 0 0-9.4 0l1.3 1.3c.9-.8 2.1-1.3 3.4-1.3zM7.5 9l1.9-1.9a2.7 2.7 0 0 0-3.8 0z"/></svg>',
+    bateria: '<svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x="0.5" y="0.5" width="21" height="11" rx="3" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="18" height="8" rx="1.8" fill="currentColor"/><path d="M23 4v4a2 2 0 0 0 0-4z" fill="currentColor" opacity=".4"/></svg>',
+};
+function _iaHoraAgora() { return new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }); }
+function iaWaBolha(texto, primeira) {
+    const b = prEl('div', 'wa-bolha' + (primeira ? ' cauda' : ''));
+    b.appendChild(prEl('span', 'wa-txt', texto));
+    b.appendChild(prEl('span', 'wa-hora', _iaHoraAgora()));
+    return b;
+}
+function iaWaDigitando() {
+    const d = prEl('div', 'wa-bolha wa-digitando');
+    d.innerHTML = '<i></i><i></i><i></i>';
+    return d;
+}
+// Monta o telefone dentro da área de prévia e devolve a área do chat (para animações).
+function iaTelefone(opts) {
+    const area = document.getElementById('ia-message-preview-area');
+    if (!area) return null;
+    opts = opts || {};
+    area.classList.add('wa-on');
+    area.innerHTML = '';
+    const fone = prEl('div', 'wa-fone');
+    const tela = prEl('div', 'wa-tela');
+    const status = prEl('div', 'wa-status');
+    status.appendChild(prEl('span', 'wa-relogio', _iaHoraAgora()));
+    status.appendChild(prEl('span', 'wa-ilha'));
+    const icones = prEl('span', 'wa-icones');
+    icones.innerHTML = _WA_SVG.sinal + _WA_SVG.wifi + _WA_SVG.bateria;
+    status.appendChild(icones);
+    const topo = prEl('div', 'wa-topo');
+    const voltar = prEl('span', 'wa-azul'); voltar.innerHTML = _WA_SVG.voltar;
+    const av = prEl('span', 'wa-avatar', _iaIniciais(_iaNomeRemetente()));
+    const nome = prEl('button', 'wa-nome');
+    nome.type = 'button';
+    nome.title = 'Trocar o nome que aparece aqui';
+    nome.onclick = iaTrocarNomeRemetente;
+    nome.appendChild(prEl('span', 'wa-nome-txt', _iaNomeRemetente()));
+    if (opts.legenda) nome.appendChild(prEl('span', 'wa-sub', opts.legenda));
+    const acoes = prEl('span', 'wa-azul wa-acoes'); acoes.innerHTML = _WA_SVG.video + _WA_SVG.tel;
+    topo.append(voltar, av, nome, acoes);
+    const chat = prEl('div', 'wa-chat');
+    chat.appendChild(prEl('div', 'wa-dia', 'Hoje'));
+    if (opts.selo) { opts.selo.classList.add('wa-cripto'); chat.appendChild(opts.selo); }
+    const pars = opts.paragrafos || [];
+    pars.forEach((p, i) => chat.appendChild(iaWaBolha(p, i === 0)));
+    if (opts.digitando) chat.appendChild(iaWaDigitando());
+    if (opts.vazio && !pars.length && !opts.digitando) chat.appendChild(prEl('div', 'wa-aviso', opts.vazio));
+    const barra = prEl('div', 'wa-barra');
+    const campo = prEl('span', 'wa-campo'); campo.innerHTML = _WA_SVG.figurinha;
+    const mais = prEl('span', 'wa-azul'); mais.innerHTML = _WA_SVG.mais;
+    const cam = prEl('span', 'wa-azul'); cam.innerHTML = _WA_SVG.camera;
+    const mic = prEl('span', 'wa-azul'); mic.innerHTML = _WA_SVG.mic;
+    barra.append(mais, campo, cam, mic);
+    tela.append(status, topo, chat, barra, prEl('div', 'wa-home'));
+    fone.appendChild(tela);
+    area.appendChild(fone);
+    chat.scrollTop = chat.scrollHeight;
+    return chat;
+}
+window.addEventListener('load', () => { if (!document.querySelector('#ia-message-preview-area .wa-fone')) iaTelefone({ vazio: 'Selecione um lead à esquerda para ver a mensagem do jeito que ele vai receber.' }); });
+
 function renderLeadsIADashboard() {
     const lista   = document.getElementById('ia-leads-list-dashboard');
     const countEl = document.getElementById('ia-leads-count-badge');
@@ -7619,21 +7741,14 @@ async function gerarMensagemTestePreview() {
 
     btn.disabled = true;
     btn.textContent = '⏳ Gerando...';
-    if (area) area.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:40px;color:var(--muted);font-family:'Inter',sans-serif;font-size:0.65rem;gap:10px;"><div class="ia-typing"><span></span><span></span><span></span></div> gerando exemplo...</div>`;
+    iaTelefone({ digitando: true });
 
     try {
         const leadDemo = { title: 'Empresa Demonstração', category: 'Exemplo', address: 'São Paulo, SP', rating: '4.5', reviews: '120', website: 'https://exemplo.com' };
         const msg = await gerarMensagemComPromptLivre(leadDemo, prompt);
         
-        const paragrafos = msg.split(/\n+/).filter(p => p.trim());
-        const agora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        if (area) area.innerHTML = `
-            <div style="font-family:'Inter',sans-serif;font-size:0.55rem;color:var(--muted);text-align:center;padding:4px 0 8px;">prévia — exemplo sem lead real</div>
-            ${paragrafos.map(p => `
-                <div style="background:#fff;border-radius:12px;padding:10px 12px;font-size:0.75rem;line-height:1.5;color:#0D1330;box-shadow:0 1px 2px rgba(0,0,0,0.1);word-break:break-word;">
-                    ${escapeHtml(p)}<div style="text-align:right;font-size:0.55rem;color:#999;margin-top:4px;">${agora} ✓✓</div>
-                </div>`).join('')}`;
-        if (area) area.prepend(iaSeloPrevia(ultimaEscolhaAB));
+        const paragrafos = msg.split(/\n+/).map(p => p.trim()).filter(Boolean);
+        iaTelefone({ paragrafos, selo: iaSeloPrevia(ultimaEscolhaAB), legenda: 'Exemplo com uma empresa fictícia' });
     } catch(e) {
         showToast(`❌ ${e.message}`, 'err');
     } finally {
@@ -7650,19 +7765,13 @@ function atualizarPreviewMensagemDashboard() {
     const lead = _iaFonteLista()[iaLeadAtual] || todosLeads[iaLeadAtual];
     
     if (!msg) {
-        area.innerHTML = `<div style="text-align:center;padding:40px 16px;color:var(--muted);font-family:'Inter',sans-serif;font-size:0.65rem;">Gere uma mensagem para ${lead?.title || 'este lead'}</div>`;
+        iaTelefone({ vazio: 'Gere uma mensagem para ' + (lead?.title || 'este lead') + '.' });
         return;
     }
 
-    const paragrafos = msg.split(/\n+/).filter(p => p.trim());
-    const agora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-    
-    area.innerHTML = paragrafos.map((p, i) => `
-        <div style="background:#fff;border-radius:12px;padding:10px 12px;font-size:0.75rem;line-height:1.5;color:#0D1330;box-shadow:0 1px 2px rgba(0,0,0,0.1);word-break:break-word;">
-            ${escapeHtml(p)}
-            ${i === paragrafos.length - 1 ? `<div style="font-size:0.55rem;color:#999;margin-top:4px;text-align:right;">${agora} ✓✓</div>` : ''}
-        </div>`).join('');
-    area.prepend(iaSeloPrevia(iaMensagensGeradas[iaLeadAtual]?.escolha));
+    const paragrafos = msg.split(/\n+/).map(p => p.trim()).filter(Boolean);
+    iaTelefone({ paragrafos, selo: iaSeloPrevia(iaMensagensGeradas[iaLeadAtual]?.escolha),
+        legenda: 'Como ' + (lead?.title || 'o lead') + ' vai ver no WhatsApp' });
     
     // Atualizar botão WhatsApp
     const waBtn = document.getElementById('ia-wa-btn-dash');
@@ -7986,7 +8095,7 @@ async function gerarMensagemLead(idx) {
     if (iaLeadAtual === idx) {
         mostrarTypingWA();
         const area = document.getElementById('ia-message-preview-area');
-        if (area && !document.getElementById('ia-wa-bubbles')) area.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;padding:40px;color:var(--muted);font-family:'Inter',sans-serif;font-size:0.65rem;gap:10px;"><div class="ia-typing"><span></span><span></span><span></span></div> gerando com as regras do disparo...</div>`;
+        if (area && !document.getElementById('ia-wa-bubbles')) iaTelefone({ digitando: true, legenda: 'Escrevendo para ' + (lead.title || 'o lead') + ' com as regras do disparo…' });
     }
 
     try {
@@ -10183,10 +10292,7 @@ async function enviarTeste() {
         btn.textContent = '⏳ Enviando...';
 
         // Limpa preview e prepara para animação parágrafo a parágrafo
-        const previewArea = document.getElementById('ia-message-preview-area');
-        if (previewArea) {
-            previewArea.innerHTML = '<div style="font-family:\'JetBrains Mono\',monospace;font-size:0.58rem;color:#FF6A00;text-align:center;padding:12px;letter-spacing:0.3px;">📤 Enviando parágrafos...</div>';
-        }
+        const previewArea = iaTelefone({ legenda: 'Enviando o teste para ' + numero + '…' });
 
         // Adiciona keyframe de bounce se ainda não existir
         if (!document.getElementById('ia-bounce-style')) {
@@ -10205,10 +10311,10 @@ async function enviarTeste() {
 
         // Banner de sucesso no fim
         if (previewArea) {
-            const banner = document.createElement('div');
-            banner.style.cssText = 'font-family:\'JetBrains Mono\',monospace;font-size:0.58rem;color:#16a34a;text-align:center;padding:10px;border-top:1px solid #d1fae5;margin-top:4px;';
-            banner.textContent = '✅ Enviado para ' + numero;
-            previewArea.appendChild(banner);
+            previewArea.appendChild(prEl('div', 'wa-dia wa-ok', '✅ Enviado para ' + numero));
+            previewArea.scrollTop = previewArea.scrollHeight;
+            const leg = document.querySelector('#ia-message-preview-area .wa-sub');
+            if (leg) leg.textContent = 'Teste enviado. Confira no seu WhatsApp.';
         }
 
     } catch (e) {
@@ -10253,7 +10359,12 @@ async function enviarTesteUAZAPI(phone, msg, previewArea, logFn) {
         const p = paragrafos[i];
 
         // Mostra bolinha de digitação no preview
-        if (previewArea) {
+        if (previewArea && previewArea.classList.contains('wa-chat')) {
+            const typing = iaWaDigitando();
+            typing.id = 'ia-typing-indicator';
+            previewArea.appendChild(typing);
+            previewArea.scrollTop = previewArea.scrollHeight;
+        } else if (previewArea) {
             const typing = document.createElement('div');
             typing.id = 'ia-typing-indicator';
             typing.style.cssText = 'display:flex;align-items:center;gap:4px;padding:8px 12px;background:#fff;border-radius:12px;width:fit-content;box-shadow:0 1px 2px rgba(0,0,0,0.1);';
@@ -10280,7 +10391,10 @@ async function enviarTesteUAZAPI(phone, msg, previewArea, logFn) {
         await enviarUmMensagem(phone, p);
 
         // Adiciona bolha no preview
-        if (previewArea) {
+        if (previewArea && previewArea.classList.contains('wa-chat')) {
+            previewArea.appendChild(iaWaBolha(p, i === 0));
+            previewArea.scrollTop = previewArea.scrollHeight;
+        } else if (previewArea) {
             const agora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
             const bubble = document.createElement('div');
             bubble.style.cssText = 'background:#fff;border-radius:12px;padding:10px 12px;font-size:0.75rem;line-height:1.5;color:#0D1330;box-shadow:0 1px 2px rgba(0,0,0,0.1);word-break:break-word;';
