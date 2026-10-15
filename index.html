@@ -1679,6 +1679,7 @@ function aplicarDadosUsuario(nome, email) {
             const promptSalvo = userGet('ia_prompt', '');
             if (promptSalvo) el.value = promptSalvo;
         }
+        prodCarregar();
     }, 400);
 
     // Restaurar últimos leads prospectados
@@ -2820,7 +2821,8 @@ var _rsAbertos = {};                                           // painéis de "r
 const RS_ESPERA_ALERTA_MIN = 30;
 const RS_STATUS = {
     enviado: 'Respondida pelo app', respondido_fora: 'Respondida no WhatsApp', descartado: 'Descartada',
-    sem_interesse: 'Sem interesse', agrupado: 'Respondida junto', pendente: 'Na fila', respondido_inbox: 'Respondida pelo Inbox'
+    sem_interesse: 'Sem interesse', agrupado: 'Respondida junto', pendente: 'Na fila', respondido_inbox: 'Respondida pelo Inbox',
+    enviado_auto: 'Respondida sozinha (pediu o comercial)'
 };
 
 function rsTel(p) { return pkTel(p); }
@@ -3191,6 +3193,7 @@ function renderizarFilaSugestoes() {
 
 // Topo: placar de hoje + abas Pendentes / Respondidas e descartadas
 var _rsHistCache = null;
+var _rsAguardando = 0;   // leads em que só o robô respondeu até agora
 function rsPintarTopo() {
     const topo = document.getElementById('rs-topo');
     if (!topo) return;
@@ -3214,6 +3217,12 @@ function rsPintarTopo() {
         placar.textContent = resp.length
             ? `Hoje: ${nConv} conversa${nConv === 1 ? '' : 's'} respondida${nConv === 1 ? '' : 's'} · tempo de resposta ${med < 60 ? Math.round(med) + ' min' : (med / 60).toFixed(1).replace('.', ',') + ' h'}`
             : 'Hoje: nenhuma resposta ainda';
+        const autoHoje = new Set(h.filter(i => i.status === 'enviado_auto' && new Date(i.criado_em) >= hoje).map(i => rsTel(i.phone))).size;
+        const extra = [];
+        if (autoHoje) extra.push(`🤖 ${autoHoje} menu${autoHoje === 1 ? '' : 's'} de robô respondido${autoHoje === 1 ? '' : 's'} sozinho hoje`);
+        if (_rsAguardando) extra.push(`⏳ ${_rsAguardando} empresa${_rsAguardando === 1 ? '' : 's'} aguardando atendente`);
+        if (extra.length) placar.textContent += ' · ' + extra.join(' · ');
+        if (_rsAguardando) placar.title = 'Só o robô de atendimento respondeu. Se nenhuma pessoa aparecer em 48 h, uma retomada curta entra nos follow-ups para você aprovar.';
     }
     topo.appendChild(placar);
     const hist = document.getElementById('rs-historico');
@@ -3230,6 +3239,11 @@ async function rsCarregarHistorico() {
         if (error) throw error;
         _rsHistCache = data || [];
     } catch (e) { _rsHistCache = _rsHistCache || []; }
+    try {
+        const { count } = await supabaseClient.from('leads').select('phone', { count: 'exact', head: true })
+            .eq('user_id', currentUser.id).eq('robo_status', 'aguardando_atendente');
+        _rsAguardando = count || 0;
+    } catch (e) {}
     rsPintarTopo();
     rsPintarHistorico();
 }
@@ -3264,7 +3278,7 @@ function rsPintarHistorico() {
         t.appendChild(prEl('span', 'rs-hist-meta', info.emoji + ' ' + info.label + ' · ' + (RS_STATUS[i.status] || i.status) + ' · ' + new Date(i.criado_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })));
         t.appendChild(prEl('div', 'rs-hist-msg', rsTextoVazio(i.mensagem_recebida) ? '🎤 áudio, foto ou figurinha' : String(i.mensagem_recebida).replace(/\s+/g, ' ').slice(0, 140)));
         li.appendChild(t);
-        if (i.status !== 'enviado') {
+        if (i.status !== 'enviado' && i.status !== 'enviado_auto') {
             const b = prEl('button', 'rs-btn', '↩ Voltar para a fila');
             b.onclick = async () => {
                 b.disabled = true;
@@ -3365,7 +3379,7 @@ function renderizarFilaFollowups() {
                     <span style="font-size:0.75rem;color:var(--text-muted,#888);">${formatPhoneBR ? formatPhoneBR(item.phone) : item.phone}</span>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;">
-                    <span style="font-size:0.68rem;font-weight:700;padding:3px 9px;border-radius:20px;background:#FFF3E0;color:#FF6A00;">📅 Dia ${item.dia_etapa}</span>
+                    <span style="font-size:0.68rem;font-weight:700;padding:3px 9px;border-radius:20px;background:#FFF3E0;color:#FF6A00;">${item.tipo === 'robo_48h' ? '🤖 48 h sem resposta de pessoa' : '📅 Dia ' + item.dia_etapa}</span>
                     <span style="font-size:0.68rem;color:var(--text-muted,#888);">${dataFmt}</span>
                 </div>
             </div>
@@ -4216,7 +4230,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 <!-- Instruções + Gerar (parte inferior) -->
                 <div style="padding:14px;border-top:1.5px solid var(--border);background:var(--surface2);">
-                    <label class="field-label" style="margin-bottom:6px;font-size:0.55rem;">Instruções para a IA</label>
+                    <div class="prod-barra" id="prod-barra">
+                        <label class="field-label" for="ia-produto" style="margin:0;font-size:0.55rem;">Produto</label>
+                        <select id="ia-produto" onchange="prodTrocar(this.value)" aria-label="Produto que a IA vai vender"></select>
+                        <button type="button" class="prod-btn" onclick="prodNovo()" title="Novo produto">＋</button>
+                        <button type="button" class="prod-btn" onclick="prodRenomear()" title="Renomear">✏️</button>
+                        <button type="button" class="prod-btn" id="prod-btn-padrao" onclick="prodTornarPadrao()" title="Usar este como padrão (respostas de quem não veio de campanha)">⭐</button>
+                        <button type="button" class="prod-btn" onclick="prodExcluir()" title="Excluir produto">🗑</button>
+                    </div>
+                    <label class="field-label" style="margin-bottom:6px;font-size:0.55rem;">Instruções para a IA <span id="prod-salvo" style="font-weight:500;color:var(--muted);"></span></label>
                     <textarea id="ia-prompt-livre" placeholder="" autocomplete="off" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:0.78rem;margin-bottom:8px;resize:vertical;min-height:80px;font-family:'Inter',sans-serif;line-height:1.5;background:var(--surface);color:var(--text);outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='#FF6A00';this.style.boxShadow='0 0 0 3px rgba(255,106,0,0.10)'" onblur="this.style.borderColor='#E4E7EF';this.style.boxShadow='none'"></textarea>
                     <div style="font-family:'Inter',sans-serif;font-size:0.52rem;color:var(--muted);margin-bottom:8px;line-height:1.5;display:flex;align-items:flex-start;gap:4px;">
                         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" style="flex-shrink:0;margin-top:1px;"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-7 7c0 2.38 1.19 4.47 3 5.74V18h8v-3.26A7 7 0 0 0 12 2z"/></svg>
@@ -4576,6 +4598,11 @@ document.addEventListener('DOMContentLoaded', () => {
             .rs-aba.ativa { border-color:#FF6A00; background:#FFF3E0; color:#FF6A00; }
             .rs-placar { font-size:0.76rem; color:var(--muted); }
             .rs-escondido { display:none !important; }
+            .prod-barra { display:flex; align-items:center; gap:6px; margin-bottom:8px; flex-wrap:wrap; }
+            .prod-barra select { flex:1; min-width:0; padding:7px 10px; border:1.5px solid var(--border); border-radius:10px; font-size:0.78rem; font-family:'Inter',sans-serif; background:var(--surface); color:var(--text); }
+            .prod-btn { padding:6px 9px; border:1.5px solid var(--border); border-radius:9px; background:var(--surface); color:var(--text); font-size:0.75rem; cursor:pointer; line-height:1; }
+            .prod-btn:hover { border-color:#FF6A00; }
+            .prod-btn.ativo { background:#FFF3E0; border-color:#FF6A00; }
             .rs-secao { display:flex; flex-direction:column; gap:12px; margin-bottom:18px; }
             .rs-secao-tit { font-size:0.88rem; font-weight:800; color:var(--text); display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; cursor:default; }
             details.rs-secao > summary { cursor:pointer; list-style:revert; }
@@ -5340,6 +5367,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <p class="integ-desc">Cuidados para o WhatsApp não restringir ou banir o seu número. Você liga, desliga e ajusta; o servidor e a automação seguem o que estiver aqui.</p>
                 <div id="prot-corpo" class="prot-corpo">
                     <label class="prot-item"><input type="checkbox" id="prot-balao" onchange="protMudou()"><span><b>Um balão só</b><small>Manda a mensagem inteira numa única mensagem, em vez de 3 seguidas. Três mensagens de um desconhecido pesam mais como spam.</small></span></label>
+                    <label class="prot-item"><input type="checkbox" id="prot-robo" onchange="protMudou()"><span><b>Responder robôs de atendimento sozinho</b><small>Quando a empresa responde com um menu ("1 - Financeiro, 2 - Comercial…"), escolhe o Comercial na hora e marca o lead como "aguardando atendente". No máximo 2 respostas por empresa em 24 h. Se nenhuma pessoa aparecer em 48 h, uma retomada curta vai para a sua aprovação.</small></span></label>
                     <label class="prot-item"><input type="checkbox" id="prot-auto" onchange="protMudou()"><span><b>Cancelar a campanha se o WhatsApp derrubar o aparelho</b><small>Quando o WhatsApp desconecta o servidor (restrição ou outro login), a campanha é cancelada em vez de continuar ao reconectar.</small></span></label>
                     <div class="prot-bloco">
                         <label class="prot-item"><input type="checkbox" id="prot-rampa" onchange="protMudou()"><span><b>Modo pós-restrição</b><small>Começa com poucas empresas por dia e vai subindo até o seu limite normal.</small></span></label>
@@ -8327,7 +8355,7 @@ var _iaAB = null;
 async function iaCarregarAB() {
     if (_iaAB && Date.now() - _iaAB.t < 300000) return _iaAB;
     const combos = [];
-    ['A', 'B'].forEach(v => IA_GATILHOS.forEach(g => combos.push({ variant: v, gatilho: g.tipo })));
+    ['A', 'B', 'C'].forEach(v => IA_GATILHOS.forEach(g => combos.push({ variant: v, gatilho: g.tipo })));   // C = mensagem curta
     let melhor = null, total = 0;
     try {
         if (currentUser) {
@@ -8353,8 +8381,12 @@ function iaPromptServidor(lead, promptLivre, variant, gatilhoTipo) {
     const gatilho = IA_GATILHOS.find(g => g.tipo === gatilhoTipo) || IA_GATILHOS[2];
     const tomVariante = variant === 'A'
         ? 'Tom: direto e objetivo, sem enrolação, frases curtas.'
+        : variant === 'C'
+        ? 'Tom: leve e direto, como uma pessoa escrevendo do celular.'
         : 'Tom: mais consultivo e acolhedor, pode explicar um pouco melhor o valor entregue, mas sem perder a objetividade.';
-    const regrasFormato = 'Escreva SEMPRE exatamente 3 parágrafos, nessa ordem fixa:\n1º parágrafo (SAUDAÇÃO): cumprimento + o que você notou de específico no negócio do lead (categoria, avaliação, ou falta de site).\n2º parágrafo (ENTREGA DE VALOR): apresente de forma concreta o que você já preparou ou pode oferecer pra esse lead, destacando o benefício real pra ele.\n3º parágrafo (CTA): termine com UMA ÚNICA pergunta clara e direta (nunca duas perguntas na mesma mensagem). ' + gatilho.instrucao + '\nSepare CADA parágrafo com UMA linha em branco. Cada parágrafo deve ter entre 1 e 3 frases curtas — nunca deixe um parágrafo vazio de conteúdo só pra cumprir a estrutura. ' + tomVariante;
+    const regrasFormato = variant === 'C'
+        ? 'Escreva UMA mensagem CURTA, num parágrafo só: no máximo 2 frases curtas e 1 pergunta no final (até 280 caracteres no total). 1ª frase: cumprimento + 1 detalhe específico do negócio do lead. 2ª frase: o principal benefício, em poucas palavras. Termine com UMA única pergunta simples. ' + gatilho.instrucao.replace('No parágrafo do CTA,', 'Na pergunta final,') + ' Sem listas, sem quebrar em parágrafos e no máximo 1 emoji. ' + tomVariante
+        : 'Escreva SEMPRE exatamente 3 parágrafos, nessa ordem fixa:\n1º parágrafo (SAUDAÇÃO): cumprimento + o que você notou de específico no negócio do lead (categoria, avaliação, ou falta de site).\n2º parágrafo (ENTREGA DE VALOR): apresente de forma concreta o que você já preparou ou pode oferecer pra esse lead, destacando o benefício real pra ele.\n3º parágrafo (CTA): termine com UMA ÚNICA pergunta clara e direta (nunca duas perguntas na mesma mensagem). ' + gatilho.instrucao + '\nSepare CADA parágrafo com UMA linha em branco. Cada parágrafo deve ter entre 1 e 3 frases curtas — nunca deixe um parágrafo vazio de conteúdo só pra cumprir a estrutura. ' + tomVariante;
     const revs = Array.isArray(lead.ultimas_avaliacoes) ? lead.ultimas_avaliacoes : [];
     const elogio = revs.find(r => r && r.nota >= 4 && String(r.texto || '').length >= 25);
     const neg = Number(lead.avaliacoes_negativas) || 0;
@@ -9717,6 +9749,7 @@ async function iniciarEnvioNoServidor({ min, max, typing, batchSize, batchPause 
             batchSize:   batchSize || config.uazapi?.batchSize  || 10,
             batchPause:  batchPause || config.uazapi?.batchPause || 30,
             reenvioLiberado: _liberados,       // o servidor não barra estes como "já enviado"
+            produtoId:   (prodAtual() && prodAtual().id) || '',   // a campanha fica ligada ao produto (respostas e follow-ups usam ele)
             promptLivre
         }
     };
@@ -9766,6 +9799,7 @@ async function iniciarEnvioNoServidor({ min, max, typing, batchSize, batchPause 
             campanhaId: _campanhaIdAtiva,
             executionId: executionId,
             total: total,
+            produto: (prodAtual() && prodAtual().nome) || '',
             timestamp: Date.now()
         });
 
@@ -9972,9 +10006,13 @@ document.addEventListener('blur', function(e) {
 let _syncPromptTimeout = null;
 document.addEventListener('input', function(e) {
     if (e.target && e.target.id === 'ia-prompt-livre') {
-        userSet('ia_prompt', e.target.value);
-        clearTimeout(_syncPromptTimeout);
-        _syncPromptTimeout = setTimeout(sincronizarConfigNaNuvem, 1500); // debounce pra não bater no Supabase a cada tecla
+        prodTextoMudou(e.target.value);
+        // O contexto geral (ia_prompt) acompanha o produto padrão; os outros ficam só no produto.
+        if (!prodAtual() || prodAtual().padrao) {
+            userSet('ia_prompt', e.target.value);
+            clearTimeout(_syncPromptTimeout);
+            _syncPromptTimeout = setTimeout(sincronizarConfigNaNuvem, 1500); // debounce pra não bater no Supabase a cada tecla
+        }
     }
 });
 
@@ -11643,8 +11681,116 @@ function integAbrir() { integLigarCampos(); integPintar(); integStatusWA(); prot
 setInterval(() => { if (currentUser && config?.uazapi?.url) integStatusWA(); }, 90000);
 window.addEventListener('load', () => setTimeout(() => { if (currentUser) { integStatusWA(); protCarregar().then(() => { try { integPintar(); } catch (e) {} }); } }, 3500));
 
+// ===================== PRODUTOS (SDR com vários produtos) =====================
+// Cada produto tem as próprias instruções para a IA. Trocou o produto, a campanha, as respostas
+// sugeridas e os follow-ups passam a falar dele. O ⭐ padrão vale para quem não veio de campanha.
+var _produtos = [];
+var _prodTimer = null;
+function prodAtual() { const id = userGet('produto_atual', ''); return _produtos.find(p => p.id === id) || prodPadrao(); }
+function prodPadrao() { return _produtos.find(p => p.padrao) || _produtos[0] || null; }
+function prodPintar() {
+    const sel = document.getElementById('ia-produto'); if (!sel) return;
+    const atual = prodAtual();
+    sel.innerHTML = '';
+    _produtos.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.textContent = (p.padrao ? '⭐ ' : '') + p.nome; sel.appendChild(o); });
+    if (atual) sel.value = atual.id;
+    const bp = document.getElementById('prod-btn-padrao'); if (bp) bp.classList.toggle('ativo', !!(atual && atual.padrao));
+}
+async function prodCarregar() {
+    if (!currentUser) return;
+    try {
+        const { data, error } = await supabaseClient.from('produtos').select('id,nome,instrucoes,padrao').eq('user_id', currentUser.id).order('criado_em', { ascending: true });
+        if (error) throw error;
+        _produtos = data || [];
+        if (!_produtos.length) {
+            // 1º acesso: o texto que já existia vira o primeiro produto
+            const texto = (document.getElementById('ia-prompt-livre')?.value || userGet('ia_prompt', '') || '').trim();
+            const { data: novo } = await supabaseClient.from('produtos').insert({ user_id: currentUser.id, nome: 'Meu produto', instrucoes: texto.slice(0, 4000), padrao: true }).select('id,nome,instrucoes,padrao');
+            _produtos = novo || [];
+        }
+    } catch (e) { console.warn('Produtos:', e && e.message); return; }
+    const atual = prodAtual();
+    if (atual) { userSet('produto_atual', atual.id); const ta = document.getElementById('ia-prompt-livre'); if (ta) ta.value = atual.instrucoes || ''; }
+    prodPintar();
+}
+function prodTextoMudou(texto) {
+    const p = prodAtual(); if (!p) return;
+    p.instrucoes = String(texto).slice(0, 4000);
+    const st = document.getElementById('prod-salvo'); if (st) st.textContent = '· salvando…';
+    clearTimeout(_prodTimer);
+    _prodTimer = setTimeout(prodSalvarTexto, 1200);
+}
+async function prodSalvarTexto() {
+    clearTimeout(_prodTimer); _prodTimer = null;
+    const p = prodAtual(); if (!p || !currentUser) return;
+    const st = document.getElementById('prod-salvo');
+    const { error } = await supabaseClient.from('produtos').update({ instrucoes: p.instrucoes || '', atualizado_em: new Date().toISOString() }).eq('id', p.id).eq('user_id', currentUser.id);
+    if (st) { st.textContent = error ? '· ❌ não salvou' : '· ✓ salvo em ' + p.nome; if (!error) setTimeout(() => { if (st.textContent.includes('✓')) st.textContent = ''; }, 2500); }
+}
+async function prodTrocar(id) {
+    if (_prodTimer) await prodSalvarTexto();
+    const p = _produtos.find(x => x.id === id); if (!p) return;
+    userSet('produto_atual', p.id);
+    const ta = document.getElementById('ia-prompt-livre'); if (ta) ta.value = p.instrucoes || '';
+    const st = document.getElementById('prod-salvo'); if (st) st.textContent = '';
+    prodPintar();
+    showToast('🎯 Agora a IA vende: ' + p.nome, 'ok');
+}
+async function prodNovo() {
+    if (!currentUser) return;
+    const nome = (prompt('Nome do produto (ex.: Maquininha Stone):') || '').trim().slice(0, 80);
+    if (!nome) return;
+    if (_prodTimer) await prodSalvarTexto();
+    const { data, error } = await supabaseClient.from('produtos').insert({ user_id: currentUser.id, nome, instrucoes: '', padrao: !_produtos.length }).select('id,nome,instrucoes,padrao');
+    if (error || !data || !data[0]) { showToast('❌ Não criei: ' + (error && error.message || 'erro'), 'err'); return; }
+    _produtos.push(data[0]);
+    await prodTrocar(data[0].id);
+    const ta = document.getElementById('ia-prompt-livre');
+    if (ta) { ta.placeholder = 'Descreva ' + nome + ': o que é, para quem, o principal benefício e o que você quer que o lead faça (ex.: marcar uma conversa de 10 min).'; ta.focus(); }
+}
+async function prodRenomear() {
+    const p = prodAtual(); if (!p) return;
+    const nome = (prompt('Novo nome do produto:', p.nome) || '').trim().slice(0, 80);
+    if (!nome || nome === p.nome) return;
+    const { error } = await supabaseClient.from('produtos').update({ nome, atualizado_em: new Date().toISOString() }).eq('id', p.id).eq('user_id', currentUser.id);
+    if (error) { showToast('❌ Não renomeei: ' + error.message, 'err'); return; }
+    p.nome = nome; prodPintar();
+}
+async function prodTornarPadrao() {
+    const p = prodAtual(); if (!p || p.padrao) { if (p) showToast('⭐ ' + p.nome + ' já é o padrão', 'ok'); return; }
+    const ant = _produtos.filter(x => x.padrao);
+    for (const x of ant) await supabaseClient.from('produtos').update({ padrao: false }).eq('id', x.id).eq('user_id', currentUser.id);
+    const { error } = await supabaseClient.from('produtos').update({ padrao: true }).eq('id', p.id).eq('user_id', currentUser.id);
+    if (error) { showToast('❌ ' + error.message, 'err'); return; }
+    ant.forEach(x => { x.padrao = false; }); p.padrao = true;
+    userSet('ia_prompt', p.instrucoes || ''); clearTimeout(_syncPromptTimeout); _syncPromptTimeout = setTimeout(sincronizarConfigNaNuvem, 800);
+    prodPintar();
+    showToast('⭐ ' + p.nome + ' agora é o padrão', 'ok');
+}
+async function prodExcluir() {
+    const p = prodAtual(); if (!p) return;
+    if (_produtos.length < 2) { showToast('Crie outro produto antes de excluir este (precisa ter pelo menos um).', 'err'); return; }
+    if (!confirm('Excluir o produto "' + p.nome + '"? As campanhas que já usaram ele passam a usar o produto padrão nas respostas.')) return;
+    const { error } = await supabaseClient.from('produtos').delete().eq('id', p.id).eq('user_id', currentUser.id);
+    if (error) { showToast('❌ Não excluí: ' + error.message, 'err'); return; }
+    _produtos = _produtos.filter(x => x.id !== p.id);
+    if (p.padrao && _produtos[0]) { _produtos[0].padrao = true; await supabaseClient.from('produtos').update({ padrao: true }).eq('id', _produtos[0].id).eq('user_id', currentUser.id); }
+    await prodTrocar(prodPadrao().id);
+}
+// Produto da campanha que falou com esse número (para o Inbox sugerir sobre o produto certo)
+async function prodDoTelefone(phone) {
+    if (!currentUser || !_produtos.length) return null;
+    const d = String(phone || '').replace(/\D/g, ''); if (!d) return null;
+    const t = d.length >= 12 && d.startsWith('55') ? d.slice(2) : d;
+    const { data } = await supabaseClient.from('leads').select('campanha_id,enviado_em').eq('user_id', currentUser.id).in('phone', [d, t, '55' + t]).not('campanha_id', 'is', null).order('enviado_em', { ascending: false }).limit(1);
+    const camp = data && data[0] && data[0].campanha_id; if (!camp) return null;
+    const { data: cp } = await supabaseClient.from('campanhas_produto').select('produto_id').eq('campanha_id', camp).limit(1);
+    const id = cp && cp[0] && cp[0].produto_id;
+    return (id && _produtos.find(x => x.id === id)) || null;
+}
+
 // ===================== PROTEÇÃO DA CONTA (você liga/desliga e ajusta; o servidor e a automação obedecem) =====================
-const PROT_PADRAO = { autoCancelar: true, umBalao: true, rampa: { ativo: false, auto: true, inicio: 10, passo: 5, desde: null }, freio: { ativo: true, naoEntregues: 4, janela: 10 } };
+const PROT_PADRAO = { autoCancelar: true, umBalao: true, roboAuto: true, rampa: { ativo: false, auto: true, inicio: 10, passo: 5, desde: null }, freio: { ativo: true, naoEntregues: 4, janela: 10 } };
 var _prot = null;
 function _protMesclar(p) {
     const v = Object.assign({}, PROT_PADRAO, p || {});
@@ -11684,7 +11830,7 @@ function protPintar() {
     const box = document.getElementById('prot-corpo'); if (!box || !_prot) return;
     const p = _prot;
     const set = (id, v) => { const el = document.getElementById(id); if (!el) return; if (el.type === 'checkbox') el.checked = !!v; else el.value = v; };
-    set('prot-auto', p.autoCancelar); set('prot-balao', p.umBalao);
+    set('prot-auto', p.autoCancelar); set('prot-balao', p.umBalao); set('prot-robo', p.roboAuto !== false);
     set('prot-rampa', p.rampa.ativo); set('prot-rampa-auto', p.rampa.auto); set('prot-rampa-ini', p.rampa.inicio); set('prot-rampa-passo', p.rampa.passo);
     set('prot-freio', p.freio.ativo); set('prot-freio-n', p.freio.naoEntregues); set('prot-freio-j', p.freio.janela);
     const st = document.getElementById('prot-rampa-status');
@@ -11704,6 +11850,7 @@ function protMudou() {
     const rampaAntes = _prot.rampa.ativo;
     _prot.autoCancelar = !!v('prot-auto')?.checked;
     _prot.umBalao = !!v('prot-balao')?.checked;
+    _prot.roboAuto = !!v('prot-robo')?.checked;
     _prot.rampa.ativo = !!v('prot-rampa')?.checked;
     _prot.rampa.auto = !!v('prot-rampa-auto')?.checked;
     _prot.rampa.inicio = n('prot-rampa-ini', 10, 1, 100);
@@ -12968,6 +13115,15 @@ async function ibChamarIA(prompt) {
     return iaServidor(prompt, 300, provider);
 }
 function ibContextoNegocio() { return (document.getElementById('ia-prompt-livre')?.value || userGet('ia_prompt', '') || '').trim(); }
+// Contexto da conversa: o produto da campanha que falou com esse número; sem campanha, o produto padrão.
+async function ibContextoDoChat(c) {
+    try {
+        const p = c && !c.grupo && c.phone ? await prodDoTelefone(c.phone) : null;
+        const usar = p || prodPadrao();
+        if (usar && usar.instrucoes) return 'Produto: ' + usar.nome + '\n' + usar.instrucoes;
+    } catch (e) {}
+    return ibContextoNegocio();
+}
 function ibConversaTexto() {
     return _ibMsgsAtual.slice(-14).map(m => (m.fromMe ? 'Vendedor' : (m.autor || 'Lead')) + ': ' + String(m.text || '').replace(/\s+/g, ' ').slice(0, 400)).join('\n');
 }
@@ -12977,7 +13133,7 @@ async function ibSugerirIA(modo) {
     const btns = document.querySelectorAll('.ib-ia-btn'); btns.forEach(b => b.disabled = true);
     const antes = input.placeholder; input.placeholder = '✨ A IA está escrevendo…';
     const regras = '\nRegras: português do Brasil, 1 a 3 frases curtas, natural (sem parecer robô), sem trechos entre colchetes nem campos para preencher, sem emojis em excesso. Responda APENAS com o texto da mensagem.';
-    const negocio = ibContextoNegocio();
+    const negocio = await ibContextoDoChat(c);
     let prompt;
     if (modo === 'melhorar') {
         if (!input.value.trim()) { showToast('Escreva algo no campo para a IA melhorar', 'err'); btns.forEach(b => b.disabled = false); input.placeholder = antes; return; }
@@ -14051,7 +14207,7 @@ async function painelHojeCarregar() {
 let _prDados = null;            // último resultado de prCarregar (usado pelo ranking)
 let _prRankingArgs = null;      // últimos argumentos do ranking, para redesenhar quando os dados chegarem
 let _prRodando = false;
-const PR_TOM = { A: 'Direto', B: 'Consultivo' };
+const PR_TOM = { A: 'Direto', B: 'Consultivo', C: 'Curta' };
 const PR_GATILHO = { urgencia: 'urgência', escassez: 'escassez', curiosidade: 'curiosidade' };
 const PR_DIAS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
 
@@ -15875,7 +16031,7 @@ async function cpAoVivo() {
             const noPainel = box.id === 'painel-aovivo';
             box.innerHTML = '';
             box.appendChild(prEl('h3', '', '● Ao vivo'));
-            box.appendChild(prEl('div', 'cp-av-nome', nome));
+            box.appendChild(prEl('div', 'cp-av-nome', nome + (camp.produto ? ' · 🎯 ' + camp.produto : '')));
             box.appendChild(prEl('div', 'cp-av-info', `${env} enviadas de ${total || '?'}${feitos - env ? ` · ${feitos - env} puladas ou com erro` : ''} · ` + (jan && !jan.agora ? `aguardando a janela de envio: ${jan.quando}` : 'enviando agora, com intervalos para parecer natural')));
             if (ultimo && ultimo.lead) box.appendChild(prEl('div', 'cp-av-info', '✅ Última: ' + ultimo.lead + (ultimo.data ? ' · ' + String(ultimo.data).split(', ').pop().slice(0, 5) : '')));
             const barra = prEl('div', 'cp-barra'); const f = prEl('span'); f.style.width = (total ? Math.min(100, feitos / total * 100) : 5) + '%'; barra.appendChild(f); box.appendChild(barra);
