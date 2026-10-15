@@ -5096,6 +5096,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 .integ-sujo { font-family:'Inter',sans-serif; font-size:0.64rem; font-weight:700; color:#b45309; align-self:center; }
                 .integ-notif { margin-top:16px; padding-top:14px; border-top:1px dashed var(--border); font-family:'Inter',sans-serif; font-size:0.74rem; }
                 .integ-notif .integ-real { margin:6px 0 10px; }
+                .prot-corpo { display:flex; flex-direction:column; gap:10px; }
+                .prot-item { display:flex; gap:12px; align-items:flex-start; cursor:pointer; font-family:'Inter',sans-serif; }
+                .prot-item input[type=checkbox] { appearance:none; -webkit-appearance:none; width:42px; height:24px; border-radius:99px; background:#cbd5e1; position:relative; flex-shrink:0; cursor:pointer; transition:background .15s; margin-top:1px; }
+                .prot-item input[type=checkbox]::after { content:''; position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.25); transition:left .15s; }
+                .prot-item input[type=checkbox]:checked { background:#16a34a; }
+                .prot-item input[type=checkbox]:checked::after { left:21px; }
+                .prot-item span { display:flex; flex-direction:column; gap:2px; font-size:0.78rem; color:var(--text); }
+                .prot-item small { font-size:0.68rem; color:var(--muted); line-height:1.45; }
+                .prot-item.sub { margin-left:54px; }
+                .prot-item.sub input[type=checkbox] { width:34px; height:20px; }
+                .prot-item.sub input[type=checkbox]::after { width:14px; height:14px; }
+                .prot-item.sub input[type=checkbox]:checked::after { left:17px; }
+                .prot-bloco { background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:10px; }
+                .prot-bloco .integ-agora { margin:0; }
+                .prot-nums { margin-left:54px; font-family:'Inter',sans-serif; font-size:0.74rem; color:var(--text); display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+                .prot-nums input { width:64px; padding:6px 8px; border:1.5px solid var(--border); border-radius:8px; font-size:0.8rem; background:#fff; }
+                .prot-nums input:disabled { opacity:.45; }
+                @media (max-width: 520px) { .prot-nums, .prot-item.sub { margin-left:0; } }
                 .integ-test-result { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin-top: 10px; font-family: 'Inter', sans-serif; font-size: 0.62rem; color: var(--muted); white-space: pre-wrap; word-break: break-word; }
             </style>
 
@@ -5296,6 +5314,29 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="integ-status-msg" id="humanizacao-msg"></div>
             </div>
 
+            <!-- PROTEÇÃO DA CONTA -->
+            <div class="integ-card" id="integ-card-protecao">
+                <div class="integ-header">
+                    <span class="integ-icon">🛡️</span>
+                    <span class="integ-title">Proteção da conta</span>
+                </div>
+                <p class="integ-desc">Cuidados para o WhatsApp não restringir ou banir o seu número. Você liga, desliga e ajusta; o servidor e a automação seguem o que estiver aqui.</p>
+                <div id="prot-corpo" class="prot-corpo">
+                    <label class="prot-item"><input type="checkbox" id="prot-balao" onchange="protMudou()"><span><b>Um balão só</b><small>Manda a mensagem inteira numa única mensagem, em vez de 3 seguidas. Três mensagens de um desconhecido pesam mais como spam.</small></span></label>
+                    <label class="prot-item"><input type="checkbox" id="prot-auto" onchange="protMudou()"><span><b>Cancelar a campanha se o WhatsApp derrubar o aparelho</b><small>Quando o WhatsApp desconecta o servidor (restrição ou outro login), a campanha é cancelada em vez de continuar ao reconectar.</small></span></label>
+                    <div class="prot-bloco">
+                        <label class="prot-item"><input type="checkbox" id="prot-rampa" onchange="protMudou()"><span><b>Modo pós-restrição</b><small>Começa com poucas empresas por dia e vai subindo até o seu limite normal.</small></span></label>
+                        <div class="prot-nums">Começar com <input type="number" id="prot-rampa-ini" min="1" max="100" onchange="protMudou()"> por dia e subir <input type="number" id="prot-rampa-passo" min="1" max="50" onchange="protMudou()"> por dia</div>
+                        <label class="prot-item sub"><input type="checkbox" id="prot-rampa-auto" onchange="protMudou()"><span><b>Ligar sozinho</b> quando o WhatsApp derrubar o aparelho</span></label>
+                        <div class="integ-agora" id="prot-rampa-status"></div>
+                    </div>
+                    <div class="prot-bloco">
+                        <label class="prot-item"><input type="checkbox" id="prot-freio" onchange="protMudou()"><span><b>Freio de bloqueio</b><small>Se muitas mensagens não chegam (sinal de que bloquearam ou denunciaram), a campanha é cancelada e você recebe um aviso.</small></span></label>
+                        <div class="prot-nums">Parar se <input type="number" id="prot-freio-n" min="2" max="20" onchange="protMudou()"> das últimas <input type="number" id="prot-freio-j" min="3" max="50" onchange="protMudou()"> empresas não receberem em 15 min</div>
+                    </div>
+                </div>
+                <div class="integ-status-msg" id="prot-msg"></div>
+            </div>
             <!-- IA PARA MENSAGENS -->
             <div class="integ-card" id="integ-card-ia">
                 <div class="integ-header">
@@ -7985,7 +8026,7 @@ async function iaStatusGeral(forcar) {
     _iaStatusCache = { t: Date.now(), d };
     return d;
 }
-function _iaLimiteDiario() { return parseInt(config?.uazapi?.limiteDiario) || 30; }
+function _iaLimiteDiario() { try { return protLimiteHoje().limite; } catch (e) { return parseInt(config?.uazapi?.limiteDiario) || 30; } }   // respeita o modo pós-restrição
 // Números que deram erro ou ficaram presos no limite antigo e nunca receberam a mensagem depois.
 var _iaFalhas = [];
 async function iaCalcularFalhas(d) {
@@ -9491,6 +9532,9 @@ let _campanhaIdAtiva = null;
 let _poolingInterval = null;
 
 async function iniciarEnvioNoServidor({ min, max, typing, batchSize, batchPause }) {
+    const _p = await protCarregar().catch(() => _protMesclar(null));
+    const _lim = protLimiteHoje(_p);
+    if (_lim.rampa) try { showToast(`🐢 Modo pós-restrição: hoje no máximo ${_lim.limite} empresas (dia ${_lim.dia} de ${_lim.diasTotal}). O resto continua nos próximos dias.`, 'ok'); } catch (e) {}
     // Trava: só 1 campanha pode estar enviando de cada vez (evita a corrida que fazia o
     // limite diário passar do configurado quando 2 campanhas rodavam juntas)
     const campanhaJaEnviando = campanhas.find(c => {
@@ -9584,7 +9628,8 @@ async function iniciarEnvioNoServidor({ min, max, typing, batchSize, batchPause 
             horario:     config.horario       || null,
             delayMin:    min  || config.uazapi?.delayMin  || 30,
             delayMax:    max  || config.uazapi?.delayMax  || 60,
-            limiteDiario: config.uazapi?.limiteDiario || 30,
+            limiteDiario: _lim.limite,
+            umBalao:     !!_p.umBalao,          // Proteção da conta: parágrafos numa mensagem só
             typingMin:   config.uazapi?.typingMin || 5,
             typingMax:   config.uazapi?.typingMax || 10,
             batchSize:   batchSize || config.uazapi?.batchSize  || 10,
@@ -11324,10 +11369,11 @@ function integTextoHorario() {
     return { ok: true, txt: '⏸ Fora da janela', cor: '#d97706', det: (j ? 'Volta ' + j.quando + ' · ' : '') + faixa };
 }
 function integTextoEnvios() {
-    const lim = parseInt(config?.uazapi?.limiteDiario) || 30;
+    const r = protLimiteHoje();
+    const lim = r.limite;
     const s = _integWA;
-    if (!s || typeof s.enviosHoje !== 'number') return { ok: true, txt: `📨 Limite ${lim}/dia`, cor: '#64748b', det: 'Limite das campanhas por dia' };
-    return { ok: true, txt: `📨 ${s.enviosHoje} enviadas hoje`, cor: s.enviosHoje >= (s.limiteDiarioServidor || 150) ? '#dc2626' : '#0D1330', det: `Limite das campanhas: ${lim} novas/dia · teto do servidor: ${s.limiteDiarioServidor || 150} mensagens/dia (contando Inbox e follow-ups)` };
+    if (!s || typeof s.enviosHoje !== 'number') return { ok: true, txt: `📨 Limite ${lim}/dia`, cor: '#64748b', det: r.rampa ? `Modo pós-restrição: dia ${r.dia} de ${r.diasTotal} (normal: ${r.normal}/dia)` : 'Limite das campanhas por dia' };
+    return { ok: true, txt: `📨 ${s.enviosHoje} enviadas hoje`, cor: s.enviosHoje >= (s.limiteDiarioServidor || 150) ? '#dc2626' : '#0D1330', det: (r.rampa ? `🐢 Pós-restrição: hoje ${lim} (dia ${r.dia} de ${r.diasTotal}) · ` : `Limite das campanhas: ${lim} novas/dia · `) + `teto do servidor: ${s.limiteDiarioServidor || 150} mensagens/dia (contando Inbox e follow-ups)` };
 }
 function integTextoAlerta() {
     const n = config.numeroAlerta;
@@ -11473,9 +11519,83 @@ function integLigarCampos() {
     ligar('horario', ['horario-semana-ativo', 'horario-semana-inicio', 'horario-semana-fim', 'horario-fds-ativo', 'horario-fds-inicio', 'horario-fds-fim'], () => { integPintarHorarioAgora(); if (!document.querySelector('#horario-agora.erro')) salvarHorarioEnvio(true); });
     ligar('humano', ['uazapi-delay-min', 'uazapi-delay-max', 'uazapi-typing-min', 'uazapi-typing-max', 'uazapi-limite-diario'], () => { integPintarLimite(); if (!/maior/.test(document.getElementById('humano-aviso')?.textContent || '')) salvarHumanizacao(true); });
 }
-function integAbrir() { integLigarCampos(); integPintar(); integStatusWA(); }
+function integAbrir() { integLigarCampos(); integPintar(); integStatusWA(); protAbrir(); }
 setInterval(() => { if (currentUser && config?.uazapi?.url) integStatusWA(); }, 90000);
-window.addEventListener('load', () => setTimeout(() => { if (currentUser) integStatusWA(); }, 3500));
+window.addEventListener('load', () => setTimeout(() => { if (currentUser) { integStatusWA(); protCarregar().then(() => { try { integPintar(); } catch (e) {} }); } }, 3500));
+
+// ===================== PROTEÇÃO DA CONTA (você liga/desliga e ajusta; o servidor e a automação obedecem) =====================
+const PROT_PADRAO = { autoCancelar: true, umBalao: true, rampa: { ativo: false, auto: true, inicio: 10, passo: 5, desde: null }, freio: { ativo: true, naoEntregues: 4, janela: 10 } };
+var _prot = null;
+function _protMesclar(p) {
+    const v = Object.assign({}, PROT_PADRAO, p || {});
+    v.rampa = Object.assign({}, PROT_PADRAO.rampa, (p && p.rampa) || {});
+    v.freio = Object.assign({}, PROT_PADRAO.freio, (p && p.freio) || {});
+    return v;
+}
+async function protCarregar() {
+    if (!currentUser) return _prot || _protMesclar(null);
+    try {
+        const { data } = await supabaseClient.from('user_config').select('protecao').eq('user_id', currentUser.id).limit(1);
+        _prot = _protMesclar(data && data[0] && data[0].protecao);
+    } catch (e) { _prot = _prot || _protMesclar(null); }
+    return _prot;
+}
+async function protSalvar(silencioso) {
+    if (!currentUser || !_prot) return;
+    const { error } = await supabaseClient.from('user_config').upsert({ user_id: currentUser.id, protecao: _prot, updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+    const msg = document.getElementById('prot-msg');
+    if (error) { if (msg) { msg.textContent = '❌ Não salvou: ' + error.message; msg.className = 'integ-status-msg err'; } return; }
+    if (msg) { msg.textContent = silencioso ? '✓ Salvo' : '✅ Proteção salva'; msg.className = 'integ-status-msg ok'; setTimeout(() => { msg.textContent = ''; }, 2500); }
+    try { integPintar(); } catch (e) {}
+}
+// Limite de hoje com o modo pós-restrição: começa baixo e sobe por dia até o seu limite normal
+function protLimiteHoje(p) {
+    p = p || _prot || _protMesclar(null);
+    const normal = parseInt(config?.uazapi?.limiteDiario) || 30;
+    if (!p.rampa.ativo || !p.rampa.desde) return { limite: normal, rampa: false, normal };
+    const ini = new Date(p.rampa.desde); ini.setHours(0, 0, 0, 0);
+    const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+    const dia = Math.max(0, Math.round((hoje - ini) / 86400000));
+    const lim = Math.min(normal, (parseInt(p.rampa.inicio) || 10) + dia * (parseInt(p.rampa.passo) || 5));
+    const diasTotal = Math.ceil(Math.max(0, normal - (parseInt(p.rampa.inicio) || 10)) / Math.max(1, parseInt(p.rampa.passo) || 5)) + 1;
+    return { limite: lim, rampa: lim < normal, normal, dia: dia + 1, diasTotal };
+}
+function protPintar() {
+    const box = document.getElementById('prot-corpo'); if (!box || !_prot) return;
+    const p = _prot;
+    const set = (id, v) => { const el = document.getElementById(id); if (!el) return; if (el.type === 'checkbox') el.checked = !!v; else el.value = v; };
+    set('prot-auto', p.autoCancelar); set('prot-balao', p.umBalao);
+    set('prot-rampa', p.rampa.ativo); set('prot-rampa-auto', p.rampa.auto); set('prot-rampa-ini', p.rampa.inicio); set('prot-rampa-passo', p.rampa.passo);
+    set('prot-freio', p.freio.ativo); set('prot-freio-n', p.freio.naoEntregues); set('prot-freio-j', p.freio.janela);
+    const st = document.getElementById('prot-rampa-status');
+    if (st) {
+        const r = protLimiteHoje(p);
+        st.textContent = !p.rampa.ativo ? 'Desligado: as campanhas usam o seu limite normal (' + r.normal + '/dia).'
+            : r.rampa ? `Ligado desde ${new Date(p.rampa.desde).toLocaleDateString('pt-BR')}: hoje no máximo ${r.limite} empresas (dia ${r.dia} de ${r.diasTotal}). Amanhã: ${Math.min(r.normal, r.limite + (parseInt(p.rampa.passo) || 5))}.`
+            : `Chegou no seu limite normal (${r.normal}/dia). Pode desligar.`;
+    }
+    ['prot-rampa-ini', 'prot-rampa-passo'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = !p.rampa.ativo && !p.rampa.auto; });
+    ['prot-freio-n', 'prot-freio-j'].forEach(id => { const el = document.getElementById(id); if (el) el.disabled = !p.freio.ativo; });
+}
+function protMudou() {
+    if (!_prot) _prot = _protMesclar(null);
+    const v = id => document.getElementById(id);
+    const n = (id, d, min, max) => Math.min(max, Math.max(min, parseInt(v(id)?.value) || d));
+    const rampaAntes = _prot.rampa.ativo;
+    _prot.autoCancelar = !!v('prot-auto')?.checked;
+    _prot.umBalao = !!v('prot-balao')?.checked;
+    _prot.rampa.ativo = !!v('prot-rampa')?.checked;
+    _prot.rampa.auto = !!v('prot-rampa-auto')?.checked;
+    _prot.rampa.inicio = n('prot-rampa-ini', 10, 1, 100);
+    _prot.rampa.passo = n('prot-rampa-passo', 5, 1, 50);
+    if (_prot.rampa.ativo && (!rampaAntes || !_prot.rampa.desde)) _prot.rampa.desde = new Date().toISOString();   // ligou agora: começa hoje
+    _prot.freio.ativo = !!v('prot-freio')?.checked;
+    _prot.freio.naoEntregues = n('prot-freio-n', 4, 2, 20);
+    _prot.freio.janela = Math.max(_prot.freio.naoEntregues, n('prot-freio-j', 10, 3, 50));
+    protPintar();
+    protSalvar(true);
+}
+async function protAbrir() { await protCarregar(); protPintar(); try { integPintar(); } catch (e) {} }
 
 // Carregar configs ao iniciar
 window.addEventListener('load', () => {
