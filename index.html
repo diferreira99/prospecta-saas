@@ -3303,6 +3303,11 @@ function rsPintarHistorico() {
     box.appendChild(lista);
 }
 
+// Link de site vindo do Google: só http(s), nunca javascript: ou outro esquema.
+function escUrl(u) {
+    const t = String(u || '').trim();
+    return /^https?:\/\//i.test(t) ? escapeHtml(t) : '#';
+}
 function escapeHtml(str) {
     const d = document.createElement('div');
     d.textContent = str || '';
@@ -3381,7 +3386,7 @@ function renderizarFilaFollowups() {
         <div class="fila-card" style="background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
                 <div style="display:flex;align-items:center;gap:10px;">
-                    <strong style="font-size:0.92rem;">${(item.lead_nome || item.phone || 'Lead')}</strong>
+                    <strong style="font-size:0.92rem;">${escapeHtml(item.lead_nome || item.phone || 'Lead')}</strong>
                     <span style="font-size:0.75rem;color:var(--text-muted,#888);">${formatPhoneBR ? formatPhoneBR(item.phone) : item.phone}</span>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;">
@@ -3750,7 +3755,7 @@ function pkAbrirListaEsfriando() {
                 return `
                 <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:var(--surface2);border-radius:10px;">
                     <div>
-                        <div style="font-size:0.8rem;font-weight:700;color:var(--text);">${l.name || l.title || '—'}</div>
+                        <div style="font-size:0.8rem;font-weight:700;color:var(--text);">${escapeHtml(l.name || l.title || '—')}</div>
                         <div style="font-size:0.65rem;color:var(--muted);">${col.label} · ${l.diasParado} dias parado</div>
                     </div>
                     <button onclick="pkFecharModalEsfriando();pkAbrirDetail('${l.id}')" style="padding:6px 12px;border-radius:8px;border:none;background:linear-gradient(135deg,#FF6A00,#165DFF);color:#fff;font-size:0.68rem;font-weight:700;cursor:pointer;white-space:nowrap;">Ver</button>
@@ -6669,13 +6674,13 @@ function renderPagina(pagina) {
             <td style="font-family:'Inter',sans-serif;font-size:0.7rem;color:var(--muted);width:34px;">${numGlobal}</td>
             <td>
                 <div style="display:flex;align-items:center;gap:6px;">
-                    <div class="lead-name">${l.title||'-'}</div>
+                    <div class="lead-name">${escapeHtml(l.title||'-')}</div>
                     ${seloLeadExtra(l)}
                     ${jaEmCampanha ? '<span title="Já em campanha" style="font-size:0.52rem;background:#FFF3E0;color:#FF6A00;padding:2px 5px;border-radius:4px;border:1px solid #FFD6B0;font-family:Inter,sans-serif;font-weight:700;white-space:nowrap;">📨 Campanha</span>' : ''}
                     ${jaNoKanban  ? '<span title="Já no CRM"     style="font-size:0.52rem;background:#dcfce7;color:#16a34a;padding:2px 5px;border-radius:4px;border:1px solid #bbf7d0;font-family:Inter,sans-serif;font-weight:700;white-space:nowrap;">✅ CRM</span>' : ''}
                 </div>
-                ${l.address?`<div class="lead-addr">${l.address}</div>`:''}
-                ${l.category?`<div style="font-family:'Inter',sans-serif;font-size:0.6rem;color:var(--muted);margin-top:1px;">${l.category}</div>`:''}
+                ${l.address?`<div class="lead-addr">${escapeHtml(l.address)}</div>`:''}
+                ${l.category?`<div style="font-family:'Inter',sans-serif;font-size:0.6rem;color:var(--muted);margin-top:1px;">${escapeHtml(l.category)}</div>`:''}
             </td>
             <td>
                 <span class="lead-phone">${l.phone||'-'}</span>
@@ -7762,7 +7767,7 @@ function renderCampanhas() {
             <div class="campanha-header">
                 <div style="flex:1;">
                     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                        <div class="campanha-name">${c.nome}</div>
+                        <div class="campanha-name">${escapeHtml(c.nome)}</div>
                         <span style="font-size:0.62rem;font-weight:700;padding:3px 8px;border-radius:99px;background:${statusColor[statusCamp]+'22'};color:${statusColor[statusCamp]||'#94a3b8'};">${statusLabel[statusCamp]||'📋 Não disparada'}</span>
                     </div>
                     <div class="campanha-meta">📅 ${c.criadaEm}${c.nicho?' &nbsp;·&nbsp; '+c.nicho:''}${c.local?' · '+c.local:''}</div>
@@ -7790,11 +7795,11 @@ function renderCampanhas() {
                     <thead><tr><th>Empresa</th><th>Telefone</th><th>WA</th><th>Fase</th><th>Site</th></tr></thead>
                     <tbody>
                         ${preview.map(l => `<tr>
-                            <td><strong style="font-size:0.78rem">${l.title||'—'}</strong>${l.address?`<div style="font-size:0.62rem;color:var(--muted);font-family:'Inter',sans-serif;">${l.address}</div>`:''}</td>
+                            <td><strong style="font-size:0.78rem">${escapeHtml(l.title||'—')}</strong>${l.address?`<div style="font-size:0.62rem;color:var(--muted);font-family:'Inter',sans-serif;">${escapeHtml(l.address)}</div>`:''}</td>
                             <td><span style="font-family:'Inter',sans-serif;font-size:0.7rem;color:var(--muted);">${l.phone||'—'}</span></td>
                             <td style="text-align:center;">${l.is_whatsapp === true ? '✅' : l.is_whatsapp === false ? '❌' : '—'}</td>
                             <td style="text-align:center;">${faseDoFunilPorTelefone(l.phone)}</td>
-                            <td>${l.website?`<a href="${l.website}" target="_blank" style="font-family:'Inter',sans-serif;font-size:0.64rem;color:var(--accent);">↗ site</a>`:'—'}</td>
+                            <td>${l.website?`<a href="${escUrl(l.website)}" target="_blank" style="font-family:'Inter',sans-serif;font-size:0.64rem;color:var(--accent);">↗ site</a>`:'—'}</td>
                         </tr>`).join('')}
                     </tbody>
                 </table>
@@ -7804,11 +7809,11 @@ function renderCampanhas() {
             <div class="campanha-collapsed-leads" id="cb-extra-${ci}">
                 <div class="campanha-leads-table" style="margin-bottom:14px;">
                     <table><tbody>${resto.map(l => `<tr>
-                        <td><strong style="font-size:0.78rem">${l.title||'—'}</strong></td>
+                        <td><strong style="font-size:0.78rem">${escapeHtml(l.title||'—')}</strong></td>
                         <td><span style="font-family:'Inter',sans-serif;font-size:0.7rem;color:var(--muted);">${l.phone||'—'}</span></td>
                         <td style="text-align:center;">${l.is_whatsapp === true ? '✅' : l.is_whatsapp === false ? '❌' : '—'}</td>
                         <td style="text-align:center;">${faseDoFunilPorTelefone(l.phone)}</td>
-                        <td>${l.website?`<a href="${l.website}" target="_blank" style="font-family:'Inter',sans-serif;font-size:0.64rem;color:var(--accent);">↗ site</a>`:'—'}</td>
+                        <td>${l.website?`<a href="${escUrl(l.website)}" target="_blank" style="font-family:'Inter',sans-serif;font-size:0.64rem;color:var(--accent);">↗ site</a>`:'—'}</td>
                     </tr>`).join('')}</tbody></table>
                 </div>
             </div>` : ''}
@@ -7888,10 +7893,10 @@ function filtrarCampanhaWA(ci, filtro) {
     if (!tabela) return;
     const tbody = tabela.querySelector('tbody');
     tbody.innerHTML = leads.map(l => `<tr>
-        <td><strong style="font-size:0.78rem">${l.title||'—'}</strong></td>
+        <td><strong style="font-size:0.78rem">${escapeHtml(l.title||'—')}</strong></td>
         <td><span style="font-family:'Inter',sans-serif;font-size:0.7rem;color:var(--muted);">${l.phone||'—'}</span></td>
         <td style="text-align:center;">${l.is_whatsapp === true ? '✅' : l.is_whatsapp === false ? '❌' : '—'}</td>
-        <td>${l.website?`<a href="${l.website}" target="_blank" style="font-family:'Inter',sans-serif;font-size:0.64rem;color:var(--accent);">↗ site</a>`:'—'}</td>
+        <td>${l.website?`<a href="${escUrl(l.website)}" target="_blank" style="font-family:'Inter',sans-serif;font-size:0.64rem;color:var(--accent);">↗ site</a>`:'—'}</td>
     </tr>`).join('');
 }
 
@@ -8794,9 +8799,9 @@ function renderLeadsIA() {
             <input type="checkbox" class="ia-lead-checkbox" ${selecionado ? 'checked' : ''}
                 onchange="toggleSelecionarLeadIA(${realIdx}, this)" onclick="event.stopPropagation()">
             <div class="ia-lead-info" onclick="selecionarLeadPreview(${realIdx})">
-                <div class="ia-lead-nome">${lead.title || 'Sem nome'}</div>
+                <div class="ia-lead-nome">${escapeHtml(lead.title || 'Sem nome')}</div>
                 <div class="ia-lead-meta" style="font-size:0.6rem;">
-                    ${lead.category ? `<span>📂 ${lead.category}</span>` : ''}
+                    ${lead.category ? `<span>📂 ${escapeHtml(lead.category)}</span>` : ''}
                     ${lead.rating ? `<span>⭐ ${lead.rating}</span>` : ''}
                     ${jaEnviado ? `<span style="background:#fee2e2;color:#dc2626;padding:1px 5px;border-radius:4px;font-weight:700;">🚫 Já enviado</span>` : ''}
                 </div>
@@ -17853,7 +17858,7 @@ async function gerarRelatorioPDF(btn, opcoes) {
                         const tagBot = r.resposta_suspeita_bot ? '<span style="color:#dc2626;font-weight:700;">🤖 bot</span>' : '<span style="color:#16a34a;">✓ humana</span>';
                         return `
                         <tr>
-                            <td style="font-weight:600;">${r.title || '—'}</td>
+                            <td style="font-weight:600;">${escapeHtml(r.title || '—')}</td>
                             <td>${dataFmt}</td>
                             <td style="text-align:center;">${r.variante_ab ? r.variante_ab.toUpperCase() : '—'}</td>
                             <td style="text-align:center;">${r.gatilho_cta ? (nomesGatilhoDet[r.gatilho_cta] || r.gatilho_cta) : '—'}</td>
@@ -18166,7 +18171,7 @@ async function gerarRelatorioPDF(btn, opcoes) {
         const linhasTabela = topCampanhas.length
             ? topCampanhas.map(c => `
                 <tr>
-                    <td>${c.nome || 'Campanha sem nome (#' + c.cid.replace(/\D/g,'').slice(-6) + ')'}</td>
+                    <td>${c.nome ? escapeHtml(c.nome) : 'Campanha sem nome (#' + c.cid.replace(/\D/g,'').slice(-6) + ')'}</td>
                     <td style="text-align:center;color:#16a34a;font-weight:700;">${c.enviados||0}</td>
                     <td style="text-align:center;color:#dc2626;">${c.erros||0}</td>
                     <td style="text-align:center;color:#8a94a8;">${c.pulados||0}</td>
@@ -18283,7 +18288,7 @@ async function gerarRelatorioPDF(btn, opcoes) {
         const linhasLeadsTabela = linhasOrdenadas.length
             ? linhasOrdenadas.map(r => `
                 <tr>
-                    <td style="max-width:180px;white-space:normal;word-break:break-word;">${r.lead || '—'}</td>
+                    <td style="max-width:180px;white-space:normal;word-break:break-word;">${escapeHtml(r.lead || '—')}</td>
                     <td>${r.phone || '—'}</td>
                     <td>${nomesStatus[r.status] || r.status || '—'}</td>
                     <td style="text-align:center;">${r.variant || '—'}</td>
