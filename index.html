@@ -5378,6 +5378,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <p class="integ-desc">Cuidados para o WhatsApp não restringir ou banir o seu número. Você liga, desliga e ajusta; o servidor e a automação seguem o que estiver aqui.</p>
                 <div id="prot-corpo" class="prot-corpo">
                     <label class="prot-item"><input type="checkbox" id="prot-balao" onchange="protMudou()"><span><b>Um balão só</b><small>Manda a mensagem inteira numa única mensagem, em vez de 3 seguidas. Três mensagens de um desconhecido pesam mais como spam.</small></span></label>
+                    <label class="prot-item"><input type="checkbox" id="prot-waauto" onchange="protMudou()"><span><b>Conferir WhatsApp sozinho depois da busca</b><small>Marca 📱 em quem tem WhatsApp sem você clicar em nada. Vai devagar (1 número a cada 1,5 s) e para em 400 por dia, para não pesar no seu número.</small></span></label>
                     <label class="prot-item"><input type="checkbox" id="prot-robo" onchange="protMudou()"><span><b>Responder robôs de atendimento sozinho</b><small>Quando a empresa responde com um menu ("1 - Financeiro, 2 - Comercial…"), escolhe o Comercial na hora e marca o lead como "aguardando atendente". No máximo 2 respostas por empresa em 24 h. Se nenhuma pessoa aparecer em 48 h, uma retomada curta vai para a sua aprovação.</small></span></label>
                     <label class="prot-item"><input type="checkbox" id="prot-auto" onchange="protMudou()"><span><b>Cancelar a campanha se o WhatsApp derrubar o aparelho</b><small>Quando o WhatsApp desconecta o servidor (restrição ou outro login), a campanha é cancelada em vez de continuar ao reconectar.</small></span></label>
                     <div class="prot-bloco">
@@ -6617,6 +6618,7 @@ async function buscar() {
         renderPagina(1);
         if (info) buscarRedesEmFundo(info.id, _leadsBase.slice());
         avisarJaContatados(_leadsBase);
+        setTimeout(verificarWhatsAppDepoisDaBusca, 1500);
     } catch (e) {
         status.className = 'status err';
         status.innerText = `// erro: ${e.message}`;
@@ -6685,8 +6687,8 @@ function renderPagina(pagina) {
             <td>
                 <span class="lead-phone">${l.phone||'-'}</span>
                 ${leadJaFoiEnviado(l.phone) ? '<span title="Este número já recebeu mensagem de uma campanha sua" style="display:inline-block;margin-left:6px;font-size:0.6rem;background:#fef3c7;color:#b45309;padding:2px 7px;border-radius:10px;font-family:Inter,sans-serif;font-weight:700;">📨 Já contatado</span>' : ''}
-                ${l.is_whatsapp === true  ? '<span style="margin-left:6px;font-size:0.65rem;background:#dcfce7;color:#16a34a;padding:2px 7px;border-radius:10px;font-family:JetBrains Mono,monospace;font-weight:700;">✅ WA</span>' : ''}
-                ${l.is_whatsapp === false ? '<span style="margin-left:6px;font-size:0.65rem;background:#fee2e2;color:#dc2626;padding:2px 7px;border-radius:10px;font-family:JetBrains Mono,monospace;font-weight:700;">❌ WA</span>' : ''}
+                ${l.is_whatsapp === true  ? '<span title="Tem WhatsApp: a mensagem chega" style="margin-left:6px;font-size:0.65rem;background:#dcfce7;color:#16a34a;padding:2px 7px;border-radius:10px;font-family:JetBrains Mono,monospace;font-weight:700;">📱 WhatsApp</span>' : ''}
+                ${l.is_whatsapp === false ? '<span title="Sem WhatsApp: fica fora das campanhas" style="margin-left:6px;font-size:0.65rem;background:#fee2e2;color:#dc2626;padding:2px 7px;border-radius:10px;font-family:JetBrains Mono,monospace;font-weight:700;">❌ sem WhatsApp</span>' : ''}
             </td>
             <td class="td-rating" onclick="abrirDetalheCelular(${realIdx}, this)"><div class="rating"><span class="star">★</span><span>${l.rating||'—'}</span>${l.reviews?`<span class="rev">(${l.reviews})</span>`:''}</div><span class="ver-detalhe">detalhes ▾</span></td>
             <td>
@@ -9154,14 +9156,35 @@ function atualizarBotaoWhats() {
 }
 
 // ── VERIFICAÇÃO WHATSAPP (com cache — não recheca número já verificado antes) ──
-async function verificarWhatsAppLote() {
-    if (!todosLeads.length) { showToast('Nenhum lead carregado', 'err'); return; }
+// Depois de cada busca o app confere sozinho quem tem WhatsApp (Proteção da conta → "Conferir WhatsApp
+// sozinho depois da busca"). Mais devagar que o botão e com limite por dia, para não pesar no seu número.
+const WA_AUTO_LIMITE_DIA = 400;
+var _waVerificando = false;
+function _listaAtual() { return todosLeads; }   // a lista da busca atual (fora da função que recebe a cópia)
+function _waContadorHoje() { const k = 'waAuto_' + new Date().toISOString().slice(0, 10); return { k, n: parseInt(userGet(k, 0)) || 0 }; }
+function verificarWhatsAppDepoisDaBusca() {
+    try {
+        if (_waVerificando || !config.uazapi?.url || !config.uazapi?.token) return;
+        if (_prot && _prot.waAuto === false) return;
+        const base = _leadsBase.length ? _leadsBase : todosLeads;
+        if (!base.some(_waPendente)) return;
+        verificarWhatsAppLote({ auto: true });
+    } catch (e) {}
+}
+async function verificarWhatsAppLote(opts) {
+    const auto = !!(opts && opts.auto);
+    if (_waVerificando) return;
+    if (!todosLeads.length) { if (!auto) showToast('Nenhum lead carregado', 'err'); return; }
 
     if (!config.uazapi?.url || !config.uazapi?.token) {
-        showToast('// Configure o servidor WhatsApp primeiro em Integrações', 'err');
+        if (!auto) showToast('// Configure o servidor WhatsApp primeiro em Integrações', 'err');
         return;
     }
-
+    const lista = todosLeads;   // se começar outra busca no meio, para e não mistura os resultados
+    _waVerificando = true;
+    try { await _verificarWhatsAppLote(auto, lista); } finally { _waVerificando = false; }
+}
+async function _verificarWhatsAppLote(auto, todosLeads) {
     const btn = document.getElementById('btn-verificar-whats');
     btn.disabled = true;
     btn.textContent = '⏳ Verificando...';
@@ -9212,9 +9235,13 @@ async function verificarWhatsAppLote() {
         const l = todosLeads[item.idx];
         if (!item.jaSabia && l.fonte === 'oficial' && typeof l.is_whatsapp === 'boolean') { item.jaSabia = true; doCache++; }
     });
-    const paraChecar = leads_com_phone.filter(l => !l.jaSabia);
-
-    if (doCache > 0) showToast(`⚡ ${doCache} já tinham sido verificados antes — pulando direto pra ${paraChecar.length} novos`, 'ok');
+    let paraChecar = leads_com_phone.filter(l => !l.jaSabia);
+    let cortados = 0;
+    if (auto) {
+        const hoje = _waContadorHoje();
+        const sobra = Math.max(0, WA_AUTO_LIMITE_DIA - hoje.n);
+        if (paraChecar.length > sobra) { cortados = paraChecar.length - sobra; paraChecar = paraChecar.slice(0, sobra); }
+    } else if (doCache > 0) showToast(`⚡ ${doCache} já tinham sido verificados antes — pulando direto pra ${paraChecar.length} novos`, 'ok');
     else showToast(`🔍 Verificando ${paraChecar.length} números...`, 'ok');
 
     let verificados = 0;
@@ -9222,6 +9249,7 @@ async function verificarWhatsAppLote() {
 
     // O servidor Baileys checa um número por vez (sem endpoint de lote como o UAZAPI tinha)
     for (const item of paraChecar) {
+        if (_listaAtual() !== todosLeads) break;   // começou outra busca
         try {
             const res = await fetch(`${baseUrl}/check-number`, {
                 method: 'POST',
@@ -9246,9 +9274,10 @@ async function verificarWhatsAppLote() {
 
         verificados++;
         btn.textContent = `⏳ ${verificados}/${paraChecar.length}`;
+        if (auto) { const h = _waContadorHoje(); userSet(h.k, h.n + 1); if (verificados % 10 === 0 && _listaAtual() === todosLeads) renderPagina(paginaAtual); }
 
-        // Pequena pausa entre checagens para não sobrecarregar a sessão do WhatsApp
-        await new Promise(r => setTimeout(r, 300));
+        // Pausa entre checagens para não sobrecarregar a sessão do WhatsApp (a automática vai mais devagar)
+        await new Promise(r => setTimeout(r, auto ? 1500 : 300));
     }
 
     // 2) Salva os resultados novos no cache, pra nunca mais precisar rechecar esses números
@@ -9263,6 +9292,16 @@ async function verificarWhatsAppLote() {
     const conferidos = leads_com_phone.filter(i => typeof todosLeads[i.idx]?.is_whatsapp === 'boolean');
     const com_whats = conferidos.filter(i => todosLeads[i.idx].is_whatsapp === true).length;
     const totalConsiderado = conferidos.length;
+    if (auto) {
+        // Automática: só marca os selos e conta; a lista continua inteira (o filtro "Só WhatsApp" fica com você).
+        btn.disabled = false; btn.textContent = '';
+        atualizarBotaoWhats();
+        if (_listaAtual() !== todosLeads) return;
+        renderPagina(paginaAtual);
+        histAtualizarWhats();
+        showToast(`📱 ${com_whats} de ${totalConsiderado} têm WhatsApp` + (cortados ? ` · ${cortados} ficaram para amanhã (limite do dia)` : ''), 'ok');
+        return;
+    }
     // Liga o filtro automático: a partir daqui a tabela mostra só quem tem WhatsApp
     _soComWhats = true;
     _leadsBase = _leadsBase.length ? _leadsBase : todosLeads.slice();
@@ -11801,7 +11840,7 @@ async function prodDoTelefone(phone) {
 }
 
 // ===================== PROTEÇÃO DA CONTA (você liga/desliga e ajusta; o servidor e a automação obedecem) =====================
-const PROT_PADRAO = { autoCancelar: true, umBalao: true, roboAuto: true, rampa: { ativo: false, auto: true, inicio: 10, passo: 5, desde: null }, freio: { ativo: true, naoEntregues: 4, janela: 10 } };
+const PROT_PADRAO = { autoCancelar: true, umBalao: true, roboAuto: true, waAuto: true, rampa: { ativo: false, auto: true, inicio: 10, passo: 5, desde: null }, freio: { ativo: true, naoEntregues: 4, janela: 10 } };
 var _prot = null;
 function _protMesclar(p) {
     const v = Object.assign({}, PROT_PADRAO, p || {});
@@ -11841,7 +11880,7 @@ function protPintar() {
     const box = document.getElementById('prot-corpo'); if (!box || !_prot) return;
     const p = _prot;
     const set = (id, v) => { const el = document.getElementById(id); if (!el) return; if (el.type === 'checkbox') el.checked = !!v; else el.value = v; };
-    set('prot-auto', p.autoCancelar); set('prot-balao', p.umBalao); set('prot-robo', p.roboAuto !== false);
+    set('prot-auto', p.autoCancelar); set('prot-balao', p.umBalao); set('prot-robo', p.roboAuto !== false); set('prot-waauto', p.waAuto !== false);
     set('prot-rampa', p.rampa.ativo); set('prot-rampa-auto', p.rampa.auto); set('prot-rampa-ini', p.rampa.inicio); set('prot-rampa-passo', p.rampa.passo);
     set('prot-freio', p.freio.ativo); set('prot-freio-n', p.freio.naoEntregues); set('prot-freio-j', p.freio.janela);
     const st = document.getElementById('prot-rampa-status');
@@ -11862,6 +11901,7 @@ function protMudou() {
     _prot.autoCancelar = !!v('prot-auto')?.checked;
     _prot.umBalao = !!v('prot-balao')?.checked;
     _prot.roboAuto = !!v('prot-robo')?.checked;
+    _prot.waAuto = !!v('prot-waauto')?.checked;
     _prot.rampa.ativo = !!v('prot-rampa')?.checked;
     _prot.rampa.auto = !!v('prot-rampa-auto')?.checked;
     _prot.rampa.inicio = n('prot-rampa-ini', 10, 1, 100);
