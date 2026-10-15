@@ -5378,6 +5378,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <p class="integ-desc">Cuidados para o WhatsApp não restringir ou banir o seu número. Você liga, desliga e ajusta; o servidor e a automação seguem o que estiver aqui.</p>
                 <div id="prot-corpo" class="prot-corpo">
                     <label class="prot-item"><input type="checkbox" id="prot-balao" onchange="protMudou()"><span><b>Um balão só</b><small>Manda a mensagem inteira numa única mensagem, em vez de 3 seguidas. Três mensagens de um desconhecido pesam mais como spam.</small></span></label>
+                    <label class="prot-item"><input type="checkbox" id="prot-saude" onchange="protMudou()"><span><b>Frear as campanhas pela saúde do número</b><small>Nota amarela: o limite do dia cai pela metade. Nota vermelha: as campanhas pausam sozinhas, voltam quando a nota melhorar e você recebe um aviso no WhatsApp de alerta. A nota fica no Painel.</small></span></label>
                     <label class="prot-item"><input type="checkbox" id="prot-waauto" onchange="protMudou()"><span><b>Conferir WhatsApp sozinho depois da busca</b><small>Marca 📱 em quem tem WhatsApp sem você clicar em nada. Vai devagar (1 número a cada 1,5 s) e para em 400 por dia, para não pesar no seu número.</small></span></label>
                     <label class="prot-item"><input type="checkbox" id="prot-robo" onchange="protMudou()"><span><b>Responder robôs de atendimento sozinho</b><small>Quando a empresa responde com um menu ("1 - Financeiro, 2 - Comercial…"), escolhe o Comercial na hora e marca o lead como "aguardando atendente". No máximo 2 respostas por empresa em 24 h. Se nenhuma pessoa aparecer em 48 h, uma retomada curta vai para a sua aprovação.</small></span></label>
                     <label class="prot-item"><input type="checkbox" id="prot-auto" onchange="protMudou()"><span><b>Cancelar a campanha se o WhatsApp derrubar o aparelho</b><small>Quando o WhatsApp desconecta o servidor (restrição ou outro login), a campanha é cancelada em vez de continuar ao reconectar.</small></span></label>
@@ -11840,7 +11841,7 @@ async function prodDoTelefone(phone) {
 }
 
 // ===================== PROTEÇÃO DA CONTA (você liga/desliga e ajusta; o servidor e a automação obedecem) =====================
-const PROT_PADRAO = { autoCancelar: true, umBalao: true, roboAuto: true, waAuto: true, rampa: { ativo: false, auto: true, inicio: 10, passo: 5, desde: null }, freio: { ativo: true, naoEntregues: 4, janela: 10 } };
+const PROT_PADRAO = { autoCancelar: true, umBalao: true, roboAuto: true, waAuto: true, saudeTrava: true, rampa: { ativo: false, auto: true, inicio: 10, passo: 5, desde: null }, freio: { ativo: true, naoEntregues: 4, janela: 10 } };
 var _prot = null;
 function _protMesclar(p) {
     const v = Object.assign({}, PROT_PADRAO, p || {});
@@ -11880,7 +11881,7 @@ function protPintar() {
     const box = document.getElementById('prot-corpo'); if (!box || !_prot) return;
     const p = _prot;
     const set = (id, v) => { const el = document.getElementById(id); if (!el) return; if (el.type === 'checkbox') el.checked = !!v; else el.value = v; };
-    set('prot-auto', p.autoCancelar); set('prot-balao', p.umBalao); set('prot-robo', p.roboAuto !== false); set('prot-waauto', p.waAuto !== false);
+    set('prot-auto', p.autoCancelar); set('prot-balao', p.umBalao); set('prot-robo', p.roboAuto !== false); set('prot-waauto', p.waAuto !== false); set('prot-saude', p.saudeTrava !== false);
     set('prot-rampa', p.rampa.ativo); set('prot-rampa-auto', p.rampa.auto); set('prot-rampa-ini', p.rampa.inicio); set('prot-rampa-passo', p.rampa.passo);
     set('prot-freio', p.freio.ativo); set('prot-freio-n', p.freio.naoEntregues); set('prot-freio-j', p.freio.janela);
     const st = document.getElementById('prot-rampa-status');
@@ -11902,6 +11903,7 @@ function protMudou() {
     _prot.umBalao = !!v('prot-balao')?.checked;
     _prot.roboAuto = !!v('prot-robo')?.checked;
     _prot.waAuto = !!v('prot-waauto')?.checked;
+    _prot.saudeTrava = !!v('prot-saude')?.checked;
     _prot.rampa.ativo = !!v('prot-rampa')?.checked;
     _prot.rampa.auto = !!v('prot-rampa-auto')?.checked;
     _prot.rampa.inicio = n('prot-rampa-ini', 10, 1, 100);
@@ -14143,7 +14145,8 @@ function phDesenharSaude(sa, d, zapTxt) {
     const pct = (a, b) => b ? Math.round(a / b * 100) + '%' : '0%';
     const pl = (n, um, varios) => n + ' ' + (n === 1 ? um : varios);
     nums.textContent = 'Últimos 7 dias: ' + pl(d.enviados7, 'enviada', 'enviadas') + ' · ' + pl(d.humanas7, 'resposta de pessoa', 'respostas de pessoas') + ' (' + pct(d.humanas7, d.enviados7) + ') · ' +
-        d.robo7 + ' de robô · ' + pl(d.pare7, 'pediu para parar', 'pediram para parar') + ' · ' + pl(d.erros7, 'erro', 'erros') + '. Hoje: ' + pl(d.hoje, 'envio', 'envios') + '.';
+        d.robo7 + ' de robô · ' + pl(d.pare7, 'pediu para parar', 'pediram para parar') + ' · ' + pl(d.erros7, 'erro', 'erros') +
+        (d.amostra ? ' · ' + (d.amostra - d.naoEnt) + ' de ' + d.amostra + ' chegaram no aparelho' : '') + '. Hoje: ' + pl(d.hoje, 'envio', 'envios') + '.';
     const zap = document.createElement('div');
     zap.className = 'ph-linha';
     zap.textContent = zapTxt;
@@ -14151,9 +14154,10 @@ function phDesenharSaude(sa, d, zapTxt) {
     const sm = document.createElement('summary');
     sm.textContent = 'Como a nota é calculada';
     const dt = document.createElement('div');
-    dt.textContent = 'Vermelho: 8% ou mais pediram para parar, 30% ou mais dos envios deram erro, ou menos de 2% responderam (com 40 envios ou mais). ' +
-        'Amarelo: 4% ou mais pediram para parar, 15% ou mais deram erro, menos de 5% responderam, ou o volume de hoje passou do dobro do normal. ' +
-        'Com menos de 20 envios em 7 dias, não avaliamos. Esta é uma estimativa do Prospecta+: a Meta não divulga as regras de banimento e o app não vê quando alguém bloqueia ou denuncia o seu número. Não garante que o número esteja seguro.';
+    dt.textContent = 'A nota começa em 100 e perde pontos nos últimos 7 dias: WhatsApp restringiu ou derrubou o número (−50); 25% ou mais das mensagens não chegaram no aparelho (−40) ou 10% (−20); 8% ou mais pediram para parar (−40) ou 4% (−20); ' +
+        '30% ou mais deram erro (−30) ou 15% (−15); menos de 2% de respostas de pessoas com 40+ envios (−25) ou menos de 5% (−10); volume de hoje acima do dobro do normal (−10). ' +
+        'Verde: 75 ou mais. Amarelo: 50 a 74 (a automação corta o limite do dia pela metade). Vermelho: abaixo de 50 (a automação pausa as campanhas, confere de novo a cada 3 horas e te avisa no WhatsApp de alerta). ' +
+        'Liga/desliga em Integrações → Proteção da conta. É uma estimativa: a Meta não divulga as regras e o app não vê denúncias. Não garante que o número esteja seguro.';
     det.appendChild(sm);
     det.appendChild(dt);
     box.innerHTML = '';
@@ -14236,7 +14240,22 @@ async function painelHojeCarregar() {
         const temIA = (cfg.iaProvider || 'openai') === 'gemini' ? !!(cfg.gemini && cfg.gemini.key) : !!(cfg.openai && cfg.openai.key);
 
         phDesenharAcoes({ incerto: [sugestoes, followups, quentesParados].some(v => v === null), sugestoes: sugestoes || 0, followups: followups || 0, quentesParados: quentesParados || 0, retomar: retomar || 0, reunioes: reunioes || 0, zap, ia: cfg.openai || cfg.gemini ? temIA : null });
-        phDesenharSaude(phCalcularSaude({ enviados7, erros7, hoje, mediaAnterior, humanas7, robo7, pare7 }), { enviados7, erros7, hoje, humanas7, robo7, pare7 }, zapTxt);
+        // A nota vem do banco (função saude_numero): é a mesma que a automação usa para frear ou pausar as campanhas.
+        let sa = null, dados = { enviados7, erros7, hoje, humanas7, robo7, pare7 };
+        try {
+            const { data: r, error } = await supabaseClient.rpc('saude_numero');
+            if (!error && r && r.ok) {
+                const ms = (r.motivos || []).join('; ');
+                const msg = r.nivel === 'cinza' ? 'Menos de 20 envios nos últimos 7 dias: ainda não dá para avaliar.'
+                    : r.nivel === 'verde' ? 'Nenhum sinal de risco nos últimos 7 dias.'
+                    : r.nivel === 'amarelo' ? 'Sinais para observar: ' + ms + '.' + (r.trava_ligada !== false ? ' As campanhas estão com o limite do dia pela metade até a nota melhorar.' : '')
+                    : 'Sinais de risco: ' + ms + '.' + (r.trava_ligada !== false ? ' As campanhas estão pausadas sozinhas e voltam quando a nota melhorar.' : ' Pause as campanhas e reduza o limite diário.');
+                sa = { cor: r.nivel, titulo: r.titulo + (r.nota != null ? ' · nota ' + r.nota + '/100' : ''), msg };
+                const dd = r.dados || {};
+                dados = { enviados7: dd.enviados7 || 0, erros7: dd.erros7 || 0, hoje: dd.hoje || 0, humanas7: dd.humanas7 || 0, robo7: dd.robo7 || 0, pare7: dd.pare7 || 0, amostra: dd.entregas_amostra || 0, naoEnt: dd.nao_entregues || 0 };
+            }
+        } catch (e) {}
+        phDesenharSaude(sa || phCalcularSaude({ enviados7, erros7, hoje, mediaAnterior, humanas7, robo7, pare7 }), dados, zapTxt);
     } catch (e) {
         console.warn('Painel: não consegui montar os cartões:', e && e.message);
     } finally { _phRodando = false; }
