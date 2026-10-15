@@ -664,7 +664,7 @@
         .inbox-wrap {
             display: flex;
             /* topbar ~62px, sem padding do content (zeramos acima) */
-            height: calc(100dvh - 62px);
+            height: calc(100dvh - 62px - var(--wa-aviso-h, 0px));
             overflow: hidden;
             background: #F2F4F7;
             border-radius: 12px;
@@ -1005,7 +1005,7 @@
 
         @media (max-width: 900px) {
             /* topbar mobile agora tem 54px */
-            .inbox-wrap { height: calc(100dvh - 54px); border-radius: 0; }
+            .inbox-wrap { height: calc(100dvh - 54px - var(--wa-aviso-h, 0px)); border-radius: 0; }
             .inbox-sidebar { width: 100%; }
 
             /* Chat fullscreen com suporte ao teclado virtual */
@@ -2822,11 +2822,13 @@ var _rsAbertos = {};                                           // painéis de "r
 const RS_ESPERA_ALERTA_MIN = 30;
 const RS_STATUS = {
     enviado: 'Respondida pelo app', respondido_fora: 'Respondida no WhatsApp', descartado: 'Descartada',
-    sem_interesse: 'Sem interesse', agrupado: 'Respondida junto', pendente: 'Na fila'
+    sem_interesse: 'Sem interesse', agrupado: 'Respondida junto', pendente: 'Na fila', respondido_inbox: 'Respondida pelo Inbox'
 };
 
 function rsTel(p) { return pkTel(p); }
 function rsTextoVazio(t) { return !String(t || '').replace(/[\s‎‏​]/g, ''); }
+// Só mídia, sem texto (o servidor agora escreve "🎤 Áudio", "📷 Foto"…; áudio transcrito tem texto e não entra aqui)
+function rsSoMidia(t) { return rsTextoVazio(t) || /^(🎤 Áudio|📷 Foto|🎥 Vídeo|🌟 Figurinha|📄 Documento:[^\n]*|👤 Contatos?:[^\n]*|📍 Localização[^\n]*)$/.test(String(t).trim()); }
 // Robôs de atendimento: menus, transferências e boas-vindas automáticas.
 function rsEhRobo(t) {
     const s = String(t || '').toLowerCase();
@@ -2851,7 +2853,7 @@ function rsGrupos() {
         g.nome = g.itens.map(i => i.lead_nome).find(Boolean) || info.title || formatPhoneBR(g.ultimo.phone);
         g.campanha = _rsCtx.camp[g.ultimo.campanha_id || info.campanha_id] || '';
         g.interessado = g.classif === 'quente' || g.classif === 'duvida';
-        g.vazio = g.itens.every(i => rsTextoVazio(i.mensagem_recebida));
+        g.vazio = g.itens.every(i => rsSoMidia(i.mensagem_recebida));
         const comTexto = g.itens.filter(i => !rsTextoVazio(i.mensagem_recebida));
         const robosN = comTexto.filter(i => rsEhRobo(i.mensagem_recebida)).length;
         // robô: todas as mensagens com texto são automáticas (ou o servidor já marcou como menu)
@@ -2909,6 +2911,7 @@ function rsBolhas(g) {
         const eu = m.direcao === 'enviada';
         const b = prEl('div', 'pk-bolha ' + (eu ? 'eu' : 'ele'));
         if (!eu && rsTextoVazio(m.mensagem)) b.appendChild(prEl('div', 'rs-midia', '🎤 Mandou áudio, foto ou figurinha. Veja no WhatsApp.'));
+        else if (!eu && rsSoMidia(m.mensagem)) b.appendChild(prEl('div', 'rs-midia', String(m.mensagem).trim() + ' · veja no WhatsApp'));
         else b.appendChild(prEl('div', '', String(m.mensagem || '')));
         b.appendChild(prEl('small', '', (eu ? 'Você' : 'Lead') + ' · ' + new Date(m.criado_em).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })));
         box.appendChild(b);
@@ -2948,7 +2951,7 @@ function rsCard(g) {
     ta.id = 'fila-texto-' + g.ultimo.id;
     ta.className = 'rs-texto';
     ta.value = g.vazio ? '' : (g.ultimo.sugestao_ia || '');
-    ta.placeholder = g.vazio ? 'Ele mandou áudio, foto ou figurinha. Veja no WhatsApp e, se quiser, escreva a resposta aqui.' : 'Sugestão da IA…';
+    ta.placeholder = g.vazio ? 'Ele mandou mídia sem texto. Veja no WhatsApp e, se quiser, escreva a resposta aqui.' : 'Sugestão da IA…';
     const aviso = prEl('div', 'rs-aviso', '✏️ Tem um trecho entre [colchetes] para preencher antes de enviar.');
     aviso.hidden = true;
     card.append(ta, aviso);
@@ -3206,7 +3209,7 @@ function rsPintarTopo() {
     const h = _rsHistCache;
     if (h) {
         const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-        const resp = h.filter(i => ['enviado', 'respondido_fora'].includes(i.status) && i.respondido_em && new Date(i.respondido_em) >= hoje);
+        const resp = h.filter(i => ['enviado', 'respondido_fora', 'respondido_inbox'].includes(i.status) && i.respondido_em && new Date(i.respondido_em) >= hoje);
         const tempos = resp.map(i => (new Date(i.respondido_em) - new Date(i.criado_em)) / 60000).filter(x => x >= 0).sort((a, b) => a - b);
         const med = tempos.length ? tempos[Math.floor(tempos.length / 2)] : null;
         const nConv = new Set(resp.map(i => rsTel(i.phone))).size;
@@ -3238,10 +3241,10 @@ function rsPintarHistorico() {
     box.innerHTML = '';
     const h = _rsHistCache || [];
     const cont = s => new Set(h.filter(i => s.includes(i.status)).map(i => rsTel(i.phone))).size;   // conversas, não mensagens
-    const tempos = h.filter(i => ['enviado', 'respondido_fora'].includes(i.status) && i.respondido_em).map(i => (new Date(i.respondido_em) - new Date(i.criado_em)) / 60000).sort((a, b) => a - b);
+    const tempos = h.filter(i => ['enviado', 'respondido_fora', 'respondido_inbox'].includes(i.status) && i.respondido_em).map(i => (new Date(i.respondido_em) - new Date(i.criado_em)) / 60000).sort((a, b) => a - b);
     const med = tempos.length ? tempos[Math.floor(tempos.length / 2)] : null;
     const placar = prEl('div', 'rs-placar-semana');
-    [[cont(['enviado', 'respondido_fora']), 'respondidas'], [cont(['descartado']), 'descartadas'], [cont(['sem_interesse']), 'sem interesse'],
+    [[cont(['enviado', 'respondido_fora', 'respondido_inbox']), 'respondidas'], [cont(['descartado']), 'descartadas'], [cont(['sem_interesse']), 'sem interesse'],
      [med == null ? '—' : med < 60 ? Math.round(med) + ' min' : (med / 60).toFixed(1).replace('.', ',') + ' h', 'tempo típico de resposta']].forEach(([v, t]) => {
         const c = prEl('div', 'rs-num');
         c.appendChild(prEl('b', '', String(v)));
@@ -4358,6 +4361,37 @@ document.addEventListener('DOMContentLoaded', () => {
             .ia-lib-item { display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-top:1px solid var(--border); }
             .ia-link { background:none; border:none; color:#FF6A00; cursor:pointer; font-size:0.62rem; font-weight:600; text-decoration:underline; width:auto; padding:0; }
             .ia-ab-box { max-height:60vh; overflow:auto; margin-bottom:6px; }
+            /* Inbox */
+            .inbox-filtros { display:flex; gap:6px; padding:6px 10px 8px; overflow-x:auto; border-bottom:1px solid #e9edef; }
+            .inbox-filtro { width:auto; flex-shrink:0; padding:4px 10px; border-radius:99px; border:1px solid #d1d7db; background:#fff; color:#54656f; font-size:0.72rem; font-weight:600; cursor:pointer; white-space:nowrap; }
+            .inbox-filtro.ativo { background:#d9fdd3; border-color:#25d366; color:#0b5e3a; }
+            .inbox-avatar.quente { background:#fee2e2; color:#b91c1c; }
+            .inbox-espera { flex-shrink:0; font-size:0.62rem; color:#667781; margin-left:6px; }
+            .inbox-espera.atrasado { color:#b91c1c; font-weight:700; }
+            .inbox-acoes { display:flex; gap:12px; align-items:center; flex-wrap:wrap; padding:6px 14px; background:#f8faf9; border-bottom:1px solid #e9edef; }
+            .inbox-acoes select { width:auto; padding:4px 8px; border:1px solid #d1d7db; border-radius:8px; font-size:0.74rem; background:#fff; }
+            .inbox-acoes .rs-link.desligado { color:#94a3b8; cursor:default; }
+            .inbox-painel { flex-basis:100%; }
+            .inbox-bubble.campanha { opacity:.85; }
+            .inbox-bubble-rotulo { font-size:0.62rem; font-weight:700; color:#0b5e3a; margin-bottom:2px; }
+            .inbox-midia { font-style:italic; color:#54656f; }
+            .inbox-ajudas { display:flex; flex-direction:column; gap:6px; padding:6px 12px 0; background:#f0f2f5; }
+            .inbox-sugestao { display:flex; gap:8px; align-items:center; background:#fffbe6; border:1px solid #fde68a; border-radius:10px; padding:6px 10px; font-size:0.74rem; }
+            .inbox-sug-tit { font-weight:700; color:#92400e; flex-shrink:0; }
+            .inbox-sug-txt { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#3b4a54; }
+            .inbox-sugestao .rs-btn { padding:4px 10px; font-size:0.72rem; }
+            .inbox-rapidas { display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; }
+            .inbox-rapida { display:inline-flex; align-items:center; flex-shrink:0; background:#fff; border:1px solid #d1d7db; border-radius:99px; overflow:hidden; }
+            .inbox-rapida button { width:auto; background:none; border:none; padding:4px 8px; font-size:0.7rem; color:#3b4a54; cursor:pointer; white-space:nowrap; max-width:220px; overflow:hidden; text-overflow:ellipsis; }
+            .inbox-rapida button.x { padding:4px 8px 4px 2px; color:#94a3b8; }
+            .inbox-rapida-mais { width:auto; flex-shrink:0; background:none; border:1px dashed #94a3b8; border-radius:99px; padding:4px 10px; font-size:0.7rem; color:#54656f; cursor:pointer; white-space:nowrap; }
+            .wa-aviso { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; background:#fee2e2; border-bottom:1px solid #fca5a5; color:#991b1b; font-size:0.8rem; font-weight:600; padding:10px 18px; }
+            .wa-aviso[hidden] { display:none !important; }
+            .wa-aviso button { width:auto; background:#b91c1c; color:#fff; border:none; border-radius:8px; padding:7px 14px; font-weight:700; cursor:pointer; }
+            .cp-st.leu { background:#e0f2fe; color:#075985; }
+            .inbox-chat-header > div:not([class]):not([style]) { min-width:0; flex:1; }
+            .inbox-chat-phone { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+            .inbox-chat-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
             /* Respostas */
             .rs-topo { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
             .rs-abas { display:flex; gap:6px; flex-wrap:wrap; }
@@ -5660,9 +5694,6 @@ function trocarAba(aba, el) {
     }
     if (aba === 'plano') {
         setTimeout(() => { carregarPlanoProspeccao(); carregarModelosPlano(); }, 80);
-    }
-    if (aba === 'inbox') {
-        setTimeout(() => carregarInbox(), 80);
     }
 
     if (aba === 'inbox') {
@@ -7804,6 +7835,8 @@ async function iaReenviarFalhas() {
 // ── Montagem da fila (mesma regra no resumo e no disparo) ──
 async function iaMontarFila() {
     await Promise.all([carregarNaoContatar(), carregarLeadsEnviadosDaNuvem()]);
+    let semWaServidor = new Set();
+    try { const st = await iaStatusGeral(); semWaServidor = new Set((st.rows || []).filter(r => r.status === 'sem_whatsapp').map(r => prTel(r.phone))); } catch (e) {}
     const fonte = _iaFonteLista();
     const sel = _iaEnvioExterno ? _iaEnvioExterno.slice() : Array.from(iaLeadsSelecionados).sort((a, b) => a - b).map(i => fonte[i]).filter(Boolean);
     const fora = { enviados: 0, semWA: 0, bloq: 0, semTel: 0, repetidos: 0 };
@@ -7813,7 +7846,7 @@ async function iaMontarFila() {
         if (!tel || tel.length < 12) fora.semTel++;
         else if (bloqueadoLead(l)) fora.bloq++;
         else if (leadJaFoiEnviado(l.phone)) fora.enviados++;
-        else if (l.is_whatsapp === false) fora.semWA++;
+        else if (l.is_whatsapp === false || semWaServidor.has(prTel(tel))) fora.semWA++;
         else if (vistos.has(tel)) fora.repetidos++;
         else { vistos.add(tel); ok.push(l); }
     });
@@ -10805,7 +10838,7 @@ async function enviarTeste() {
 }
 
 // Envia uma mensagem (parágrafo único) via seu servidor Baileys
-async function enviarUmMensagem(phone, text) {
+async function enviarUmMensagem(phone, text, digitandoMs) {
     const cleanPhone = formatPhoneBR(phone);
     const baseUrl    = config.uazapi.url.replace(/\/$/, '');
     const headers    = { 'Content-Type': 'application/json', 'x-api-token': config.uazapi.token };
@@ -10813,7 +10846,7 @@ async function enviarUmMensagem(phone, text) {
     const res = await fetch(`${baseUrl}/send-message`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ phone: cleanPhone, message: text })
+        body: JSON.stringify({ phone: cleanPhone, message: text, digitandoMs: digitandoMs || 0 })
     });
 
     if (res.ok) return await res.json();
@@ -10856,16 +10889,13 @@ async function enviarTesteUAZAPI(phone, msg, previewArea, logFn) {
         const tMax = (config.uazapi?.typingMax || 10) * 1000;
         const typingMs = Math.floor(Math.random() * (tMax - tMin + 1)) + tMin;
 
-        // Aguarda o tempo de digitação
-        await new Promise(r => setTimeout(r, typingMs));
+        // O servidor mostra "digitando…" para o destinatário por esse tempo e depois envia
+        await enviarUmMensagem(phone, p, typingMs);
 
-        // 3. Remove bolinha e envia
         if (previewArea) {
             const typingEl = document.getElementById('ia-typing-indicator');
             if (typingEl) typingEl.remove();
         }
-
-        await enviarUmMensagem(phone, p);
 
         // Adiciona bolha no preview
         if (previewArea && previewArea.classList.contains('wa-chat')) {
@@ -11121,98 +11151,388 @@ function refreshUazapiCreds() {
     UAZAPI_TOKEN = c.token;
 }
 
-async function carregarInbox() {
+// ===================== INBOX: todas as conversas, nomes, filtros, contexto e ao vivo =====================
+// Tudo o que vem do lead entra na tela como TEXTO (nunca como HTML): uma mensagem com código não roda no app.
+var _ibFiltro = null;
+var _ibCtx = { nomes: {}, pipe: {}, camp: {}, campNome: {}, fila: {}, carregadoEm: 0 };
+var _ibUltimas = null;               // chave -> última mensagem já vista nesta sessão (para avisar novidade)
+var _ibAoVivo = null;
+var _ibEntregas = {};
+const IB_RAPIDAS_PADRAO = ['Te mando a proposta agora mesmo.', 'Qual o melhor dia e horário para conversarmos?', 'Perfeito! Posso te ligar rapidinho?', 'Obrigado pelo retorno! Fico à disposição.'];
+
+function ibEsc(s) { return escapeHtml(String(s == null ? '' : s)); }
+function ibChave(p) { return pkTel(p); }
+function ibVistos() { return userGet('inboxVisto', {}) || {}; }
+function ibMarcarVisto(chave) { const v = ibVistos(); v[chave] = Date.now(); userSet('inboxVisto', v); }
+
+// Nomes, etapa do Pipeline, campanha e fila (no máximo a cada 2 minutos)
+async function ibCarregarContexto(forcar) {
+    if (!currentUser || (!forcar && Date.now() - _ibCtx.carregadoEm < 120000)) return;
+    const uid = currentUser.id;
+    const desde = new Date(Date.now() - 14 * 86400000).toISOString();
+    try {
+        const [leads, pipe, camps, fila] = await Promise.all([
+            prBuscarTudo(() => supabaseClient.from('leads').select('phone,title,campanha_id').eq('user_id', uid).order('id')),
+            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('phone,name,col').eq('user_id', uid).order('id')),
+            prBuscarTudo(() => supabaseClient.from('campanhas').select('id,nome').eq('user_id', uid).order('id')),
+            prBuscarTudo(() => supabaseClient.from('fila_sugestoes').select('id,phone,classificacao,status,sugestao_ia,criado_em').eq('user_id', uid).gte('criado_em', desde).order('id')),
+        ]);
+        const nomes = {}, pipeM = {}, camp = {}, campNome = {}, filaM = {};
+        camps.forEach(c => { campNome[c.id] = c.nome; });
+        leads.forEach(l => { const k = ibChave(l.phone); if (l.title) nomes[k] = l.title; if (l.campanha_id) camp[k] = l.campanha_id; });
+        pipe.forEach(p => { const k = ibChave(p.phone); if (p.name && !/^\+?\d[\d\s()-]+$/.test(p.name)) nomes[k] = nomes[k] || p.name; pipeM[k] = p.col; });
+        fila.forEach(f => { (filaM[ibChave(f.phone)] = filaM[ibChave(f.phone)] || []).push(f); });
+        _ibCtx = { nomes, pipe: pipeM, camp, campNome, fila: filaM, carregadoEm: Date.now() };
+    } catch (e) { console.warn('Inbox: contexto', e && e.message); }
+}
+
+async function carregarInbox(silencioso) {
     const lista = document.getElementById('inbox-list');
     if (!lista) return;
-    lista.innerHTML = '<div class="inbox-loading">⏳ Carregando conversas...</div>';
-
+    if (!silencioso) lista.innerHTML = '<div class="inbox-loading">⏳ Carregando conversas...</div>';
     try {
         if (!currentUser) throw new Error('Sessão não encontrada');
-        const { data, error } = await supabaseClient
-            .from('respostas_historico')
-            .select('phone, lead_nome, direcao, mensagem, criado_em')
-            .eq('user_id', currentUser.id)
-            .order('criado_em', { ascending: false })
-            .limit(500); // pega um volume bom pra montar a lista de conversas recentes
-        if (error) throw error;
-
-        // Agrupa por telefone — como já veio ordenado do mais recente pro mais antigo,
-        // a PRIMEIRA ocorrência de cada telefone já é a última mensagem daquela conversa.
-        const porTelefone = {};
-        (data || []).forEach(row => {
-            if (!porTelefone[row.phone]) {
-                porTelefone[row.phone] = {
-                    phone: row.phone,
-                    chatid: row.phone + '@s.whatsapp.net',
-                    name: row.lead_nome || row.phone,
-                    avatar: '',
-                    lastMsg: row.mensagem || '',
-                    lastTime: row.criado_em ? new Date(row.criado_em).getTime() : 0,
-                    fromMe: row.direcao === 'enviada',
-                    unread: false
-                };
-            }
+        const [linhas] = await Promise.all([
+            prBuscarTudo(() => supabaseClient.from('v_inbox_conversas').select('chave,phone,lead_nome,ultima_mensagem,ultima_direcao,ultima_em,total').eq('user_id', currentUser.id).order('ultima_em', { ascending: false })),
+            ibCarregarContexto(),
+        ]);
+        // Primeira vez: o que já estava aqui conta como visto (só o que chegar depois vira "não lida")
+        if (userGet('inboxVisto', null) === null) { const base = {}; linhas.forEach(r => { base[r.chave] = r.ultima_em ? new Date(r.ultima_em).getTime() : 0; }); userSet('inboxVisto', base); }
+        const vistos = ibVistos();
+        const conversas = linhas.map(r => {
+            const k = r.chave;
+            const fila = _ibCtx.fila[k] || [];
+            const nome = (r.lead_nome && r.lead_nome.trim()) || _ibCtx.nomes[k] || '';
+            const lastTime = r.ultima_em ? new Date(r.ultima_em).getTime() : 0;
+            const fromMe = r.ultima_direcao === 'enviada';
+            const classes = fila.map(f => f.classificacao);
+            return {
+                chave: k, phone: r.phone, chatid: r.phone + '@s.whatsapp.net', avatar: '',
+                name: nome || formatPhoneBR(r.phone), semNome: !nome,
+                lastMsg: r.ultima_mensagem || '', lastTime, fromMe, total: r.total,
+                pipeCol: _ibCtx.pipe[k] || null,
+                campanha: _ibCtx.campNome[_ibCtx.camp[k]] || '',
+                interessado: classes.includes('quente') || classes.includes('duvida') || ['negociando', 'fechado'].includes(_ibCtx.pipe[k]),
+                pare: classes.includes('pare'),
+                robo: !fromMe && (rsEhRobo(r.ultima_mensagem) || (classes.length > 0 && classes.every(c => c === 'menu'))),
+                sugestao: fila.filter(f => f.status === 'pendente' && f.sugestao_ia).sort((a, b) => String(b.criado_em).localeCompare(String(a.criado_em)))[0] || null,
+                pendentes: fila.filter(f => f.status === 'pendente').map(f => f.id),
+                unread: !fromMe && lastTime > (vistos[k] || 0) && (inboxChatAtual?.chave !== k),
+            };
         });
-        const conversas = Object.values(porTelefone).sort((a,b) => b.lastTime - a.lastTime);
-
+        // Ao vivo: avisa quem mandou mensagem nova desde a última olhada
+        if (_ibUltimas && silencioso) {
+            const novos = conversas.filter(c => !c.fromMe && c.lastTime > (_ibUltimas[c.chave] || 0) && !c.robo);
+            if (novos.length) {
+                const n = novos[0];
+                showToast((n.interessado ? '🔥 ' : '💬 ') + 'Nova mensagem de ' + n.name + (novos.length > 1 ? ` e mais ${novos.length - 1}` : ''), 'ok');
+            }
+        }
+        _ibUltimas = {}; conversas.forEach(c => { _ibUltimas[c.chave] = c.lastTime; });
+        inboxConversas = conversas;
+        if (inboxChatAtual) {
+            const atual = conversas.find(c => c.chave === inboxChatAtual.chave);
+            if (atual) { inboxChatAtual = Object.assign(inboxChatAtual, atual, { unread: false }); ibPintarCabecalho(); }
+        }
         if (!conversas.length) {
             lista.innerHTML = '<div class="inbox-empty"><div class="icon">📭</div><p>Nenhuma conversa ainda.</p></div>';
+            ibPintarFiltros();
             return;
         }
-
-        inboxConversas = conversas;
+        if (_ibFiltro === null) _ibFiltro = userGet('inboxFiltro', null) || (conversas.some(ibEsperandoVoce) ? 'esperando' : 'todas');
         renderInboxLista(inboxConversas);
-
-    } catch(e) {
-        lista.innerHTML = '<div class="inbox-empty"><div class="icon">❌</div><p>Erro ao carregar.<br>' + e.message + '</p></div>';
+    } catch (e) {
+        if (!silencioso) lista.innerHTML = '<div class="inbox-empty"><div class="icon">❌</div><p>Erro ao carregar.<br>' + ibEsc(e.message) + '</p></div>';
     }
+    ibLigarAoVivo();
+}
+function ibLigarAoVivo() {
+    if (_ibAoVivo) return;
+    _ibAoVivo = setInterval(() => {
+        if (!document.getElementById('tab-inbox')?.classList.contains('active')) return;
+        carregarInbox(true);
+    }, 20000);
+}
+
+function ibEsperandoVoce(c) { return !c.fromMe && !c.robo && !c.pare; }
+const IB_FILTROS = [
+    ['esperando', 'Esperando você', ibEsperandoVoce],
+    ['interessados', '🔥 Interessados', c => c.interessado],
+    ['naolidas', 'Não lidas', c => c.unread],
+    ['todas', 'Todas', () => true],
+];
+function ibPintarFiltros() {
+    let barra = document.getElementById('inbox-filtros');
+    if (!barra) {
+        barra = prEl('div', 'inbox-filtros'); barra.id = 'inbox-filtros';
+        const busca = document.querySelector('#inbox-sidebar .inbox-search');
+        if (busca) busca.after(barra);
+    }
+    barra.innerHTML = '';
+    IB_FILTROS.forEach(([k, t, f]) => {
+        const n = (inboxConversas || []).filter(f).length;
+        const b = prEl('button', 'inbox-filtro' + (_ibFiltro === k ? ' ativo' : ''), t + (k !== 'todas' && n ? ' ' + n : ''));
+        b.type = 'button';
+        b.onclick = () => { _ibFiltro = k; userSet('inboxFiltro', k); renderInboxLista(inboxConversas); };
+        barra.appendChild(b);
+    });
 }
 
 function renderInboxLista(conversas) {
     const lista = document.getElementById('inbox-list');
     if (!lista) return;
-
-    const termo = (document.getElementById('inbox-search-input')?.value || '').toLowerCase();
-    const filtradas = conversas.filter(c => !termo || c.name.toLowerCase().includes(termo) || c.phone.includes(termo));
-
+    ibPintarFiltros();
+    const termo = (document.getElementById('inbox-search-input')?.value || '').toLowerCase().trim();
+    const dig = termo.replace(/\D/g, '');
+    const filtro = (IB_FILTROS.find(f => f[0] === _ibFiltro) || IB_FILTROS[3])[2];
+    const filtradas = (conversas || []).filter(c => (termo ? (c.name.toLowerCase().includes(termo) || (dig.length >= 3 && String(c.phone).includes(dig))) : filtro(c)));
     if (!filtradas.length) {
-        lista.innerHTML = '<div class="inbox-empty"><div class="icon">🔍</div><p>Nenhuma conversa encontrada</p></div>';
+        lista.innerHTML = '<div class="inbox-empty"><div class="icon">🔍</div><p>' + (termo ? 'Nenhuma conversa encontrada' : 'Nada aqui agora 🎉') + '</p></div>';
         return;
     }
-
     lista.innerHTML = '';
-    filtradas.forEach(function(c) {
-        const agora = new Date();
+    const agora = new Date();
+    filtradas.forEach(c => {
         const msgDate = c.lastTime ? new Date(c.lastTime) : null;
         let hora = '';
-        if (msgDate) {
-            const isHoje = msgDate.toDateString() === agora.toDateString();
-            hora = isHoje
-                ? msgDate.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'})
-                : msgDate.toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit'});
-        }
-        const ini  = (c.name || '?').charAt(0).toUpperCase();
-        const item = document.createElement('div');
-        item.className = 'inbox-item' + (inboxChatAtual?.phone === c.phone ? ' active' : '');
-        const avatarHtml = c.avatar
-            ? '<div class="inbox-avatar"><img src="' + c.avatar + '" onerror="this.parentElement.textContent=\'' + ini + '\'"></div>'
-            : '<div class="inbox-avatar">' + ini + '</div>';
-        const preview = (c.fromMe ? '✓ ' : '') + (c.lastMsg || '').substring(0, 45);
-        item.innerHTML = avatarHtml + `
-            <div class="inbox-item-info">
-                <div class="inbox-item-row1">
-                    <span class="inbox-item-name">${c.name}</span>
-                    <span class="inbox-item-time ${c.unread ? 'unread-time' : ''}">${hora}</span>
-                </div>
-                <div class="inbox-item-row2">
-                    <span class="inbox-item-preview ${c.unread ? 'unread-preview' : ''}">${preview}</span>
-                    ${c.unread ? '<span class="inbox-unread-badge">' + (c.unreadCount || '1') + '</span>' : ''}
-                </div>
-            </div>`;
-        item.onclick = function() { abrirChat(c); };
+        if (msgDate) hora = msgDate.toDateString() === agora.toDateString()
+            ? msgDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+            : msgDate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        const item = prEl('div', 'inbox-item' + (inboxChatAtual?.chave === c.chave ? ' active' : ''));
+        item.appendChild(prEl('div', 'inbox-avatar' + (c.interessado ? ' quente' : ''), c.semNome ? '#' : (c.name || '?').charAt(0).toUpperCase()));
+        const info = prEl('div', 'inbox-item-info');
+        const r1 = prEl('div', 'inbox-item-row1');
+        r1.appendChild(prEl('span', 'inbox-item-name', (c.interessado ? '🔥 ' : '') + c.name));
+        r1.appendChild(prEl('span', 'inbox-item-time' + (c.unread ? ' unread-time' : ''), hora));
+        const r2 = prEl('div', 'inbox-item-row2');
+        r2.appendChild(prEl('span', 'inbox-item-preview' + (c.unread ? ' unread-preview' : ''), (c.fromMe ? '✓ ' : '') + String(c.lastMsg || '').replace(/\s+/g, ' ').slice(0, 60)));
+        if (ibEsperandoVoce(c)) r2.appendChild(prEl('span', 'inbox-espera' + ((Date.now() - c.lastTime) > 30 * 60000 ? ' atrasado' : ''), rsEspera(c.lastTime)));
+        if (c.unread) r2.appendChild(prEl('span', 'inbox-unread-badge', '•'));
+        info.append(r1, r2);
+        item.appendChild(info);
+        item.onclick = () => abrirChat(c);
         lista.appendChild(item);
     });
 }
+
+// Cabeçalho da conversa: quem é, etapa, campanha, há quanto tempo espera + ações rápidas
+function ibGrupo(c) { return { k: c.chave, nome: c.name, ultimo: { phone: c.phone }, itens: [] }; }
+function ibPintarCabecalho() {
+    const c = inboxChatAtual;
+    if (!c) return;
+    const nomeEl = document.getElementById('inbox-chat-name'), telEl = document.getElementById('inbox-chat-phone'), av = document.getElementById('inbox-chat-avatar');
+    if (nomeEl) nomeEl.textContent = (c.interessado ? '🔥 ' : '') + c.name;
+    if (av) av.textContent = c.semNome ? '#' : (c.name || '?').charAt(0).toUpperCase();
+    if (telEl) {
+        const etapa = c.pipeCol ? ((typeof PK_COLS !== 'undefined' && PK_COLS.find(x => x.id === c.pipeCol)?.label) || c.pipeCol) : '';
+        const partes = [c.semNome ? '' : formatPhoneBR(c.phone), etapa ? 'Pipeline: ' + etapa : '', c.campanha, ibEsperandoVoce(c) ? 'esperando há ' + rsEspera(c.lastTime) : ''].filter(Boolean);
+        telEl.textContent = partes.join(' · ');
+    }
+    let barra = document.getElementById('inbox-acoes');
+    if (!barra) {
+        barra = prEl('div', 'inbox-acoes'); barra.id = 'inbox-acoes';
+        document.querySelector('#inbox-chat-content .inbox-chat-header')?.after(barra);
+    }
+    barra.innerHTML = '';
+    const g = ibGrupo(c);
+    const sel = document.createElement('select');
+    sel.className = 'inbox-etapa';
+    sel.setAttribute('aria-label', 'Etapa no Pipeline');
+    sel.appendChild(new Option(c.pipeCol ? 'Etapa…' : 'Pôr no Pipeline…', ''));
+    (typeof PK_COLS !== 'undefined' ? PK_COLS : []).forEach(col => { const o = new Option(col.label, col.id); if (col.id === c.pipeCol) o.selected = true; sel.appendChild(o); });
+    sel.onchange = () => {
+        const v = sel.value; if (!v) return;
+        rsPipeline(g, l => { l.col = v; l.movedAt = Date.now(); if (v === 'descartado' && !l.motivoPerda) l.motivoPerda = 'sem_interesse'; }, 'Pipeline: ' + (PK_COLS.find(x => x.id === v)?.label || v));
+        c.pipeCol = v; _ibCtx.pipe[c.chave] = v; ibPintarCabecalho();
+    };
+    const painel = prEl('div', 'rs-painel inbox-painel'); painel.hidden = true;
+    let aberto = null;
+    const abrir = tipo => { aberto = aberto === tipo ? null : tipo; painel.hidden = !aberto; rsPintarPainel(painel, g, aberto); };
+    const ret = prEl('button', 'rs-link', '⏰ Retomar'); ret.type = 'button'; ret.onclick = () => abrir('retomar');
+    const reu = prEl('button', 'rs-link', '📅 Reunião'); reu.type = 'button'; reu.onclick = () => abrir('reuniao');
+    const bloq = bloqueadoLead({ phone: c.phone });
+    const nc = prEl('button', 'rs-link' + (bloq ? ' desligado' : ''), bloq ? '🚫 Em Não contatar' : '🚫 Não contatar'); nc.type = 'button'; nc.disabled = bloq;
+    nc.onclick = async () => { await rsNaoContatar(g, false); ibPintarCabecalho(); };
+    barra.append(sel, ret, reu, nc, painel);
+    ibPintarAjudas();
+}
+
+// Sugestão da IA pendente + respostas rápidas, logo acima do campo de digitar
+function ibRapidas() { const r = userGet('inboxRapidas', null); return Array.isArray(r) ? r : IB_RAPIDAS_PADRAO.slice(); }
+function ibPintarAjudas() {
+    const c = inboxChatAtual;
+    let box = document.getElementById('inbox-ajudas');
+    const area = document.querySelector('#inbox-chat-content .inbox-input-area');
+    if (!box && area) { box = prEl('div', 'inbox-ajudas'); box.id = 'inbox-ajudas'; area.before(box); }
+    if (!box || !c) return;
+    box.innerHTML = '';
+    const input = document.getElementById('inbox-input');
+    const colocar = t => { if (!input) return; input.value = t; input.dispatchEvent(new Event('input')); input.focus(); };
+    if (c.sugestao && c.sugestao.sugestao_ia) {
+        const s = prEl('div', 'inbox-sugestao');
+        s.appendChild(prEl('span', 'inbox-sug-tit', '💡 Sugestão da IA'));
+        s.appendChild(prEl('span', 'inbox-sug-txt', c.sugestao.sugestao_ia));
+        const usar = prEl('button', 'rs-btn verde', 'Usar'); usar.type = 'button'; usar.onclick = () => colocar(c.sugestao.sugestao_ia);
+        s.appendChild(usar);
+        box.appendChild(s);
+    }
+    const chips = prEl('div', 'inbox-rapidas');
+    ibRapidas().forEach((t, i) => {
+        const ch = prEl('span', 'inbox-rapida');
+        const b = prEl('button', '', t); b.type = 'button'; b.title = 'Colocar no campo'; b.onclick = () => colocar(t);
+        const x = prEl('button', 'x', '×'); x.type = 'button'; x.title = 'Apagar esta resposta rápida';
+        x.onclick = () => { const r = ibRapidas(); r.splice(i, 1); userSet('inboxRapidas', r); ibPintarAjudas(); };
+        ch.append(b, x);
+        chips.appendChild(ch);
+    });
+    const mais = prEl('button', 'inbox-rapida-mais', '＋ Salvar o texto digitado'); mais.type = 'button';
+    mais.onclick = () => { const t = (input?.value || '').trim(); if (!t) { showToast('Digite a resposta no campo e clique aqui para guardar', 'err'); return; } const r = ibRapidas(); if (!r.includes(t)) r.push(t); userSet('inboxRapidas', r.slice(-12)); ibPintarAjudas(); showToast('Resposta rápida salva', 'ok'); };
+    chips.appendChild(mais);
+    box.appendChild(chips);
+}
+
+// Leitura: ✓ enviada, ✓✓ entregue, ✓✓ azul lida (a partir de agora, pelos recibos do WhatsApp)
+async function ibCarregarEntregas(phone) {
+    const d = String(phone).replace(/\D/g, ''), t = ibChave(d);
+    try {
+        const { data } = await supabaseClient.from('entregas').select('enviado_em,status,lido_em').eq('user_id', currentUser.id).in('phone', [t, '55' + t, d]).order('enviado_em', { ascending: true }).limit(300);
+        _ibEntregas[t] = data || [];
+    } catch (e) { _ibEntregas[t] = _ibEntregas[t] || []; }
+}
+function ibRecibo(chave, quandoMs) {
+    const lista = _ibEntregas[chave] || [];
+    let melhor = null;
+    lista.forEach(e => { const dt = Math.abs(new Date(e.enviado_em).getTime() - quandoMs); if (dt < 180000 && (!melhor || dt < melhor.dt)) melhor = { dt, e }; });
+    return melhor ? melhor.e.status : null;
+}
+
+async function atualizarMensagens() {
+    if (!inboxChatAtual) return;
+    const area = document.getElementById('inbox-messages');
+    if (!area || !currentUser) return;
+    try {
+        const c = inboxChatAtual;
+        const d = String(c.phone).replace(/\D/g, ''), t = ibChave(d);
+        const [{ data, error }] = await Promise.all([
+            supabaseClient.from('respostas_historico').select('direcao, mensagem, criado_em').eq('user_id', currentUser.id).in('phone', Array.from(new Set([d, t, '55' + t]))).order('criado_em', { ascending: true }).limit(300),
+            ibCarregarEntregas(c.phone),
+        ]);
+        if (error) return;
+        let msgs = (data || []).map(r => ({ fromMe: r.direcao === 'enviada', ts: r.criado_em ? new Date(r.criado_em).getTime() : Date.now(), text: r.mensagem || '' }));
+        // A conversa começa pela mensagem da campanha (antes começava direto na resposta do lead)
+        try {
+            const st = await iaStatusGeral();
+            const env = (st.rows || []).filter(r => r.status === 'enviado' && r.mensagem && ibChave(r.phone) === t);
+            if (env.length) {
+                const r0 = env[0];
+                const quando = r0.created_at ? new Date(r0.created_at).getTime() : (msgs[0] ? msgs[0].ts - 60000 : Date.now());
+                msgs.unshift({ fromMe: true, ts: Math.min(quando, msgs[0] ? msgs[0].ts - 1 : quando), text: r0.mensagem, campanha: true });
+            }
+        } catch (e) {}
+        const noFundo = area.scrollHeight - area.scrollTop - area.clientHeight < 60;
+        area.innerHTML = '';
+        let ultimaData = '';
+        const hoje = new Date().toLocaleDateString('pt-BR'), ontem = new Date(Date.now() - 86400000).toLocaleDateString('pt-BR');
+        msgs.forEach(m => {
+            const dt = new Date(m.ts);
+            const dataStr = dt.toLocaleDateString('pt-BR');
+            if (dataStr !== ultimaData) {
+                ultimaData = dataStr;
+                const sep = prEl('div', 'inbox-date-sep');
+                sep.appendChild(prEl('span', '', dataStr === hoje ? 'Hoje' : dataStr === ontem ? 'Ontem' : dataStr));
+                area.appendChild(sep);
+            }
+            const b = prEl('div', 'inbox-bubble ' + (m.fromMe ? 'me' : 'them') + (m.campanha ? ' campanha' : ''));
+            if (m.campanha) b.appendChild(prEl('div', 'inbox-bubble-rotulo', 'Mensagem da campanha'));
+            const txt = String(m.text || '');
+            if (!txt.replace(/[\s‎‏​]/g, '')) b.appendChild(prEl('span', 'inbox-midia', '📎 Áudio, foto ou figurinha (veja no WhatsApp)'));
+            else b.appendChild(prEl('span', '', txt));
+            const pe = prEl('div', 'inbox-bubble-footer');
+            pe.appendChild(prEl('span', 'inbox-bubble-time', dt.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })));
+            if (m.fromMe) {
+                const st = ibRecibo(t, m.ts);
+                const tick = prEl('span', 'inbox-bubble-tick' + (st === 4 ? ' read' : ''), st === 1 ? '✓' : '✓✓');
+                tick.title = st === 4 ? 'Lida' : st === 3 ? 'Entregue' : st === 1 ? 'Enviada' : '';
+                pe.appendChild(tick);
+            }
+            b.appendChild(pe);
+            area.appendChild(b);
+        });
+        if (noFundo || !area.dataset.rolou) { area.scrollTop = area.scrollHeight; area.dataset.rolou = '1'; }
+        ibMarcarVisto(t);
+    } catch (e) {}
+}
+
+// Antes de enviar: Não contatar / pediu para parar, e trecho [entre colchetes] sem preencher
+function ibPodeEnviar(texto) {
+    const c = inboxChatAtual;
+    if (/\[[^\]\n]{1,40}\]/.test(texto)) { showToast('Preencha o trecho entre [colchetes] antes de enviar', 'err'); return false; }
+    if (c && (c.pare || bloqueadoLead({ phone: c.phone }))) {
+        return confirm((c.name || 'Este contato') + ' está na lista Não contatar ou pediu para não receber mensagens. Enviar mesmo assim?');
+    }
+    return true;
+}
+// Respondeu pelo Inbox: a conversa sai da fila de Respostas (antes ficava pendente e acabava descartada)
+async function ibTirarDaFila(c) {
+    const ids = (c.pendentes || []).slice();
+    const k = c.chave;
+    _filaSugestoesCache.filter(i => ibChave(i.phone) === k).forEach(i => { if (!ids.includes(i.id)) ids.push(i.id); });
+    if (!ids.length) return;
+    try {
+        await supabaseClient.from('fila_sugestoes').update({ status: 'respondido_inbox', respondido_em: new Date().toISOString() }).in('id', ids);
+        _filaSugestoesCache = _filaSugestoesCache.filter(i => !ids.includes(i.id));
+        c.pendentes = []; c.sugestao = null;
+        atualizarBadgeRespostas();
+        ibPintarAjudas();
+    } catch (e) { console.warn('Inbox: fila', e && e.message); }
+}
+
+// ---------- Aviso de WhatsApp desconectado (o servidor grava o estado da conexão) ----------
+var _waAvisado = false;
+async function waChecarConexao() {
+    if (!currentUser) return;
+    try {
+        const { data } = await supabaseClient.from('whatsapp_status').select('conectado,qr_pendente,motivo,desde').eq('user_id', currentUser.id).limit(1);
+        const s = data && data[0];
+        let aviso = document.getElementById('wa-aviso');
+        const caiu = s && !s.conectado && (Date.now() - new Date(s.desde).getTime() > 60000);   // queda de segundos não assusta
+        if (!caiu) { if (aviso) aviso.hidden = true; _waAvisado = false; document.documentElement.style.setProperty('--wa-aviso-h', '0px'); return; }
+        if (!aviso) {
+            aviso = prEl('div', 'wa-aviso'); aviso.id = 'wa-aviso'; aviso.setAttribute('role', 'alert');
+            const main = document.querySelector('.main');
+            const topo = main && main.querySelector('.topbar');
+            if (topo) topo.after(aviso); else document.body.prepend(aviso);
+        }
+        aviso.innerHTML = '';
+        const desde = new Date(s.desde);
+        const quando = desde.toDateString() === new Date().toDateString() ? 'desde ' + desde.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : 'desde ' + desde.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+        aviso.appendChild(prEl('span', '', `⚠️ WhatsApp desconectado ${quando}${s.qr_pendente ? ': leia o QR code para voltar' : ''}. As campanhas ficam pausadas até reconectar.`));
+        const b = prEl('button', '', 'Conectar agora'); b.type = 'button';
+        b.onclick = () => { trocarAba('integracoes', document.querySelector(`.nav-item[onclick*="'integracoes'"]`)); setTimeout(() => { try { gerarQRCodeUazapi(); } catch (e) {} }, 300); };
+        aviso.appendChild(b);
+        aviso.hidden = false;
+        document.documentElement.style.setProperty('--wa-aviso-h', aviso.offsetHeight + 'px');   // o Inbox desconta a altura do aviso
+        if (!_waAvisado) {
+            _waAvisado = true;
+            try { _notificarSistema('WhatsApp desconectado', 'Leia o QR code para as campanhas voltarem.'); } catch (e) {}
+        }
+    } catch (e) { /* tabela ainda não existe ou sem rede: sem aviso */ }
+}
+setInterval(waChecarConexao, 60000);
+window.addEventListener('load', () => setTimeout(waChecarConexao, 4000));
+
+// ---------- Leitura nas Campanhas ----------
+var _cpEntregas = null;
+async function cpCarregarEntregas() {
+    if (!currentUser || (_cpEntregas && Date.now() - _cpEntregas.t < 120000)) return;
+    try {
+        const linhas = await prBuscarTudo(() => supabaseClient.from('entregas').select('phone,status,enviado_em').eq('user_id', currentUser.id).order('msg_id'));
+        const m = {};
+        linhas.forEach(e => { const k = prTel(e.phone); if (!m[k] || e.status > m[k].status) m[k] = e; });
+        _cpEntregas = { t: Date.now(), m };
+    } catch (e) { _cpEntregas = { t: Date.now(), m: {} }; }
+}
+function cpLeu(l) { const e = _cpEntregas && _cpEntregas.m[prTel(l.phone)]; return !!(e && e.status >= 4); }
 
 async function abrirChat(conversa) {
     inboxChatAtual = conversa;
@@ -11228,21 +11548,20 @@ async function abrirChat(conversa) {
     }
 
     // Atualiza header
-    const avatarEl = document.getElementById('inbox-chat-avatar');
-    if (conversa.avatar) {
-        avatarEl.innerHTML = '<img src="' + conversa.avatar + '" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.textContent=\'' + conversa.name.charAt(0).toUpperCase() + '\'">';
-    } else {
-        avatarEl.textContent = conversa.name.charAt(0).toUpperCase();
-    }
+    document.getElementById('inbox-chat-avatar').textContent = (conversa.name || '?').charAt(0).toUpperCase();
     document.getElementById('inbox-chat-name').textContent   = conversa.name;
     document.getElementById('inbox-chat-phone').textContent  = conversa.phone || conversa.chatid?.replace('@s.whatsapp.net','');
+    const _area = document.getElementById('inbox-messages'); if (_area) { _area.innerHTML = ''; delete _area.dataset.rolou; }
+    if (conversa.chave) ibMarcarVisto(conversa.chave);
 
     document.getElementById('inbox-chat-empty').style.display   = 'none';
     document.getElementById('inbox-chat-content').style.display = 'flex';
 
     // Atualiza lista (remove unread)
     inboxConversas = inboxConversas.map(c => c.phone === conversa.phone ? {...c, unread: false} : c);
+    inboxChatAtual = inboxConversas.find(c => c.phone === conversa.phone) || conversa;
     renderInboxLista(inboxConversas);
+    ibPintarCabecalho();
 
     // Carrega mensagens
     await atualizarMensagens();
@@ -11265,118 +11584,6 @@ function voltarInboxLista() {
     inboxChatAtual = null;
 }
 
-async function atualizarMensagens() {
-    if (!inboxChatAtual) return;
-    const area = document.getElementById('inbox-messages');
-    if (!area) return;
-
-    try {
-        if (!currentUser) return;
-        const { data, error } = await supabaseClient
-            .from('respostas_historico')
-            .select('direcao, mensagem, criado_em')
-            .eq('user_id', currentUser.id)
-            .eq('phone', inboxChatAtual.phone)
-            .order('criado_em', { ascending: true })
-            .limit(200);
-        if (error) return;
-
-        // Mapeia pro mesmo formato que a renderização de bolhas abaixo já espera
-        const msgs = (data || []).map(row => ({
-            fromMe: row.direcao === 'enviada',
-            messageTimestamp: row.criado_em ? new Date(row.criado_em).getTime() : Date.now(),
-            type: 'text',
-            text: row.mensagem || ''
-        }));
-
-        area.innerHTML = '';
-        let ultimaData = '';
-        msgs.forEach(function(msg) {
-            const isMe   = msg.fromMe;
-            const msgDate = new Date(msg.messageTimestamp);
-            const dataStr = msgDate.toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric'});
-
-            // Separador de data
-            if (dataStr !== ultimaData) {
-                ultimaData = dataStr;
-                const hoje  = new Date().toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric'});
-                const ontem = new Date(Date.now()-86400000).toLocaleDateString('pt-BR', {day:'2-digit',month:'2-digit',year:'numeric'});
-                const sep = document.createElement('div');
-                sep.className = 'inbox-date-sep';
-                sep.innerHTML = '<span>' + (dataStr === hoje ? 'Hoje' : dataStr === ontem ? 'Ontem' : dataStr) + '</span>';
-                area.appendChild(sep);
-            }
-
-            const hora     = msgDate.toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit'});
-            const tick    = isMe ? '✓✓' : '';
-            const tickCls = isMe && msg.status === 'Read' ? 'read' : '';
-            const footer  = '<div class="inbox-bubble-footer"><span class="inbox-bubble-time">' + hora + '</span>' +
-                            (isMe ? '<span class="inbox-bubble-tick ' + tickCls + '">' + tick + '</span>' : '') + '</div>';
-
-            const bubble = document.createElement('div');
-            bubble.className = 'inbox-bubble ' + (isMe ? 'me' : 'them');
-
-            // Detecta tipo de mensagem
-            const tipo = msg.type || msg.messageType || 'text';
-            const mediaUrl = msg.mediaUrl || msg.url || (msg.content && msg.content.url) || '';
-            const fileName = msg.fileName || msg.docName || (msg.content && msg.content.fileName) || 'Arquivo';
-            const caption  = msg.caption || msg.text || (msg.content && msg.content.text) || '';
-
-            if (tipo === 'imageMessage' || tipo === 'image') {
-                // Imagem
-                const src = mediaUrl || '';
-                bubble.innerHTML = (src ? '<img class="inbox-bubble-img" src="' + src + '" onclick="window.open(this.src)" onerror="this.style.display=&apos;none&apos;">' : '') +
-                    (caption ? '<span>' + caption + '</span>' : '') + footer;
-
-            } else if (tipo === 'documentMessage' || tipo === 'document') {
-                // Documento
-                const ext = fileName.split('.').pop().toUpperCase() || 'DOC';
-                const colors = { PDF:'#e53935', DOC:'#0F4DB5', DOCX:'#0F4DB5', XLS:'#2e7d32', XLSX:'#2e7d32', PPT:'#CC5500', ZIP:'#6a1b9a' };
-                const cor = colors[ext] || '#546e7a';
-                bubble.innerHTML = '<div class="inbox-bubble-doc">' +
-                    '<div class="doc-icon" style="background:' + cor + '">' + ext.charAt(0) + '</div>' +
-                    '<div class="doc-info"><div class="doc-name">' + fileName + '</div><div class="doc-size">' + ext + ' · Documento</div></div>' +
-                    (mediaUrl ? '<a href="' + mediaUrl + '" target="_blank" style="color:#00a884;font-size:1.1rem;text-decoration:none;">⬇️</a>' : '') +
-                    '</div>' + (caption ? '<span>' + caption + '</span>' : '') + footer;
-
-            } else if (tipo === 'audioMessage' || tipo === 'audio' || tipo === 'pttMessage' || tipo === 'ptt') {
-                // Áudio / PTT — estilo WhatsApp com barras Hz
-                const bars = Array.from({length:30}, () =>
-                    `<div style="width:3px;background:${isMe?'#00a884':'#7888A8'};border-radius:2px;height:${3+Math.random()*14}px;flex-shrink:0;"></div>`
-                ).join('');
-                const playId = 'play-' + Date.now() + Math.random().toString(36).slice(2);
-                bubble.innerHTML = `<div class="inbox-bubble-audio">
-                    <button class="audio-play" id="${playId}" onclick="playAudioBubble(this,'${mediaUrl}')" style="background:${isMe?'#00a884':'#00a884'};">▶</button>
-                    <div style="flex:1;display:flex;align-items:center;gap:1.5px;height:24px;overflow:hidden;">${bars}</div>
-                    <span class="audio-dur">0:00</span>
-                </div>${footer}`;
-
-            } else if (tipo === 'videoMessage' || tipo === 'video') {
-                // Vídeo
-                bubble.innerHTML = (mediaUrl ? '<video controls style="max-width:100%;border-radius:6px;display:block;margin-bottom:4px;" src="' + mediaUrl + '"></video>' : '<span>🎥 Vídeo</span>') +
-                    (caption ? '<span>' + caption + '</span>' : '') + footer;
-
-            } else {
-                // Texto normal ou mídia não identificada
-                const texto = msg.text || (msg.content && msg.content.text) || '';
-                if (texto) {
-                    bubble.innerHTML = '<span>' + texto.replace(/\n/g,'<br>') + '</span>' + footer;
-                } else if (mediaUrl) {
-                    // Tenta mostrar como imagem
-                    bubble.innerHTML = '<img class="inbox-bubble-img" src="' + mediaUrl + '" onclick="window.open(this.src)" onerror="this.outerHTML=\'<span>📎 Mídia</span>\'">' + footer;
-                } else {
-                    bubble.innerHTML = '<span>📎 Mídia</span>' + footer;
-                }
-            }
-
-            area.appendChild(bubble);
-        });
-
-        area.scrollTop = area.scrollHeight;
-
-    } catch(e) {}
-}
-
 async function enviarMensagemInbox() {
     if (!inboxChatAtual) return;
     const input = document.getElementById('inbox-input');
@@ -11388,6 +11595,7 @@ async function enviarMensagemInbox() {
         showToast('Configure o servidor WhatsApp em Integrações primeiro', 'err');
         return;
     }
+    if (!ibPodeEnviar(texto)) return;
 
     btn.disabled = true;
     input.value  = '';
@@ -11400,7 +11608,7 @@ async function enviarMensagemInbox() {
         const agora = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
         const bubble = document.createElement('div');
         bubble.className = 'inbox-bubble me';
-        bubble.innerHTML = '<span>' + texto.replace(/\n/g,'<br>') + '</span>' +
+        bubble.innerHTML = '<span>' + escapeHtml(texto).replace(/\n/g,'<br>') + '</span>' +
             `<div class="inbox-bubble-footer"><span class="inbox-bubble-time">${agora}</span><span class="inbox-bubble-tick" id="${tickId}">🕐</span></div>`;
         area.appendChild(bubble);
         area.scrollTop = area.scrollHeight;
@@ -11423,6 +11631,7 @@ async function enviarMensagemInbox() {
                     direcao: 'enviada', mensagem: texto, criado_em: new Date().toISOString()
                 });
             } catch (e) { console.warn('Erro ao salvar no histórico:', e.message); }
+            ibTirarDaFila(inboxChatAtual);
             // Atualiza preview na lista
             inboxConversas = inboxConversas.map(c =>
                 c.phone === inboxChatAtual.phone ? {...c, lastMsg: texto, fromMe: true, lastTime: Date.now()} : c
@@ -11544,10 +11753,10 @@ async function confirmarMidiaInbox() {
     } else if (tipo === 'document') {
         bubble.innerHTML = `<div class="inbox-bubble-doc">
             <div class="doc-icon" style="background:${colors[ext]||'#546e7a'}">${ext.charAt(0)}</div>
-            <div class="doc-info"><div class="doc-name">${file.name}</div><div class="doc-size">${ext} · ${(file.size/1024).toFixed(0)} KB</div></div>
+            <div class="doc-info"><div class="doc-name">${escapeHtml(file.name)}</div><div class="doc-size">${ext} · ${(file.size/1024).toFixed(0)} KB</div></div>
         </div>${footer}`;
     } else {
-        bubble.innerHTML = `<span>🎵 ${file.name}</span>${footer}`;
+        bubble.innerHTML = `<span>🎵 ${escapeHtml(file.name)}</span>${footer}`;
     }
     if (area) { area.appendChild(bubble); area.scrollTop = area.scrollHeight; }
 
@@ -13515,6 +13724,7 @@ const CP_FU_TEXTO = 'Oi! Passando para retomar minha mensagem de alguns dias atr
 
 function _cpData(iso) { return iso ? new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : ''; }
 async function cpCarregar(forcar) {
+    cpCarregarEntregas().then(() => { if (_cpEntregas && Object.keys(_cpEntregas.m).length && typeof cpRender === 'function') cpRender(); }).catch(() => {});
     if (!currentUser || typeof prBuscarTudo !== 'function') return;
     cpAoVivo();
     if (!forcar && Date.now() - _cpCarregadoEm < 60 * 1000 && _cpDados) { cpRender(); return; }
@@ -13665,7 +13875,7 @@ function cpStatusLead(l) {
 }
 function cpAbaLeads(g, corpo) {
     const filtros = prEl('div', 'pk-motivos');
-    [['todos', 'Todos'], ['int', 'Interessados'], ['hum', 'Responderam'], ['robo', 'Só robô'], ['nada', 'Sem resposta']].forEach(([k, n]) => {
+    [['todos', 'Todos'], ['int', 'Interessados'], ['hum', 'Responderam'], ['robo', 'Só robô'], ['nada', 'Sem resposta'], ['leu', 'Leram e não responderam']].forEach(([k, n]) => {
         const b = prEl('button', 'ps-sug sin', n); b.type = 'button'; b.setAttribute('aria-pressed', String(_cpFiltroLead === k));
         b.addEventListener('click', () => { _cpFiltroLead = k; cpRender(); });
         filtros.appendChild(b);
@@ -13675,7 +13885,7 @@ function cpAbaLeads(g, corpo) {
     const lista = g.leads.slice().sort((a, b) => String(b.enviado_em).localeCompare(String(a.enviado_em))).filter(l => {
         const t = prTel(l.phone); if (vistos.has(t)) return false; vistos.add(t);
         const s = cpStatusLead(l);
-        return _cpFiltroLead === 'todos' || (_cpFiltroLead === 'int' && s.int) || (_cpFiltroLead === 'hum' && s.hum) || (_cpFiltroLead === 'robo' && s.robo) || (_cpFiltroLead === 'nada' && !s.hum && !s.robo);
+        return _cpFiltroLead === 'todos' || (_cpFiltroLead === 'int' && s.int) || (_cpFiltroLead === 'hum' && s.hum) || (_cpFiltroLead === 'robo' && s.robo) || (_cpFiltroLead === 'nada' && !s.hum && !s.robo) || (_cpFiltroLead === 'leu' && cpLeu(l) && !s.hum);
     });
     const wrap = prEl('div', 'cp-tabela-wrap');
     const tab = prEl('table', 'cp-tabela');
@@ -13690,6 +13900,7 @@ function cpAbaLeads(g, corpo) {
         const td3 = prEl('td');
         if (s.int) td3.appendChild(prEl('span', 'cp-st int', '🔥 Interessado'));
         td3.appendChild(prEl('span', 'cp-st ' + (s.sair ? 'sair' : s.hum ? 'hum' : s.robo ? 'robo' : 'nada'), s.sair ? 'Pediu para sair' : s.hum ? 'Respondeu' : s.robo ? 'Só robô' : 'Sem resposta'));
+        if (!s.hum && cpLeu(l)) td3.appendChild(prEl('span', 'cp-st leu', '👁 Leu'));
         tr.appendChild(td3);
         const td4 = prEl('td'); td4.innerHTML = typeof faseDoFunilPorTelefone === 'function' ? faseDoFunilPorTelefone(l.phone) : ''; tr.appendChild(td4);
         const td5 = prEl('td', 'cp-acoes-lead');
