@@ -153,3 +153,65 @@ test('limite de aparelhos: liberado fica; passou do limite sai sozinho e avisa',
     assert.match(await a.pagina.textContent('#login-msg'), /outro aparelho.*2 aparelhos/);
   } finally { await a.fechar(); }
 });
+
+test('Instagram: botão discreto, DM da IA, copia e abre o perfil, registra e põe no Pipeline', async () => {
+  const a = await abrirApp({ largura: 1280, rotas: [[/\/ia$/, () => ({ texto: '"Oi, Clínica Sol! Vi a nota 4,8 no Google. Ajudo clínicas a lotar a agenda. Posso te mostrar em 2 min?"' })]] });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      config.uazapi = { url: 'https://srv.test', token: 't' }; config.iaProvider = 'openai';
+      window._abertos = []; window.open = (u) => { window._abertos.push(u); return null; };
+      let copiado = ''; Object.defineProperty(navigator, 'clipboard', { value: { writeText: async t => { copiado = t; } }, configurable: true });
+      window._copiado = () => copiado;
+      trocarAba('prospeccao', document.querySelector(`.nav-item[onclick*="'prospeccao'"]`));
+      const leads = [
+        { title: 'Clínica Sol', category: 'Dentista', rating: 4.8, reviews: 120, phone: '1133334444', is_whatsapp: false, instagram: 'https://www.instagram.com/clinicasol/' },
+        { title: 'Pet Feliz', category: 'Pet shop', phone: '11988887777', is_whatsapp: true, instagram: 'https://instagram.com/petfeliz' },
+        { title: 'Sem Rede', category: 'Padaria', phone: '11977776666', is_whatsapp: true },
+      ];
+      todosLeads = leads; _leadsBase = leads.slice(); _igFeitos = new Set(); _igHoje = 0;
+      renderPagina(1); atualizarAcoesBusca();
+      const botoes = document.querySelectorAll('#tabela .tag-igdm').length;
+      const coloridos = document.querySelectorAll('#tabela .tag-ig').length;
+      const fila = document.getElementById('ps-btn-ig').textContent;
+      // filtro "Só Instagram (sem WhatsApp)"
+      alternarFiltroExtra('insta'); const soInsta = document.querySelectorAll('#tabela tr .tag-igdm').length; alternarFiltroExtra('insta');
+      return { botoes, coloridos, fila, soInsta, primeiro: igFila()[0].title };
+    });
+    assert.strictEqual(r.botoes, 2, 'botão só em quem tem Instagram');
+    assert.strictEqual(r.coloridos, 0, 'sem o logo colorido na linha');
+    assert.match(r.fila, /Abordar no Instagram \(2\)/);
+    assert.strictEqual(r.soInsta, 1);
+    assert.strictEqual(r.primeiro, 'Clínica Sol', 'quem não tem WhatsApp vem primeiro');
+
+    await a.pagina.evaluate(() => igAbrirFila());
+    await a.pagina.waitForSelector('.ig-modal .ig-texto:not([disabled])');
+    assert.match(await a.pagina.inputValue('.ig-modal .ig-texto'), /^Oi, Clínica Sol!/);
+    assert.match(await a.pagina.textContent('.ig-modal'), /1 de 2/);
+    await a.pagina.click('.ig-modal button:has-text("Copiar e abrir perfil")');
+    await a.pagina.waitForSelector('.ig-modal button:has-text("Mandei")');
+    const r2 = await a.pagina.evaluate(() => ({ abertos: window._abertos, copiado: window._copiado() }));
+    assert.deepStrictEqual(r2.abertos, ['https://www.instagram.com/clinicasol/']);
+    assert.match(r2.copiado, /Clínica Sol/);
+    await a.pagina.click('.ig-modal button:has-text("Mandei")');
+    await a.pagina.waitForTimeout(400);
+    assert.match(await a.pagina.textContent('.ig-modal'), /2 de 2/);
+    const r3 = await a.pagina.evaluate(() => ({
+      reg: (_db.abordagens_instagram || []).map(x => x.chave),
+      card: pkLeads.find(k => k.name === 'Clínica Sol'),
+      hoje: _igHoje,
+    }));
+    assert.deepStrictEqual(r3.reg, ['clinicasol']);
+    assert.strictEqual(r3.card.col, 'contatado');
+    assert.strictEqual(r3.card.canal, 'instagram');
+    assert.ok(r3.card.proximaAcaoEm > Date.now(), 'lembrete para conferir a resposta');
+    assert.strictEqual(r3.hoje, 1);
+    // Pular o segundo fecha a fila sem registrar
+    await a.pagina.click('.ig-modal button:has-text("Pular")');
+    assert.match(await a.pagina.textContent('.ig-modal'), /concluída/);
+    await a.pagina.click('.ig-modal button:has-text("Fechar")');
+    const r4 = await a.pagina.evaluate(() => ({ fila: igFila().length, feito: document.querySelectorAll('#tabela .tag-igdm.feito').length }));
+    assert.strictEqual(r4.fila, 1, 'quem já foi abordado sai da fila');
+    assert.strictEqual(r4.feito, 1, 'linha mostra que já foi abordado');
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});

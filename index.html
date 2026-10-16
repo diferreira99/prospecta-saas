@@ -270,6 +270,27 @@
         .tag-site { background: var(--accent-light); color: var(--accent); border: 1px solid #C2D8FF; }
         .tag-rede { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; text-decoration: none; flex: 0 0 auto; transition: transform .15s, opacity .15s; }
         .tag-rede:hover { opacity: .85; transform: translateY(-1px); }
+        .tag-igdm { background: #fff; border: 1.5px solid var(--border); color: #8a94a8; cursor: pointer; padding: 0; }
+        .tag-igdm:hover { opacity: 1; color: #E1306C; border-color: #F3B4CB; background: #FFF5F8; }
+        .tag-igdm.feito { color: #E1306C; border-color: #F3B4CB; background: #FFF5F8; }
+        .pk-chip-ig { display: inline-flex; align-items: center; gap: 3px; background: #FFF5F8; color: #C13584; }
+        .pk-chip-ig svg { width: 11px; height: 11px; }
+        .ps-acao-ig { display: inline-flex; align-items: center; gap: 6px; }
+        .ps-acao-ig svg { color: #C13584; }
+        .ig-modal { max-width: 460px; }
+        .ig-topo { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .ig-topo .modal-title { display: flex; align-items: center; gap: 8px; }
+        .ig-topo .modal-title svg { color: #C13584; width: 18px; height: 18px; }
+        .ig-pos { font-size: .72rem; font-weight: 700; color: var(--muted); }
+        .ig-quem { font-size: .82rem; color: var(--text); margin: 6px 0 8px; }
+        .ig-quem span { color: var(--muted); }
+        .ig-cont { font-size: .72rem; color: var(--muted); display: flex; gap: 8px; align-items: center; }
+        .ig-cont.passou { color: #dc2626; font-weight: 700; }
+        .ig-link { background: none; border: none; color: #165DFF; font-size: .72rem; cursor: pointer; padding: 0; text-decoration: underline; }
+        .ig-aviso { margin: 8px 0; padding: 8px 10px; border-radius: 8px; background: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; font-size: .75rem; }
+        .ig-rot { font-size: .7rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin: 10px 0 4px; }
+        .ig-texto { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-family: Inter, sans-serif; font-size: .85rem; background: var(--surface); color: var(--text); resize: vertical; }
+        .ig-passo { font-size: .74rem; color: var(--muted); margin: 6px 0 2px; }
         .tag-ig { background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%); }
         .tag-fb { background: #1877F2; }
         .tag-in { background: #0A66C2; }
@@ -1714,6 +1735,7 @@ function aplicarDadosUsuario(nome, email) {
             if (promptSalvo) el.value = promptSalvo;
         }
         prodCarregar();
+        if (typeof igCarregarFeitos === "function") igCarregarFeitos(true);
     }, 400);
 
     // Restaurar últimos leads prospectados
@@ -2057,6 +2079,7 @@ function iniciarAppPosLogin() {
                     <button type="button" class="ps-chip" id="pf-novidade" aria-pressed="false" onclick="alternarFiltroExtra('novidade')" title="Empresas que não apareciam na última vez que você fez esta mesma busca" hidden>✨ Novidades</button>
                     <button type="button" class="ps-chip" id="pf-celular" aria-pressed="false" onclick="alternarFiltroExtra('celular')" title="Celular costuma ser o próprio dono">📱 Só celular</button>
                     <button type="button" class="ps-chip" id="pf-whats" aria-pressed="false" onclick="alternarFiltroExtra('whats')" title="Só quem tem WhatsApp confirmado">✅ WhatsApp confirmado</button>
+                    <button type="button" class="ps-chip" id="pf-insta" aria-pressed="false" onclick="alternarFiltroExtra('insta')" title="Tem Instagram e não tem WhatsApp: hoje ficam de fora das campanhas">Só Instagram (sem WhatsApp)</button>
                     <button type="button" class="ps-chip" id="pf-negativa" aria-pressed="false" onclick="alternarFiltroExtra('negativa')" title="Tem avaliação de 1 ou 2 estrelas: dor visível, bom gancho para a conversa">⭐ Avaliação negativa</button>
                 </div>
                 <div class="stats-right">
@@ -2075,6 +2098,7 @@ function iniciarAppPosLogin() {
                 <button type="button" class="ps-acao principal" id="ps-btn-melhores" onclick="campanhaComMelhores()"></button>
                 <button type="button" class="ps-acao" id="ps-btn-cidade" onclick="mesmaBuscaOutraCidade()">🔁 Mesma busca em outra cidade</button>
                 <button type="button" class="ps-acao" id="ps-btn-fundo" onclick="buscarMaisFundo()" hidden>🔎 Buscar mais nesta cidade</button>
+                <button type="button" class="ps-acao ps-acao-ig" id="ps-btn-ig" onclick="igAbrirFila()" hidden></button>
                 <button type="button" class="ps-acao" id="ps-btn-bloq" onclick="abrirNaoContatar()">🚫 Não contatar</button>
                 <button type="button" class="ps-acao" id="ps-btn-grupos" onclick="abrirGrupos('leads')">👥 Leads de grupos</button>
                 <span class="ps-acoes-dica" id="ps-acoes-dica"></span>
@@ -2706,7 +2730,8 @@ async function pkSincronizarParaNuvem() {
             proxima_acao_em: l.proximaAcaoEm ? new Date(l.proximaAcaoEm).toISOString() : null,
             proxima_acao_txt: l.proximaAcaoTxt || null,
             reuniao_em: l.reuniaoEm ? new Date(l.reuniaoEm).toISOString() : null,
-            motivo_perda: l.col === 'descartado' ? (l.motivoPerda || null) : null
+            motivo_perda: l.col === 'descartado' ? (l.motivoPerda || null) : null,
+            canal: l.canal || null, instagram: l.instagram || null
         }));
         const idsAtuais = rows.map(r => r.id);
 
@@ -2748,7 +2773,8 @@ async function pkSincronizarDaNuvem() {
                 proximaAcaoEm: r.proxima_acao_em ? new Date(r.proxima_acao_em).getTime() : null,
                 proximaAcaoTxt: r.proxima_acao_txt || '',
                 reuniaoEm: r.reuniao_em ? new Date(r.reuniao_em).getTime() : null,
-                motivoPerda: r.motivo_perda || null
+                motivoPerda: r.motivo_perda || null,
+                canal: r.canal || null, instagram: r.instagram || null
             }));
             userSet('pk_leads', pkLeads); // mantém o cache local coerente com a nuvem
             if (document.getElementById('tab-pipeline')?.classList.contains('active') && typeof pkRender === 'function') pkRender();
@@ -3679,6 +3705,7 @@ function pkRender() {
                         <span class="pk-card-days" title="Dias nesta etapa" style="background:${dc.bg};color:${dc.color};padding:2px 6px;border-radius:5px;font-size:0.55rem;font-weight:700;">${dias}d</span>
                         <span class="pk-card-rapidos">
                             ${lead.phone ? `<button type="button" class="tag-rede tag-zap pk-rapido" data-acao="wa" title="Abrir conversa no WhatsApp" aria-label="Abrir conversa no WhatsApp">${_LOGO_REDE.whatsapp}</button>` : ''}
+                            ${igHandle(lead.instagram) ? `<button type="button" class="tag-rede tag-igdm pk-rapido" data-acao="ig" title="${lead.canal === 'instagram' ? 'Abrir o Instagram' : 'Abordar pelo Instagram'}" aria-label="Instagram">${_IG_GLIFO}</button>` : ''}
                             ${pkProximaEtapa(lead.col) ? `<button type="button" class="pk-rapido pk-avancar" data-acao="avancar" title="Mover para ${PK_COLS.find(c => c.id === pkProximaEtapa(lead.col)).label}" aria-label="Mover para a próxima etapa">→</button>` : ''}
                         </span>
                     </div>
@@ -3687,6 +3714,7 @@ function pkRender() {
                 card.querySelectorAll('.pk-rapido').forEach(b => b.addEventListener('click', e => {
                     e.stopPropagation();
                     if (b.dataset.acao === 'wa') pkOpenWA(lead.id);
+                    else if (b.dataset.acao === 'ig') { if (lead.canal === 'instagram') window.open(igUrl(lead), '_blank', 'noopener'); else igAbordarCard(lead.id); }
                     else pkMoverEtapa(lead.id, pkProximaEtapa(lead.col));
                 }));
                 card.querySelector('.pk-edit-btn').addEventListener('click', e => { e.stopPropagation(); pkAbrirDetail(lead.id); });
@@ -4081,6 +4109,7 @@ function pkChipsCard(l, acao) {
     if (l.reuniaoEm) out.push(`<span class="pk-chip pk-chip-reuniao">📅 ${new Date(l.reuniaoEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>`);
     if (l.valor > 0) out.push(`<span class="pk-chip pk-chip-valor">${_brl(l.valor)}</span>`);
     if (l.col === 'descartado' && l.motivoPerda) { const m = PK_MOTIVOS.find(x => x[0] === l.motivoPerda); if (m) out.push(`<span class="pk-chip">${m[1]}</span>`); }
+    if (l.canal === 'instagram') out.push(`<span class="pk-chip pk-chip-ig" title="Primeiro contato pelo Instagram">${_IG_GLIFO} Instagram</span>`);
     return out.length ? `<div class="pk-chips">${out.join('')}</div>` : '';
 }
 
@@ -6306,8 +6335,9 @@ const _LOGO_REDE = {
     linkedin:  `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><circle cx="6.6" cy="6.4" r="1.9" fill="#fff"/><rect x="4.9" y="9.4" width="3.4" height="10.4" rx=".4" fill="#fff"/><path fill="#fff" d="M10.6 9.4h3.2v1.5c.5-.9 1.6-1.8 3.4-1.8 3.2 0 3.8 2.1 3.8 4.8v5.9h-3.3v-5.2c0-1.3-.1-2.8-1.8-2.8s-2 1.3-2 2.7v5.3h-3.3z"/></svg>`
 };
 const _REDES = [['instagram', 'tag-ig', 'Instagram'], ['facebook', 'tag-fb', 'Facebook'], ['linkedin', 'tag-in', 'LinkedIn']];
-function botoesRedes(l) {
+function botoesRedes(l, semInsta) {
     return _REDES.map(([k, cls, nome]) => {
+        if (semInsta && k === 'instagram') return '';
         const url = String(l[k] || '');
         if (!/^https:\/\//i.test(url)) return '';
         return `<a href="${escapeHtml(url).replace(/"/g, '&quot;')}" target="_blank" rel="noopener" class="tag-rede ${cls}" title="${nome}" aria-label="${nome}">${_LOGO_REDE[k]}</a>`;
@@ -6867,7 +6897,8 @@ function renderPagina(pagina) {
                 ${cleanPhone?`<a href="https://wa.me/${cleanPhone}" target="_blank" rel="noopener" class="tag-rede tag-zap" title="WhatsApp: abre com uma primeira mensagem pronta (você revisa antes de mandar)" aria-label="Abrir WhatsApp com mensagem pronta" onclick="return abrirWhatsComMensagem(event, ${realIdx})">${_LOGO_REDE.whatsapp}</a>`:''}
                 <a href="${escapeHtml(linkGoogleMaps(l))}" target="_blank" rel="noopener" class="tag-rede tag-mapa" title="Ver fotos, fachada e avaliações no Google Maps" aria-label="Ver no Google Maps">${_LOGO_REDE.maps}</a>
                 ${/^https?:\/\//i.test(l.website || '') ? `<a href="${escapeHtml(l.website)}" target="_blank" rel="noopener" class="tag-rede tag-www" title="Site da empresa" aria-label="Abrir site da empresa">${_LOGO_REDE.site}</a>` : ''}
-                ${botoesRedes(l)}
+                ${botoesRedes(l, true)}
+                ${igHandle(l.instagram) ? (igJaAbordado(l) ? `<a href="${escapeHtml(igUrl(l))}" target="_blank" rel="noopener" class="tag-rede tag-igdm feito" title="Já abordado pelo Instagram · abrir perfil" aria-label="Abrir Instagram (já abordado)">${_IG_GLIFO}</a>` : igBotaoHtml('igAbordarLead(' + realIdx + ')')) : ''}
                 <button type="button" class="tag-rede tag-bloq${bloqueadoLead(l) ? ' ativo' : ''}" onclick="alternarNaoContatarLead(${realIdx})" title="${bloqueadoLead(l) ? 'Tirar da lista Não contatar' : 'Nunca mandar campanha para este lead'}" aria-label="${bloqueadoLead(l) ? 'Tirar da lista Não contatar' : 'Adicionar à lista Não contatar'}">${bloqueadoLead(l) ? _LOGO_REDE.desbloq : _LOGO_REDE.bloq}</button>
                 <button type="button" onclick="adicionarLeadKanbanDireto(${realIdx})" class="tag-rede tag-crm${jaNoKanban ? ' no-crm' : ''}" title="${jaNoKanban ? 'Já está no CRM' : 'Adicionar ao CRM (Pipeline)'}" aria-label="${jaNoKanban ? 'Já está no CRM' : 'Adicionar ao CRM'}" ${jaNoKanban ? 'disabled' : ''}>${jaNoKanban ? _LOGO_REDE.crmOk : _LOGO_REDE.crm}</button>
             </div></td>
@@ -7101,6 +7132,7 @@ function adicionarLeadKanbanDireto(realIdx) {
         website: lead.website || '',
         rating: lead.rating || 0,
         reviews: lead.reviews || 0,
+        instagram: igUrl(lead) || null,
         col: 'novo',
         dias: 0,
         movedAt: Date.now(),
@@ -7231,6 +7263,7 @@ function aplicarFiltroOrdem() {
     if (_filtrosExtra.negativa) lista = lista.filter(l => (Number(l.avaliacoes_negativas) || 0) > 0);
     if (_filtrosExtra.aberta)   lista = lista.filter(l => abertaRecente(l));
     if (_filtrosExtra.novidade) lista = lista.filter(l => !!l._novidade);
+    if (_filtrosExtra.insta)    lista = lista.filter(l => igHandle(l.instagram) && (!l.phone || l.is_whatsapp === false));
     if (_filtroBairro)          lista = lista.filter(l => _normNicho(l.bairro) === _filtroBairro);
 
     // Ordenação
@@ -11943,6 +11976,180 @@ function integAbrir() { integLigarCampos(); integPintar(); integStatusWA(); prot
 setInterval(() => { if (currentUser && config?.uazapi?.url) integStatusWA(); }, 90000);
 window.addEventListener('load', () => setTimeout(() => { if (currentUser) { integStatusWA(); protCarregar().then(() => { try { integPintar(); } catch (e) {} }); } }, 3500));
 
+// ===================== ABORDAGEM PELO INSTAGRAM (assistida) =====================
+// O app escreve a DM com a IA, copia o texto e abre o perfil; quem segue e envia é sempre a pessoa,
+// no próprio Instagram (nada entra na conta dela). Cada abordagem fica registrada para não repetir.
+const IG_LIMITE_PADRAO = 20;
+const _IG_GLIFO = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="3.9"/><circle cx="17.2" cy="6.8" r="0.9" fill="currentColor" stroke="none"/></svg>`;
+var _igFeitos = null;          // chaves (@) já abordadas
+var _igHoje = 0;
+function igLimite() { const n = Number(userGet('ig_limite', IG_LIMITE_PADRAO)); return n >= 1 && n <= 200 ? n : IG_LIMITE_PADRAO; }
+function igHandle(url) {
+    const m = String(url || '').match(/instagram\.com\/([A-Za-z0-9._]{1,30})/i);
+    if (!m) return '';
+    const h = m[1].toLowerCase();
+    return ['p', 'reel', 'reels', 'explore', 'stories', 'tv', 'accounts'].includes(h) ? '' : h;
+}
+function igUrl(l) { const h = igHandle(l && l.instagram); return h ? 'https://www.instagram.com/' + h + '/' : ''; }
+async function igCarregarFeitos(forcar) {
+    if (_igFeitos && !forcar) return _igFeitos;
+    _igFeitos = new Set(); _igHoje = 0;
+    if (!currentUser) return _igFeitos;
+    try {
+        const { data } = await supabaseClient.from('abordagens_instagram').select('chave,criado_em').eq('user_id', currentUser.id).order('criado_em', { ascending: false }).limit(5000);
+        const ini = new Date(); ini.setHours(0, 0, 0, 0);
+        (data || []).forEach(r => { _igFeitos.add(r.chave); if (new Date(r.criado_em) >= ini) _igHoje++; });
+    } catch (e) {}
+    return _igFeitos;
+}
+function igJaAbordado(l) { const h = igHandle(l && l.instagram); return !!h && !!_igFeitos && _igFeitos.has(h); }
+// Quem entra na fila: tem Instagram, não foi abordado por lá nem recebeu WhatsApp, não está em Não contatar.
+// Primeiro quem não tem WhatsApp (o Instagram é o único caminho), depois o melhor score.
+function igFila() {
+    const base = (_leadsBase && _leadsBase.length) ? _leadsBase : todosLeads;
+    return (base || [])
+        .filter(l => l && igHandle(l.instagram) && !igJaAbordado(l) && !bloqueadoLead(l) && !(l.phone && leadJaFoiEnviado(l.phone)))
+        .map(l => ({ l, semZap: (!l.phone || l.is_whatsapp === false) ? 1 : 0, sc: calcScore(l) }))
+        .sort((a, b) => (b.semZap - a.semZap) || (b.sc - a.sc))
+        .map(x => x.l);
+}
+function igBotaoHtml(onclick, titulo) {
+    return `<button type="button" class="tag-rede tag-igdm" onclick="${onclick}" title="${titulo || 'Abordar pelo Instagram: a IA escreve a DM, você segue e envia'}" aria-label="Abordar pelo Instagram">${_IG_GLIFO}</button>`;
+}
+function igPrompt(l, prod) {
+    return 'Você escreve a PRIMEIRA mensagem direta (DM) do Instagram para uma empresa que ainda não conhece você.\n\n' +
+        'O QUE VOCÊ VENDE:\n' + ((prod && prod.instrucoes) || 'Apresente nosso serviço e peça uma conversa rápida.') + '\n\n' +
+        'EMPRESA:\n- Nome: ' + (l.title || l.name || 'não informado') + '\n- Categoria: ' + (l.category || l.cat || 'não informada') +
+        '\n- Cidade/endereço: ' + (l.address || 'não informado') + (l.rating ? '\n- Nota no Google: ' + l.rating + (l.reviews ? ' (' + l.reviews + ' avaliações)' : '') : '') +
+        '\n\nREGRAS: no máximo 300 caracteres; tom leve e próximo, como alguém escrevendo do celular; 1 cumprimento com o nome da empresa, ' +
+        '1 frase com um detalhe real dela (nota no Google, categoria ou cidade), 1 frase com o benefício principal e termine com UMA pergunta simples. ' +
+        'Sem link, sem telefone, sem hashtag, no máximo 1 emoji, um parágrafo só. Nunca cite avaliação negativa. ' +
+        'Retorne APENAS o texto da mensagem, sem aspas. Português do Brasil.';
+}
+async function igGerarDM(l) {
+    const prod = typeof prodAtual === 'function' ? prodAtual() : null;
+    const t = await iaServidor(igPrompt(l, prod), 300, config.iaProvider || undefined);
+    return String(t).replace(/^["“]|["”]$/g, '').replace(/\s*\n+\s*/g, ' ').trim().slice(0, 600);
+}
+async function igRegistrar(l) {
+    const h = igHandle(l.instagram);
+    const prod = typeof prodAtual === 'function' ? prodAtual() : null;
+    const { error } = await supabaseClient.from('abordagens_instagram').insert({
+        user_id: currentUser.id, chave: h, nome: (l.title || l.name || '').slice(0, 200),
+        telefone: String(l.phone || '').replace(/\D/g, '') || null, instagram: igUrl(l), produto_id: (prod && prod.id) || null
+    });
+    if (error && !/duplicate|unique/i.test(error.message || '')) throw error;
+    if (_igFeitos) _igFeitos.add(h);
+    _igHoje++;
+    // Pipeline: entra (ou avança) em Contatado, marcado como Instagram, com lembrete em 3 dias
+    if (typeof pkLoad === 'function') pkLoad();
+    const nome = (l.title || l.name || '').toLowerCase().trim();
+    let card = pkLeads.find(k => (k.instagram && igHandle(k.instagram) === h) || (nome && (k.name || k.title || '').toLowerCase().trim() === nome));
+    const lembrete = new Date(); lembrete.setDate(lembrete.getDate() + 3); lembrete.setHours(9, 0, 0, 0);
+    if (!card) {
+        card = { id: Date.now() + Math.random(), name: l.title || l.name || '', cat: l.category || l.cat || '', phone: String(l.phone || '').replace(/\D/g, ''),
+            website: l.website || '', rating: l.rating || 0, reviews: l.reviews || 0, col: 'contatado', dias: 0, movedAt: Date.now(), nota: '' };
+        pkLeads.push(card);
+    } else if (card.col === 'novo') { card.col = 'contatado'; card.movedAt = Date.now(); }
+    card.canal = card.canal || 'instagram';
+    card.instagram = igUrl(l);
+    if (!card.proximaAcaoEm && card.col !== 'fechado' && card.col !== 'descartado') {
+        card.proximaAcaoEm = lembrete.getTime(); card.proximaAcaoTxt = 'Ver se respondeu no Instagram (se sim, mova para Respondeu)';
+    }
+    pkSave();
+}
+
+// Janela de abordagem. `fila` = lista de leads (um por vez); um lead só = fila de 1.
+async function igAbordar(fila, inicio) {
+    if (!currentUser) return;
+    fila = (fila || []).filter(l => igHandle(l && l.instagram));
+    if (!fila.length) { showToast('Nenhum lead com Instagram para abordar', 'err'); return; }
+    await igCarregarFeitos();
+    let i = inicio || 0, feitas = 0;
+    const fundo = prEl('div', 'modal-backdrop active');
+    const m = prEl('div', 'modal ig-modal');
+    fundo.appendChild(m);
+    const fechar = () => { fundo.remove(); try { atualizarAcoesBusca(); if (typeof renderPagina === 'function') renderPagina(paginaAtual || 1); } catch (e) {} if (feitas) showToast(`✓ ${feitas} abordagem(ns) no Instagram registradas · lembrete em 3 dias no Pipeline`, 'ok'); };
+    fundo.onclick = e => { if (e.target === fundo) fechar(); };
+    document.body.appendChild(fundo);
+
+    const mostrar = async () => {
+        while (i < fila.length && igJaAbordado(fila[i])) i++;
+        m.replaceChildren();
+        if (i >= fila.length) {
+            m.appendChild(prEl('div', 'modal-title', 'Fila do Instagram concluída'));
+            m.appendChild(prEl('div', 'modal-sub', feitas ? `Você abordou ${feitas} empresa(s). Em 3 dias o Pipeline lembra de conferir quem respondeu.` : 'Ninguém novo para abordar agora.'));
+            const a = prEl('div', 'modal-actions'); const ok = prEl('button', 'modal-btn primary', 'Fechar'); ok.onclick = fechar; a.appendChild(ok); m.appendChild(a);
+            return;
+        }
+        const l = fila[i], h = igHandle(l.instagram), lim = igLimite();
+        const topo = prEl('div', 'ig-topo');
+        const tit = prEl('div', 'modal-title'); tit.innerHTML = _IG_GLIFO + ' <span></span>'; tit.querySelector('span').textContent = 'Abordar pelo Instagram';
+        topo.appendChild(tit);
+        if (fila.length > 1) topo.appendChild(prEl('span', 'ig-pos', `${i + 1} de ${fila.length}`));
+        m.appendChild(topo);
+        const quem = prEl('div', 'ig-quem');
+        quem.appendChild(prEl('b', '', l.title || l.name || '@' + h));
+        quem.appendChild(prEl('span', '', ' @' + h + ' · ' + [l.category || l.cat, l.rating ? '★ ' + l.rating : '', (!l.phone || l.is_whatsapp === false) ? 'sem WhatsApp' : ''].filter(Boolean).join(' · ')));
+        m.appendChild(quem);
+        const cont = prEl('div', 'ig-cont' + (_igHoje >= lim ? ' passou' : ''), `Hoje: ${_igHoje} de ${lim} abordagens`);
+        const mudar = prEl('button', 'ig-link', 'mudar limite');
+        mudar.onclick = () => { const v = prompt('Quantas abordagens pelo Instagram por dia? (recomendado: até 20)', String(lim)); const n = Number(v); if (n >= 1 && n <= 200) { userSet('ig_limite', Math.round(n)); mostrar(); } };
+        cont.appendChild(mudar);
+        m.appendChild(cont);
+        if (_igHoje >= lim) m.appendChild(prEl('div', 'ig-aviso', 'Você já chegou no limite de hoje. Abordar muita gente de uma vez faz o Instagram bloquear ações da conta: o melhor é continuar amanhã.'));
+        const prod = typeof prodAtual === 'function' ? prodAtual() : null;
+        m.appendChild(prEl('div', 'ig-rot', 'Mensagem (DM)' + (prod ? ' · vendendo ' + prod.nome : '')));
+        const ta = document.createElement('textarea'); ta.className = 'ig-texto'; ta.rows = 5; ta.maxLength = 1000; ta.placeholder = 'A IA está escrevendo…'; ta.disabled = true;
+        m.appendChild(ta);
+        const passo = prEl('div', 'ig-passo', 'Toque em "Copiar e abrir perfil". No Instagram: Seguir → Mensagem → colar → enviar.');
+        m.appendChild(passo);
+        const acoes = prEl('div', 'modal-actions');
+        const pular = prEl('button', 'modal-btn', fila.length > 1 ? 'Pular' : 'Cancelar');
+        const outra = prEl('button', 'modal-btn', 'Gerar outra');
+        const abrir = prEl('button', 'modal-btn primary', 'Copiar e abrir perfil');
+        acoes.append(pular, outra, abrir); m.appendChild(acoes);
+        pular.onclick = () => { if (fila.length > 1) { i++; mostrar(); } else fechar(); };
+        const gerar = async () => {
+            ta.disabled = true; outra.disabled = abrir.disabled = true; ta.value = ''; ta.placeholder = 'A IA está escrevendo…';
+            try { ta.value = await igGerarDM(l); }
+            catch (e) { ta.placeholder = 'Não consegui gerar (' + e.message + '). Escreva a sua mensagem aqui.'; }
+            ta.disabled = false; outra.disabled = abrir.disabled = false;
+        };
+        outra.onclick = gerar;
+        abrir.onclick = async () => {
+            const texto = ta.value.trim();
+            if (!texto) { showToast('Escreva a mensagem antes', 'err'); return; }
+            // copia (com tempo limite: alguns navegadores travam esperando permissão) e cai no jeito antigo se falhar
+            let copiou = false;
+            try { await Promise.race([navigator.clipboard.writeText(texto).then(() => { copiou = true; }), new Promise((_, rej) => setTimeout(() => rej(new Error('tempo')), 1500))]); } catch (e) {}
+            if (!copiou) { ta.select(); try { copiou = document.execCommand('copy'); } catch (e2) {} }
+            window.open(igUrl(l), '_blank', 'noopener');
+            // Passo 2: confirmar
+            acoes.replaceChildren(); passo.textContent = (copiou ? 'Mensagem copiada ✓ ' : 'Copie a mensagem acima (segure e copie). ') + 'Depois de seguir e enviar no Instagram, volte aqui:';
+            const nao = prEl('button', 'modal-btn', 'Não deu');
+            const de = prEl('button', 'modal-btn', 'Abrir de novo');
+            const sim = prEl('button', 'modal-btn primary', 'Mandei');
+            nao.onclick = () => { if (fila.length > 1) { i++; mostrar(); } else fechar(); };
+            de.onclick = () => window.open(igUrl(l), '_blank', 'noopener');
+            sim.onclick = async () => {
+                sim.disabled = true; sim.textContent = 'Registrando…';
+                try { await igRegistrar(l); feitas++; i++; if (fila.length > 1) mostrar(); else fechar(); }
+                catch (e) { showToast('Não consegui registrar: ' + e.message, 'err'); sim.disabled = false; sim.textContent = 'Mandei'; }
+            };
+            acoes.append(nao, de, sim);
+        };
+        gerar();
+    };
+    mostrar();
+}
+function igAbordarLead(realIdx) { const l = todosLeads[realIdx]; if (l) igAbordar([l]); }
+async function igAbrirFila() { await igCarregarFeitos(); const f = igFila(); if (!f.length) { showToast('Ninguém novo com Instagram nesta busca', 'err'); return; } igAbordar(f); }
+function igAbordarCard(id) {
+    const c = pkLeads.find(k => String(k.id) === String(id)); if (!c) return;
+    igAbordar([{ title: c.name, name: c.name, category: c.cat, phone: c.phone, rating: c.rating, reviews: c.reviews, website: c.website, instagram: c.instagram }]);
+}
+
 // ===================== PRODUTOS (SDR com vários produtos) =====================
 // Cada produto tem as próprias instruções para a IA. Trocou o produto, a campanha, as respostas
 // sugeridas e os follow-ups passam a falar dele. O ⭐ padrão vale para quem não veio de campanha.
@@ -14581,7 +14788,7 @@ async function prCarregar() {
             prBuscarTudo(() => supabaseClient.from('fila_sugestoes')
                 .select('id,phone,lead_nome,campanha_id,classificacao,mensagem_recebida,status,criado_em')
                 .eq('user_id', uid).in('classificacao', ['quente', 'duvida']).order('id')),
-            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('id,name,phone,col,valor,fechado_em,moved_at,motivo_perda').eq('user_id', uid).order('id')),
+            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('id,name,phone,col,valor,fechado_em,moved_at,motivo_perda,canal').eq('user_id', uid).order('id')),
             prBuscarTudo(() => supabaseClient.from('fila_followups').select('phone,status').eq('user_id', uid).eq('status', 'pendente').order('id')),
         ]);
         _prDados = { leads, campanhas, interesses, pipeline, followups };
@@ -14640,6 +14847,12 @@ function prDesenharFunil(d) {
     const prev = emNeg.reduce((s, p) => s + (Number(p.valor) || 0), 0), semValor = emNeg.filter(p => !(Number(p.valor) > 0)).length;
     box.appendChild(prEl('div', 'ph-linha', 'Ganho no mês: ' + _brl(ganhoMes) + ' · ganho total: ' + _brl(totalGanho) +
         ' · em negociação: ' + _brl(prev) + (semValor ? ` (${semValor} sem valor)` : '') + '. A porcentagem pequena ao lado de cada número é em relação à etapa anterior.'));
+    const igPipe = d.pipeline.filter(p => p.canal === 'instagram');
+    if (igPipe.length || (_igFeitos && _igFeitos.size)) {
+        const igResp = igPipe.filter(p => ['respondeu', 'negociando', 'fechado'].includes(p.col)).length;
+        const igN = Math.max(_igFeitos ? _igFeitos.size : 0, igPipe.length);
+        box.appendChild(prEl('div', 'ph-linha', `Instagram: ${igN} abordados · ${igResp} responderam${igN ? ' (' + Math.round(igResp / igN * 100) + '%)' : ''}. Conta quem você moveu para Respondeu ou além no Pipeline.`));
+    }
     const motivos = {};
     d.pipeline.filter(p => p.col === 'descartado' && p.motivo_perda).forEach(p => { motivos[p.motivo_perda] = (motivos[p.motivo_perda] || 0) + 1; });
     const nomesMot = { sem_interesse: 'sem interesse', tem_fornecedor: 'já tem fornecedor', preco: 'preço', nao_responde: 'não responde', robo: 'só robô', momento: 'não é o momento', outro: 'outro' };
@@ -15148,7 +15361,7 @@ function alternarFiltroExtra(k) {
     aplicarFiltroOrdem();
 }
 function pintarFiltrosExtra() {
-    ['novos', 'celular', 'whats', 'negativa', 'aberta', 'novidade'].forEach(k => {
+    ['novos', 'celular', 'whats', 'negativa', 'aberta', 'novidade', 'insta'].forEach(k => {
         const b = document.getElementById('pf-' + k);
         if (b) b.setAttribute('aria-pressed', String(!!_filtrosExtra[k]));
     });
@@ -15177,6 +15390,14 @@ function atualizarAcoesBusca() {
     fundo.hidden = !(_ultimaQtdBruta >= 100 && !_ultimaBuscaGrade);
     const dica = document.getElementById('ps-acoes-dica');
     dica.textContent = n ? 'Com WhatsApp, HOT ou WARM, nunca contatados, celular primeiro.' : '';
+    const btIg = document.getElementById('ps-btn-ig');
+    if (btIg) {
+        const nIg = igFila().length;
+        btIg.hidden = !nIg;
+        btIg.innerHTML = _IG_GLIFO + ' <span></span>';
+        btIg.querySelector('span').textContent = `Abordar no Instagram (${nIg})`;
+        if (!_igFeitos) igCarregarFeitos().then(() => atualizarAcoesBusca());
+    }
 }
 // Vai para a Prospecção IA já com os melhores marcados (o envio continua pedindo a sua confirmação).
 function campanhaComMelhores() {
