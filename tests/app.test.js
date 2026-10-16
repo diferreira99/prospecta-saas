@@ -449,6 +449,36 @@ test('abas Prospecção Instagram e LinkedIn: menu com os 3 canais, fila da busc
   } finally { await a.fechar(); }
 });
 
+test('voltar uma abordagem (abriu e não mandou): sai do registro, volta para a fila e o Pipeline fica como estava', async () => {
+  const a = await abrirApp({ largura: 1280 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      window.confirm = () => true;
+      pkLeads = [{ id: 7, name: 'Escritório Alfa', col: 'novo', movedAt: 1, nota: '' }]; pkSave();
+      const alfa = { title: 'Escritório Alfa', instagram: 'https://www.instagram.com/alfa/' };
+      const nova = { title: 'Clínica Nova', instagram: 'https://www.instagram.com/clinicanova/', linkedin: 'https://www.linkedin.com/company/clinica-nova/' };
+      _leadsBase = [alfa, nova]; todosLeads = _leadsBase.slice();
+      await igCarregarFeitos(true); await liCarregarFeitos(true);
+      await igRegistrar(alfa); await igRegistrar(nova); await liRegistrar(nova, 'Ana', 'Oi', '');
+      const depois = { alfa: pkLeads.find(k => k.id === 7).col, cards: pkLeads.length, hoje: _igHoje };
+      await canalVoltar('insta', { chave: 'alfa', nome: 'Escritório Alfa', criado_em: new Date().toISOString() });
+      await canalVoltar('insta', { chave: 'clinicanova', nome: 'Clínica Nova', criado_em: new Date().toISOString() });
+      const igFim = { alfa: pkLeads.find(k => k.id === 7), nova: pkLeads.find(k => k.name === 'Clínica Nova'), reg: (_db.abordagens_instagram || []).length, hoje: _igHoje, fila: igFila().map(l => l.title) };
+      await canalVoltar('linkedin', { chave: liChave(nova), nome: 'Clínica Nova', criado_em: new Date().toISOString() });
+      return { depois, igFim, liReg: (_db.abordagens_linkedin || []).length, cardsFim: pkLeads.map(k => k.name), liFila: liFila().map(l => l.title) };
+    });
+    assert.deepStrictEqual(r.depois, { alfa: 'contatado', cards: 2, hoje: 2 });
+    assert.strictEqual(r.igFim.alfa.col, 'novo', 'card que já existia volta para a etapa de antes');
+    assert.ok(!r.igFim.alfa.proximaAcaoEm, 'sem o lembrete da abordagem');
+    assert.strictEqual(r.igFim.reg, 0); assert.strictEqual(r.igFim.hoje, 0);
+    assert.deepStrictEqual(r.igFim.fila.sort(), ['Clínica Nova', 'Escritório Alfa']);
+    assert.strictEqual(r.liReg, 0);
+    assert.deepStrictEqual(r.cardsFim, ['Escritório Alfa'], 'card criado só pelas abordagens sai do Pipeline');
+    assert.deepStrictEqual(r.liFila, ['Clínica Nova']);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
 test('cadência multicanal: etapa de Instagram vira tarefa em Respostas e conta como feita ao registrar', async () => {
   const db = { fila_followups: [
     { id: 5, user_id: 'u1', phone: '5511999990000', lead_nome: 'Clínica Sol', campanha_id: 'c1', campanha_nome: 'Dentistas', dia_etapa: 6, status: 'pendente', canal: 'instagram', extra: { instagram: 'https://www.instagram.com/clinicasol/' }, mensagem: 'Oi! Te mandei um WhatsApp, vi que vocês usam mais o Instagram. Posso te mostrar em 2 min?', criado_em: new Date().toISOString() },

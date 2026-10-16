@@ -12334,6 +12334,7 @@ async function igRegistrar(l) {
     }
     pkSave();
     const id = card.id;
+    canalGuardarAntes('instagram', h, id, antes);
     // desfazer: apaga o registro e devolve o card como estava
     return async () => {
         try { await supabaseClient.from('abordagens_instagram').delete().eq('user_id', currentUser.id).eq('chave', h); } catch (e) {}
@@ -12536,12 +12537,14 @@ async function liRegistrar(l, pessoa, mensagem, perfil) {
     if (typeof pkLoad === 'function') pkLoad();
     const nome = (l.title || l.name || '').toLowerCase().trim();
     let card = pkLeads.find(c => nome && (c.name || c.title || '').toLowerCase().trim() === nome);
+    const antes = card ? { col: card.col, movedAt: card.movedAt, canal: card.canal, linkedin: card.linkedin, liMensagem: card.liMensagem, liPerfil: card.liPerfil, liPessoa: card.liPessoa, proximaAcaoEm: card.proximaAcaoEm, proximaAcaoTxt: card.proximaAcaoTxt } : null;
     const lembrete = new Date(); lembrete.setDate(lembrete.getDate() + 3); lembrete.setHours(9, 0, 0, 0);
     if (!card) {
         card = { id: Date.now() + Math.random(), name: l.title || l.name || '', cat: l.category || l.cat || '', phone: String(l.phone || '').replace(/\D/g, ''),
             website: l.website || '', rating: l.rating || 0, reviews: l.reviews || 0, col: 'contatado', dias: 0, movedAt: Date.now(), nota: '' };
         pkLeads.push(card);
     } else if (card.col === 'novo') { card.col = 'contatado'; card.movedAt = Date.now(); }
+    canalGuardarAntes('linkedin', k, card.id, antes);
     card.canal = card.canal || 'linkedin';
     card.linkedin = liUrl(l) || card.linkedin || null;
     if (mensagem) card.liMensagem = mensagem.slice(0, 1500);
@@ -12695,6 +12698,43 @@ const CANAIS = {
         dicas: ['Mande o convite para a pessoa (sócio, dono, diretor), não para a página da empresa.', 'Até 15 convites por dia. Conta grátis tem poucos convites com nota por mês.', 'Em 3 dias o Pipeline lembra de ver quem aceitou; a mensagem já fica pronta no card.', 'O provável decisor aparece sozinho quando a gente acha no site ou no Google.']
     }
 };
+// Como o card do Pipeline estava antes de cada abordagem: permite "voltar" mesmo depois de fechar a janela
+function canalGuardarAntes(canal, chave, cardId, antes) {
+    try {
+        const m = userGet('abord_antes', {}) || {};
+        // campo vazio vira null (undefined some ao guardar e o "voltar" deixaria o lembrete no card)
+        const limpo = antes ? Object.fromEntries(Object.entries(antes).map(([k, v]) => [k, v === undefined ? null : v])) : null;
+        m[canal + ':' + chave] = { cardId, antes: limpo, em: Date.now() };
+        const ks = Object.keys(m); if (ks.length > 300) ks.sort((a, b) => m[a].em - m[b].em).slice(0, ks.length - 300).forEach(k => delete m[k]);
+        userSet('abord_antes', m);
+    } catch (e) {}
+}
+// "Voltar": apaga o registro, devolve a empresa para a fila e o card do Pipeline como estava
+async function canalVoltar(aba, r) {
+    const c = CANAIS[aba];
+    if (!confirm(`Voltar "${r.nome || r.chave}" para a fila do ${c.nome}?\n\nO registro some e o card do Pipeline volta como estava.`)) return;
+    const { error } = await supabaseClient.from(c.tabela).delete().eq('user_id', currentUser.id).eq('chave', r.chave);
+    if (error) { showToast('Não consegui voltar: ' + error.message, 'err'); return; }
+    const feitos = aba === 'insta' ? _igFeitos : _liFeitos;
+    if (feitos) feitos.delete(r.chave);
+    const ini = new Date(); ini.setHours(0, 0, 0, 0);
+    if (r.criado_em && new Date(r.criado_em) >= ini) { if (aba === 'insta') _igHoje = Math.max(0, _igHoje - 1); else _liHoje = Math.max(0, _liHoje - 1); }
+    try {
+        if (typeof pkLoad === 'function') pkLoad();
+        const m = userGet('abord_antes', {}) || {}, chaveM = c.canal + ':' + r.chave, g = m[chaveM];
+        let card = g ? pkLeads.find(k => String(k.id) === String(g.cardId)) : null;
+        if (!card) card = pkLeads.find(k => k.canal === c.canal && (k.name || '').toLowerCase().trim() === String(r.nome || '').toLowerCase().trim());
+        if (card) {
+            if (g && g.antes) Object.assign(card, g.antes);
+            // card criado só por esta abordagem e que não andou: sai do Pipeline
+            else if (card.col === 'contatado' && card.canal === c.canal && !card.nota) pkLeads = pkLeads.filter(k => k !== card);
+            pkSave();
+        }
+        delete m[chaveM]; userSet('abord_antes', m);
+    } catch (e) {}
+    showToast(`↩ ${r.nome || r.chave} voltou para a fila do ${c.nome}`, 'ok');
+    canalAbrir(aba);
+}
 async function canalBuscasSalvas(forcar) {
     if (_canalBuscas && !forcar) return _canalBuscas;
     _canalBuscas = [];
@@ -12811,6 +12851,7 @@ function canalDesenhar(aba, buscas, feitos) {
     }
     const lado = prEl('div'); lado.style.cssText = 'display:flex;flex-direction:column;gap:14px;';
     const sFeitos = prEl('section', 'ph-card'); sFeitos.appendChild(prEl('h3', '', 'Últimos abordados'));
+    if (feitos.length) sFeitos.appendChild(prEl('div', 'ph-linha', 'Abriu mas não mandou? Toque em ↩ voltar e a empresa volta para a fila.'));
     if (!feitos.length) sFeitos.appendChild(prEl('div', 'ph-mudo', `Ninguém ainda. Cada ${c.unidade} que você registrar aparece aqui e vai para o Pipeline.`));
     else {
         const porNome = new Map(doCanal.map(k => [String(k.name || '').toLowerCase().trim(), k]));
@@ -12825,6 +12866,12 @@ function canalDesenhar(aba, buscas, feitos) {
             if (k && ['respondeu', 'negociando', 'fechado'].includes(k.col)) li.appendChild(prEl('span', 'cl-selo ok', k.col === 'fechado' ? 'ganho' : 'respondeu'));
             const link = r.instagram || r.linkedin;
             if (link && /^https:\/\//.test(link)) { const a = prEl('a', 'ig-link', 'abrir'); a.href = link; a.target = '_blank'; a.rel = 'noopener'; li.appendChild(a); }
+            if (!k || !['respondeu', 'negociando', 'fechado'].includes(k.col)) {
+                const v = prEl('button', 'ig-link', '↩ voltar'); v.type = 'button';
+                v.title = 'Não mandou? Volta para a fila e o Pipeline fica como estava';
+                v.onclick = () => canalVoltar(aba, r);
+                li.appendChild(v);
+            }
             ul.appendChild(li);
         });
         sFeitos.appendChild(ul);
