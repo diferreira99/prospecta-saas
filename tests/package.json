@@ -2,6 +2,6 @@
   "name": "prospecta-testes",
   "private": true,
   "description": "Testes automáticos do Prospecta+ (rodam no GitHub a cada atualização)",
-  "scripts": { "test": "node --test --test-concurrency=1 app.test.js" },
+  "scripts": { "test": "node --test --test-concurrency=1 app.test.js agenda.test.js" },
   "devDependencies": { "playwright": "1.56.1" }
 }

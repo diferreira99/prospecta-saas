@@ -3044,7 +3044,7 @@ function rsPintarPainel(painel, g, tipo) {
 // ── Reunião na agenda (com a sua aprovação) ──
 // Só para o dono da agenda: busca horários livres no Google Agenda e cria o evento com Google Meet.
 // Nada vai para o lead sozinho: o app só escreve a mensagem na caixa de resposta para você revisar e enviar.
-const AGENDA_URL = 'https://primary-production-c1c7c.up.railway.app/webhook/prospecta-reuniao';
+const AGENDA_URL = '/api/agenda'; // porteiro na Vercel: confere o login, limita pedidos e só então chama o n8n
 var _agendaDono = null;
 async function agendaSouDono() {
     if (_agendaDono !== null) return _agendaDono;
@@ -3056,7 +3056,8 @@ async function agendaChamar(corpo) {
     const { data } = await supabaseClient.auth.getSession();
     const token = data && data.session && data.session.access_token;
     if (!token) throw new Error('entre de novo no Prospecta+');
-    const r = await fetch(AGENDA_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ access_token: token }, corpo)) });
+    const r = await fetch(AGENDA_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify(corpo) });
+    if (r.status === 429) throw new Error('muitos pedidos seguidos, espere 1 minuto');
     const j = await r.json().catch(() => null);
     if (!r.ok || !j) throw new Error('a agenda não respondeu (' + r.status + ')');
     return j;

@@ -43,13 +43,13 @@ async function abrirApp({ db, rpcs, rotas = [], largura = 390 } = {}) {
   const stub = supabaseFalso(db, rpcs);
   await pagina.route('**/*', r => {
     const u = new URL(r.request().url());
-    if (u.hostname === 'app.test') return r.fulfill({ body: HTML, contentType: 'text/html' });
-    if (u.pathname.includes('supabase-js')) return r.fulfill({ body: stub, contentType: 'application/javascript' });
     for (const [rx, fn] of rotas) if (rx.test(u.pathname)) {
       const corpo = r.request().postData(); let j = null; try { j = corpo ? JSON.parse(corpo) : null; } catch (e) {}
-      pedidos.push({ caminho: u.pathname, corpo: j });
+      pedidos.push({ caminho: u.pathname, corpo: j, headers: r.request().headers() });
       return r.fulfill({ json: fn(j, u), headers: { 'access-control-allow-origin': '*' } });
     }
+    if (u.hostname === 'app.test') return r.fulfill({ body: HTML, contentType: 'text/html' });
+    if (u.pathname.includes('supabase-js')) return r.fulfill({ body: stub, contentType: 'application/javascript' });
     return r.fulfill({ status: 200, body: '' });   // fontes, CDNs e o resto: vazio, sem internet
   });
   await pagina.goto('https://app.test/');

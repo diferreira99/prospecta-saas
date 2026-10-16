@@ -79,7 +79,7 @@ test('WhatsApp conferido sozinho depois da busca, com limite de 400 por dia', as
 });
 
 test('reunião: propõe horários e marca com Meet, sempre esperando você enviar', async () => {
-  const a = await abrirApp({ rpcs: { sou_dono_agenda: true }, rotas: [[/\/prospecta-reuniao$/, j => j.acao === 'horarios'
+  const a = await abrirApp({ rpcs: { sou_dono_agenda: true }, rotas: [[/\/api\/agenda$/, j => j.acao === 'horarios'
     ? { ok: true, slots: [{ dia_mes: '16/10', dia_semana: 'sexta-feira', hora: '10:00', texto: 'sexta-feira, 16/10, às 10:00' }] }
     : { ok: true, inicio: '2026-10-16T13:00:00.000Z', meet: 'https://meet.google.com/abc', escolhido: { texto: 'sexta-feira, 16/10, às 10:00' } }]] });
   try {
@@ -94,6 +94,8 @@ test('reunião: propõe horários e marca com Meet, sempre esperando você envia
     await a.pagina.locator('.rs-painel .rs-btn.verde').click(); await a.pagina.waitForTimeout(1000);
     assert.match(await a.pagina.inputValue('#fila-texto-7'), /meet\.google\.com\/abc/);
     assert.ok(a.pedidos.every(p => !/send-message|responder-fila/.test(p.caminho)), 'nada pode ir para o lead sozinho');
+    const ag = a.pedidos.filter(p => p.caminho === '/api/agenda');
+    assert.ok(ag.length >= 2 && ag.every(p => /^Bearer /.test(p.headers.authorization) && !('access_token' in p.corpo)), 'login vai no cabeçalho, não no corpo');
   } finally { await a.fechar(); }
 });
 

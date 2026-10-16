@@ -73,5 +73,10 @@
         }
       ]
     }
-  ]
+  ],
+  "functions": {
+    "api/agenda.js": {
+      "maxDuration": 60
+    }
+  }
 }
