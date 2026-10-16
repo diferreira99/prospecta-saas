@@ -393,7 +393,8 @@ test('consultor do dia: escolhe pelo interesse (não por qualquer resposta), sug
     assert.match(r.txt, /Campanha nova: Facilities · uns 30 leads/);
     assert.match(r.txt, /cidade nova parecida com Guarulhos/);
     assert.match(r.txt, /Pare de prospectar/);
-    // botão leva para a Prospecção com nicho e cidade preenchidos
+    // botão leva para a Prospecção com nicho e cidade preenchidos (o Consultor mora no Plano de Prospecção)
+    await a.pagina.evaluate(() => { document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active')); document.getElementById('tab-plano').classList.add('active'); });
     await a.pagina.click('#cons-dia button:has-text("Buscar Facilities")');
     assert.strictEqual(await a.pagina.inputValue('#nicho'), 'Facilities');
     assert.strictEqual(await a.pagina.inputValue('#local'), '', 'cidade fica para a pessoa escolher');
@@ -605,6 +606,26 @@ test('chave "Buscar em 9 regiões" fica à vista antes da busca e manda a busca 
     assert.deepStrictEqual(r.antes, { chk: 'true', lbl: 'Buscar Leads em 9 regiões' });
     assert.deepStrictEqual(r.depois, { chk: 'false', lbl: 'Buscar Leads' }, 'desliga depois de usar');
     assert.deepStrictEqual(r.grades, [true, false]);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('Painel começa pela campanha ao vivo; o Consultor fica no topo do Plano de Prospecção', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      const painel = [...document.getElementById('tab-metricas').children].map(e => e.id).filter(Boolean);
+      trocarAba('plano', document.querySelector(`.nav-item[onclick*="'plano'"]`));
+      await new Promise(r => setTimeout(r, 1500));
+      const plano = document.querySelector('#tab-plano > div').firstElementChild;
+      const data = document.getElementById('mc-filtro-data-inicio').getBoundingClientRect();
+      return { painel: painel.slice(0, 2), naPlano: plano && plano.id, visivel: !document.getElementById('cons-dia').hidden, txt: document.getElementById('cons-dia').innerText, noPainel: !!document.querySelector('#tab-metricas #cons-dia'), dataMin: getComputedStyle(document.getElementById('mc-filtro-data-inicio')).minHeight };
+    });
+    assert.deepStrictEqual(r.painel, ['painel-saudacao', 'painel-aovivo']);
+    assert.strictEqual(r.noPainel, false);
+    assert.strictEqual(r.naPlano, 'cons-dia');
+    assert.ok(r.visivel); assert.match(r.txt, /Seu plano de hoje/);
+    assert.strictEqual(r.dataMin, '34px');
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });

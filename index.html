@@ -1198,6 +1198,7 @@
                 padding: 2px 0 !important;
             }
             .mc-filtro-box { padding: 3px 7px !important; gap: 4px !important; }
+            .mc-filtro-box input[type=date] { font-size: 16px !important; }   /* 16px: o iPhone não dá zoom e o toque acerta */
 
             /* Prospecção IA: colunas empilhadas com altura própria */
             #ia-dashboard {
@@ -1344,6 +1345,7 @@
 .pk-acao-atual.atrasada, .pk-acao-atual.hoje { background:#FFF4EC; color:#C2410C; }
 .pk-acao-linha { display:flex; flex-wrap:wrap; gap:6px; margin-top:6px; }
 .pk-acao-linha input { flex:1 1 140px; padding:7px 9px; border:1.5px solid var(--border); border-radius:8px; font-family:'Inter',sans-serif; font-size:0.72rem; background:var(--surface); color:var(--text); }
+@media (max-width: 900px) { .pk-acao-linha input { font-size: 16px; min-height: 42px; } }
 .pk-btn-sec { background:transparent !important; color:var(--text) !important; border:1.5px solid var(--border) !important; }
 .pk-conversa { display:flex; flex-direction:column; gap:6px; max-height:280px; overflow-y:auto; padding:6px; background:var(--surface2); border-radius:10px; }
 .pk-bolha { max-width:88%; padding:7px 10px; border-radius:12px; font-family:'Inter',sans-serif; font-size:0.72rem; line-height:1.45; color:var(--text); background:var(--surface); border:1px solid var(--border); align-self:flex-start; overflow-wrap:anywhere; }
@@ -2034,6 +2036,8 @@ function iniciarAppPosLogin() {
         <!-- PLANO DE PROSPECÇÃO -->
         <div class="tab-content" id="tab-plano">
             <div style="max-width:960px;">
+                <!-- CONSULTOR DO DIA: o que fazer hoje, pelos números (preenchido pelo JS) -->
+                <section id="cons-dia" class="ph-card cons" aria-labelledby="cons-t" hidden></section>
                 <!-- PLANO INTELIGENTE: o de hoje em 1 clique, montar pelo que responde e arquivar o antigo -->
                 <section id="pl-hoje" class="pl-hoje" aria-labelledby="pl-hoje-t" hidden></section>
                 <div class="pl-acoes">
@@ -5902,8 +5906,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div style="font-family:'Inter',sans-serif;font-size:0.62rem;color:rgba(255,255,255,0.8);margin-top:6px;">Bem-vindo ao seu painel de controle</div>
                 </div>
                             </div>
-            <!-- CONSULTOR DO DIA: o que fazer hoje, pelos números (preenchido pelo JS) -->
-            <section id="cons-dia" class="ph-card cons" aria-labelledby="cons-t" hidden></section>
             <section id="painel-aovivo" class="cp-aovivo" aria-live="polite" hidden></section>
             <!-- PAINEL: o que precisa de você + saúde do número -->
             <div id="painel-hoje" class="ph-grid" aria-live="polite">
@@ -5934,11 +5936,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
                     <!-- Filtro de período: um único calendário (de/até). Pra um dia só, usa a mesma data nos dois. -->
-                    <div class="mc-filtro-box" style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:3px 8px;">
+                    <div class="mc-filtro-box mc-filtro-data" style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:3px 8px;">
                         <span class="mc-filtro-lbl" style="display:flex;align-items:center;font-family:'Inter',sans-serif;font-size:0.52rem;color:var(--muted);white-space:nowrap;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
-                        <input type="date" id="mc-filtro-data-inicio" onchange="filtrarMetricasPorCampanha()" title="De" style="font-family:'Inter',sans-serif;font-size:0.6rem;background:transparent;border:none;color:var(--text);outline:none;cursor:pointer;padding:2px 0;">
+                        <input type="date" id="mc-filtro-data-inicio" onchange="filtrarMetricasPorCampanha()" title="De" aria-label="Período: de" style="font-family:'Inter',sans-serif;font-size:0.8rem;background:transparent;border:none;color:var(--text);outline:none;cursor:pointer;padding:6px 2px;min-height:34px;min-width:118px;">
                         <span style="font-family:'Inter',sans-serif;font-size:0.55rem;color:var(--muted);">até</span>
-                        <input type="date" id="mc-filtro-data-fim" onchange="filtrarMetricasPorCampanha()" title="Até" style="font-family:'Inter',sans-serif;font-size:0.6rem;background:transparent;border:none;color:var(--text);outline:none;cursor:pointer;padding:2px 0;">
+                        <input type="date" id="mc-filtro-data-fim" onchange="filtrarMetricasPorCampanha()" title="Até" aria-label="Período: até" style="font-family:'Inter',sans-serif;font-size:0.8rem;background:transparent;border:none;color:var(--text);outline:none;cursor:pointer;padding:6px 2px;min-height:34px;min-width:118px;">
                     </div>
                     <!-- Filtro por campanha -->
                     <div class="mc-filtro-box" style="display:flex;align-items:center;gap:5px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:3px 8px;">
@@ -6408,7 +6410,7 @@ function trocarAba(aba, el) {
         setTimeout(() => { carregarFilaSugestoes(); carregarFilaFollowups(); }, 80);
     }
     if (aba === 'plano') {
-        setTimeout(() => { carregarPlanoProspeccao(); carregarModelosPlano(); }, 80);
+        setTimeout(() => { carregarPlanoProspeccao(); carregarModelosPlano(); consAbrir(); }, 80);
     }
 
     if (aba === 'inbox') {
@@ -15964,6 +15966,18 @@ function consAnalisar(d) {
         return { nome: '', motivo: melhor ? `Escolha uma cidade nova parecida com ${melhor.cidade}, onde ${g.nome} foi melhor (${prPctTxt(melhor.morno + melhor.int, melhor.env)} de interessados)` : 'Escolha uma cidade onde você ainda não mandou' };
     };
     return { principal, teste, evitar, media, mediaInt, total, lista, cidadePrincipal: cidadePara(principal), cidadeTeste: cidadePara(teste) };
+}
+// Abre o Consultor no Plano de Prospecção: mostra na hora o que já foi calculado e atualiza os números
+document.addEventListener('click', e => {
+    const inp = e.target && e.target.closest && e.target.closest('input[type=date]');
+    if (inp && typeof inp.showPicker === 'function') { try { inp.showPicker(); } catch (err) {} }
+});
+function consAbrir() {
+    const box = document.getElementById('cons-dia');
+    if (!box) return;
+    if (typeof _prDados !== 'undefined' && _prDados) { try { consDesenhar(_prDados); } catch (e) {} }
+    else { box.hidden = false; box.replaceChildren(prEl('div', 'ph-mudo', '🧭 Montando o seu plano de hoje…')); }
+    try { prCarregar(); } catch (e) {}
 }
 function consBuscar(nicho, cidade) {
     const n = document.getElementById('nicho'), l = document.getElementById('local');
