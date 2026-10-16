@@ -231,3 +231,61 @@ test('Instagram: botão discreto, DM da IA, copia e abre o perfil, registra e p�
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('LinkedIn: acha quem decide, IA escreve convite e mensagem, registra com a mensagem nas notas', async () => {
+  const a = await abrirApp({ largura: 1280, rotas: [[/\/ia$/, () => ({ texto: 'CONVITE: Olá! Acompanho empresas de contabilidade em Campinas e gostaria de conectar.\nMENSAGEM: Obrigado por aceitar! Ajudo escritórios a ganhar clientes pelo WhatsApp. Faz sentido conversarmos 10 minutos?' })]] });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      config.uazapi = { url: 'https://srv.test', token: 't' };
+      window._abertos = []; window.open = (u) => { window._abertos.push(u); return null; };
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => {} }, configurable: true });
+      trocarAba('prospeccao', document.querySelector(`.nav-item[onclick*="'prospeccao'"]`));
+      const leads = [{ title: 'Contábil Alfa', category: 'Contabilidade', phone: '1133334444', linkedin: 'https://br.linkedin.com/company/contabil-alfa?trk=x' }, { title: 'Beta', phone: '11977776666' }];
+      todosLeads = leads; _leadsBase = leads.slice(); _liFeitos = new Set(); _liHoje = 0;
+      renderPagina(1); atualizarAcoesBusca();
+      return { botoes: document.querySelectorAll('#tabela .tag-lidm').length, colorido: document.querySelectorAll('#tabela .tag-in').length, fila: document.getElementById('ps-btn-li').textContent };
+    });
+    assert.strictEqual(r.botoes, 1); assert.strictEqual(r.colorido, 0); assert.match(r.fila, /Abordar no LinkedIn \(1\)/);
+    await a.pagina.evaluate(() => liAbrirFila());
+    await a.pagina.waitForSelector('.li-modal textarea:not([disabled])');
+    const tx = await a.pagina.$$eval('.li-modal textarea', t => t.map(x => x.value));
+    assert.match(tx[0], /^Olá! Acompanho/); assert.match(tx[1], /Obrigado por aceitar/);
+    await a.pagina.click('.li-modal button:has-text("Ver sócios e donos")');
+    const ab = await a.pagina.evaluate(() => window._abertos[0]);
+    assert.match(ab, /^https:\/\/www\.linkedin\.com\/company\/contabil-alfa\/people\/\?keywords=/);
+    await a.pagina.click('.li-modal button:has-text("Mandei o convite")');
+    await a.pagina.waitForTimeout(400);
+    const r2 = await a.pagina.evaluate(() => ({ reg: (_db.abordagens_linkedin || []).map(x => x.chave), card: pkLeads.find(k => k.name === 'Contábil Alfa') }));
+    assert.deepStrictEqual(r2.reg, ['https://www.linkedin.com/company/contabil-alfa/']);
+    assert.strictEqual(r2.card.canal, 'linkedin'); assert.strictEqual(r2.card.col, 'contatado');
+    assert.match(r2.card.nota, /Obrigado por aceitar/);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('cadência multicanal: etapa de Instagram vira tarefa em Respostas e conta como feita ao registrar', async () => {
+  const db = { fila_followups: [
+    { id: 5, user_id: 'u1', phone: '5511999990000', lead_nome: 'Clínica Sol', campanha_id: 'c1', campanha_nome: 'Dentistas', dia_etapa: 6, status: 'pendente', canal: 'instagram', extra: { instagram: 'https://www.instagram.com/clinicasol/' }, mensagem: 'Oi! Te mandei um WhatsApp, vi que vocês usam mais o Instagram. Posso te mostrar em 2 min?', criado_em: new Date().toISOString() },
+    { id: 6, user_id: 'u1', phone: '5511988880000', lead_nome: 'Pet Feliz', campanha_id: 'c1', campanha_nome: 'Dentistas', dia_etapa: 3, status: 'pendente', mensagem: 'Oi! Passando para retomar.', criado_em: new Date().toISOString() },
+  ] };
+  const a = await abrirApp({ db, largura: 1280 });
+  try {
+    await a.pagina.evaluate(() => trocarAba('respostas', document.querySelector(`.nav-item[onclick*="'respostas'"]`)));
+    await a.pagina.waitForTimeout(1200);
+    await a.pagina.evaluate(() => { window._abertos = []; window.open = (u) => { window._abertos.push(u); return null; }; Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => {} }, configurable: true }); _igFeitos = new Set(); _igHoje = 0; });
+    const txt = await a.pagina.textContent('#fila-followups-lista');
+    assert.match(txt, /Instagram · você envia/); assert.match(txt, /Abrir no Instagram/); assert.match(txt, /Enviar follow-up/);
+    await a.pagina.click('#fila-followups-lista button:has-text("Abrir no Instagram")');
+    await a.pagina.waitForSelector('.ig-modal');
+    assert.match(await a.pagina.inputValue('.ig-modal .ig-texto'), /vi que vocês usam mais o Instagram/);
+    await a.pagina.click('.ig-modal button:has-text("Copiar e abrir conversa")');
+    await a.pagina.waitForSelector('.ig-modal button:has-text("Mandei")');
+    await a.pagina.click('.ig-modal button:has-text("Mandei")');
+    await a.pagina.waitForTimeout(500);
+    const r = await a.pagina.evaluate(() => ({ abertos: window._abertos, status: _db.fila_followups.find(x => x.id === 5).status, feitos: (_db.followups_enviados || []).map(f => f.dia_etapa), tela: document.getElementById('fila-followups-lista').textContent }));
+    assert.deepStrictEqual(r.abertos, ['https://ig.me/m/clinicasol']);
+    assert.strictEqual(r.status, 'enviado'); assert.deepStrictEqual(r.feitos, [6]);
+    assert.doesNotMatch(r.tela, /Clínica Sol/); assert.match(r.tela, /Pet Feliz/);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});

@@ -291,6 +291,23 @@
         .ig-rot { font-size: .7rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin: 10px 0 4px; }
         .ig-texto { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-family: Inter, sans-serif; font-size: .85rem; background: var(--surface); color: var(--text); resize: vertical; }
         .ig-passo { font-size: .74rem; color: var(--muted); margin: 6px 0 2px; }
+        .tag-lidm { background: #fff; border: 1.5px solid var(--border); color: #8a94a8; cursor: pointer; padding: 0; }
+        .tag-lidm:hover { opacity: 1; color: #0A66C2; border-color: #B6D4F2; background: #F2F8FD; }
+        .tag-lidm.feito { color: #0A66C2; border-color: #B6D4F2; background: #F2F8FD; }
+        .pk-chip-li { display: inline-flex; align-items: center; gap: 3px; background: #F2F8FD; color: #0A66C2; }
+        .pk-chip-li svg { width: 11px; height: 11px; }
+        .ps-acao-li { display: inline-flex; align-items: center; gap: 6px; }
+        .ps-acao-li svg { color: #0A66C2; }
+        .li-modal .ig-topo .modal-title svg { color: #0A66C2; }
+        .li-linha { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .li-linha .modal-btn { flex: 0 0 auto; }
+        .li-pessoa { flex: 1 1 180px; min-width: 0; }
+        .li-conta { font-weight: 400; text-transform: none; letter-spacing: 0; }
+        .li-modal .modal-actions { flex-wrap: wrap; }
+        .fu-canal { display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
+        .fu-canal svg { width: 12px; height: 12px; }
+        .fu-canal-ig { background: #FFF5F8; color: #C13584; }
+        .fu-canal-li { background: #F2F8FD; color: #0A66C2; }
         .ig-feito { margin: -4px 0 10px; padding: 7px 10px; border-radius: 8px; background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; font-size: .74rem; }
         .tag-ig { background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%); }
         .tag-fb { background: #1877F2; }
@@ -1737,6 +1754,7 @@ function aplicarDadosUsuario(nome, email) {
         }
         prodCarregar();
         if (typeof igCarregarFeitos === "function") igCarregarFeitos(true);
+        if (typeof liCarregarFeitos === "function") liCarregarFeitos(true);
     }, 400);
 
     // Restaurar últimos leads prospectados
@@ -2100,6 +2118,7 @@ function iniciarAppPosLogin() {
                 <button type="button" class="ps-acao" id="ps-btn-cidade" onclick="mesmaBuscaOutraCidade()">🔁 Mesma busca em outra cidade</button>
                 <button type="button" class="ps-acao" id="ps-btn-fundo" onclick="buscarMaisFundo()" hidden>🔎 Buscar mais nesta cidade</button>
                 <button type="button" class="ps-acao ps-acao-ig" id="ps-btn-ig" onclick="igAbrirFila()" hidden></button>
+                <button type="button" class="ps-acao ps-acao-li" id="ps-btn-li" onclick="liAbrirFila()" hidden></button>
                 <button type="button" class="ps-acao" id="ps-btn-bloq" onclick="abrirNaoContatar()">🚫 Não contatar</button>
                 <button type="button" class="ps-acao" id="ps-btn-grupos" onclick="abrirGrupos('leads')">👥 Leads de grupos</button>
                 <span class="ps-acoes-dica" id="ps-acoes-dica"></span>
@@ -2732,7 +2751,7 @@ async function pkSincronizarParaNuvem() {
             proxima_acao_txt: l.proximaAcaoTxt || null,
             reuniao_em: l.reuniaoEm ? new Date(l.reuniaoEm).toISOString() : null,
             motivo_perda: l.col === 'descartado' ? (l.motivoPerda || null) : null,
-            canal: l.canal || null, instagram: l.instagram || null
+            canal: l.canal || null, instagram: l.instagram || null, linkedin: l.linkedin || null
         }));
         const idsAtuais = rows.map(r => r.id);
 
@@ -2775,7 +2794,7 @@ async function pkSincronizarDaNuvem() {
                 proximaAcaoTxt: r.proxima_acao_txt || '',
                 reuniaoEm: r.reuniao_em ? new Date(r.reuniao_em).getTime() : null,
                 motivoPerda: r.motivo_perda || null,
-                canal: r.canal || null, instagram: r.instagram || null
+                canal: r.canal || null, instagram: r.instagram || null, linkedin: r.linkedin || null
             }));
             userSet('pk_leads', pkLeads); // mantém o cache local coerente com a nuvem
             if (document.getElementById('tab-pipeline')?.classList.contains('active') && typeof pkRender === 'function') pkRender();
@@ -3532,6 +3551,11 @@ function renderizarFilaFollowups() {
 
     lista.innerHTML = _filaFollowupsCache.map(item => {
         const dataFmt = item.criado_em ? new Date(item.criado_em).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
+        const canal = item.canal === 'instagram' || item.canal === 'linkedin' ? item.canal : '';
+        const selo = canal === 'instagram' ? `<span class="fu-canal fu-canal-ig">${_IG_GLIFO} Instagram · você envia</span>` : canal === 'linkedin' ? `<span class="fu-canal fu-canal-li">${_LI_GLIFO} LinkedIn · você envia</span>` : '';
+        const botao = canal === 'instagram' ? `<button onclick="fuAbrirCanal(${item.id})" style="padding:8px 16px;border-radius:8px;border:none;background:#0D1330;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;">Abrir no Instagram</button>`
+            : canal === 'linkedin' ? `<button onclick="fuAbrirCanal(${item.id})" style="padding:8px 16px;border-radius:8px;border:none;background:#0D1330;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;">Abrir no LinkedIn</button>`
+            : `<button onclick="enviarFollowup(${item.id})" style="padding:8px 16px;border-radius:8px;border:none;background:#FF6A00;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;">📤 Enviar follow-up</button>`;
         return `
         <div class="fila-card" style="background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
@@ -3540,7 +3564,7 @@ function renderizarFilaFollowups() {
                     <span style="font-size:0.75rem;color:var(--text-muted,#888);">${formatPhoneBR ? formatPhoneBR(item.phone) : item.phone}</span>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px;">
-                    <span style="font-size:0.68rem;font-weight:700;padding:3px 9px;border-radius:20px;background:#FFF3E0;color:#FF6A00;">${item.tipo === 'robo_48h' ? '🤖 48 h sem resposta de pessoa' : '📅 Dia ' + item.dia_etapa}</span>
+                    ${selo}<span style="font-size:0.68rem;font-weight:700;padding:3px 9px;border-radius:20px;background:#FFF3E0;color:#FF6A00;">${item.tipo === 'robo_48h' ? '🤖 48 h sem resposta de pessoa' : '📅 Dia ' + item.dia_etapa}</span>
                     <span style="font-size:0.68rem;color:var(--text-muted,#888);">${dataFmt}</span>
                 </div>
             </div>
@@ -3548,7 +3572,7 @@ function renderizarFilaFollowups() {
             <textarea id="fu-texto-${item.id}" style="width:100%;min-height:70px;padding:10px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:0.85rem;font-family:'Inter',sans-serif;resize:vertical;background:var(--surface);color:var(--text);">${escapeHtml(item.mensagem || '')}</textarea>
             <div style="display:flex;gap:8px;margin-top:10px;justify-content:flex-end;">
                 <button onclick="pularFollowup(${item.id})" style="padding:8px 14px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:#64748b;font-size:0.78rem;font-weight:600;cursor:pointer;">Pular esta etapa</button>
-                <button onclick="enviarFollowup(${item.id})" style="padding:8px 16px;border-radius:8px;border:none;background:#FF6A00;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;">📤 Enviar follow-up</button>
+                ${botao}
             </div>
         </div>`;
     }).join('');
@@ -3560,7 +3584,7 @@ var _fuEnviandoTodos = false, _fuParar = false;
 async function enviarTodosFollowups() {
     const btn = document.getElementById('fu-todos');
     if (_fuEnviandoTodos) { _fuParar = true; if (btn) btn.textContent = '⏳ Parando…'; return; }
-    const itens = _filaFollowupsCache.filter(i => (document.getElementById('fu-texto-' + i.id)?.value || '').trim());
+    const itens = _filaFollowupsCache.filter(i => i.canal !== 'instagram' && i.canal !== 'linkedin' && (document.getElementById('fu-texto-' + i.id)?.value || '').trim());
     if (!itens.length) { showToast('Nenhum follow-up com mensagem para enviar', 'err'); return; }
     const min = Math.ceil(itens.length * 30 / 60);
     if (!confirm('Enviar os ' + itens.length + ' follow-ups como estão na tela (com as suas edições)?\n\nVai um a cada 20 a 40 segundos (cerca de ' + min + ' min no total). Você pode parar no meio clicando no mesmo botão.')) return;
@@ -3604,6 +3628,25 @@ async function enviarFollowup(filaId, textoPronto, silencioso) {
     }
 }
 
+// Etapa da cadência por Instagram ou LinkedIn: abre a janela assistida com o texto da etapa; ao registrar,
+// a etapa conta como feita (a próxima da cadência segue normalmente).
+async function fuAbrirCanal(filaId) {
+    const item = _filaFollowupsCache.find(i => i.id === filaId); if (!item) return;
+    const texto = (document.getElementById('fu-texto-' + filaId)?.value || item.mensagem || '').trim();
+    const x = item.extra || {};
+    const lead = { title: item.lead_nome || '', name: item.lead_nome || '', phone: item.phone || '', instagram: x.instagram || '', linkedin: x.linkedin || '', category: x.categoria || '' };
+    const concluir = async () => {
+        try {
+            await supabaseClient.from('fila_followups').update({ status: 'enviado', respondido_em: new Date().toISOString() }).eq('id', filaId).eq('user_id', currentUser.id);
+            await supabaseClient.from('followups_enviados').insert({ user_id: currentUser.id, phone: item.phone, campanha_id: item.campanha_id, dia_etapa: item.dia_etapa, enviado_em: new Date().toISOString() });
+        } catch (e) {}
+        _filaFollowupsCache = _filaFollowupsCache.filter(i => i.id !== filaId);
+        renderizarFilaFollowups(); atualizarBadgeRespostas();
+    };
+    const contexto = 'Você já mandou uma mensagem no WhatsApp há alguns dias e não teve resposta. Pode citar isso de leve.';
+    if (item.canal === 'instagram') igAbordar([lead], 0, { textoInicial: texto, aoRegistrar: concluir });
+    else liAbordar([lead], { textoInicial: texto, aoRegistrar: concluir, contexto });
+}
 async function pularFollowup(filaId) {
     try {
         await fetch(`${N8N_BASE}/responder-followup`, {
@@ -4111,6 +4154,7 @@ function pkChipsCard(l, acao) {
     if (l.valor > 0) out.push(`<span class="pk-chip pk-chip-valor">${_brl(l.valor)}</span>`);
     if (l.col === 'descartado' && l.motivoPerda) { const m = PK_MOTIVOS.find(x => x[0] === l.motivoPerda); if (m) out.push(`<span class="pk-chip">${m[1]}</span>`); }
     if (l.canal === 'instagram') out.push(`<span class="pk-chip pk-chip-ig" title="Primeiro contato pelo Instagram">${_IG_GLIFO} Instagram</span>`);
+    if (l.canal === 'linkedin') out.push(`<span class="pk-chip pk-chip-li" title="Primeiro contato pelo LinkedIn">${_LI_GLIFO} LinkedIn</span>`);
     return out.length ? `<div class="pk-chips">${out.join('')}</div>` : '';
 }
 
@@ -6338,7 +6382,7 @@ const _LOGO_REDE = {
 const _REDES = [['instagram', 'tag-ig', 'Instagram'], ['facebook', 'tag-fb', 'Facebook'], ['linkedin', 'tag-in', 'LinkedIn']];
 function botoesRedes(l, semInsta) {
     return _REDES.map(([k, cls, nome]) => {
-        if (semInsta && k === 'instagram') return '';
+        if (semInsta && (k === 'instagram' || k === 'linkedin')) return '';
         const url = String(l[k] || '');
         if (!/^https:\/\//i.test(url)) return '';
         return `<a href="${escapeHtml(url).replace(/"/g, '&quot;')}" target="_blank" rel="noopener" class="tag-rede ${cls}" title="${nome}" aria-label="${nome}">${_LOGO_REDE[k]}</a>`;
@@ -6899,6 +6943,7 @@ function renderPagina(pagina) {
                 <a href="${escapeHtml(linkGoogleMaps(l))}" target="_blank" rel="noopener" class="tag-rede tag-mapa" title="Ver fotos, fachada e avaliações no Google Maps" aria-label="Ver no Google Maps">${_LOGO_REDE.maps}</a>
                 ${/^https?:\/\//i.test(l.website || '') ? `<a href="${escapeHtml(l.website)}" target="_blank" rel="noopener" class="tag-rede tag-www" title="Site da empresa" aria-label="Abrir site da empresa">${_LOGO_REDE.site}</a>` : ''}
                 ${botoesRedes(l, true)}
+                ${liUrl(l) ? (liJaAbordado(l) ? `<a href="${escapeHtml(liUrl(l))}" target="_blank" rel="noopener" class="tag-rede tag-lidm feito" title="Já abordado pelo LinkedIn · abrir" aria-label="Abrir LinkedIn (já abordado)">${_LI_GLIFO}</a>` : liBotaoHtml('liAbordarLead(' + realIdx + ')')) : ''}
                 ${igHandle(l.instagram) ? (igJaAbordado(l) ? `<a href="${escapeHtml(igUrl(l))}" target="_blank" rel="noopener" class="tag-rede tag-igdm feito" title="Já abordado pelo Instagram · abrir perfil" aria-label="Abrir Instagram (já abordado)">${_IG_GLIFO}</a>` : igBotaoHtml('igAbordarLead(' + realIdx + ')')) : ''}
                 <button type="button" class="tag-rede tag-bloq${bloqueadoLead(l) ? ' ativo' : ''}" onclick="alternarNaoContatarLead(${realIdx})" title="${bloqueadoLead(l) ? 'Tirar da lista Não contatar' : 'Nunca mandar campanha para este lead'}" aria-label="${bloqueadoLead(l) ? 'Tirar da lista Não contatar' : 'Adicionar à lista Não contatar'}">${bloqueadoLead(l) ? _LOGO_REDE.desbloq : _LOGO_REDE.bloq}</button>
                 <button type="button" onclick="adicionarLeadKanbanDireto(${realIdx})" class="tag-rede tag-crm${jaNoKanban ? ' no-crm' : ''}" title="${jaNoKanban ? 'Já está no CRM' : 'Adicionar ao CRM (Pipeline)'}" aria-label="${jaNoKanban ? 'Já está no CRM' : 'Adicionar ao CRM'}" ${jaNoKanban ? 'disabled' : ''}>${jaNoKanban ? _LOGO_REDE.crmOk : _LOGO_REDE.crm}</button>
@@ -7134,6 +7179,7 @@ function adicionarLeadKanbanDireto(realIdx) {
         rating: lead.rating || 0,
         reviews: lead.reviews || 0,
         instagram: igUrl(lead) || null,
+        linkedin: liUrl(lead) || null,
         col: 'novo',
         dias: 0,
         movedAt: Date.now(),
@@ -7792,7 +7838,9 @@ async function sincronizarCampanhaComTabelas(camp) {
             website: l.website || null,
             address: l.address || null,
             rating: l.rating || null,
-            is_whatsapp: (l.is_whatsapp === true || l.is_whatsapp === false) ? l.is_whatsapp : null
+            is_whatsapp: (l.is_whatsapp === true || l.is_whatsapp === false) ? l.is_whatsapp : null,
+            instagram: igUrl(l) || null,
+            linkedin: liUrl(l) || null
         }));
         if (leadsRows.length) {
             // upsert em lotes de 500 pra não estourar payload
@@ -12077,8 +12125,9 @@ async function igRegistrar(l) {
 }
 
 // Janela de abordagem. `fila` = lista de leads (um por vez); um lead só = fila de 1.
-async function igAbordar(fila, inicio) {
+async function igAbordar(fila, inicio, opcoes) {
     if (!currentUser) return;
+    opcoes = opcoes || {};
     fila = (fila || []).filter(l => igHandle(l && l.instagram));
     if (!fila.length) { showToast('Nenhum lead com Instagram para abordar', 'err'); return; }
     await igCarregarFeitos();
@@ -12091,7 +12140,7 @@ async function igAbordar(fila, inicio) {
     document.body.appendChild(fundo);
 
     const mostrar = async () => {
-        while (i < fila.length && igJaAbordado(fila[i])) i++;
+        while (i < fila.length && igJaAbordado(fila[i]) && !opcoes.aoRegistrar) i++;
         m.replaceChildren();
         if (i >= fila.length) {
             m.appendChild(prEl('div', 'modal-title', 'Fila do Instagram concluída'));
@@ -12142,7 +12191,9 @@ async function igAbordar(fila, inicio) {
             catch (e) { ta.placeholder = 'Não consegui gerar (' + e.message + '). Escreva a sua mensagem aqui.'; }
             ta.disabled = false; outra.disabled = abrir.disabled = false;
         };
+        const gerarInicio = !opcoes.textoInicial;
         outra.onclick = gerar;
+        if (opcoes.textoInicial) { ta.value = opcoes.textoInicial; ta.disabled = false; outra.disabled = abrir.disabled = false; }
         abrir.onclick = async () => {
             const texto = ta.value.trim();
             if (!texto) { showToast('Escreva a mensagem antes', 'err'); return; }
@@ -12163,6 +12214,7 @@ async function igAbordar(fila, inicio) {
                 sim.disabled = true; sim.textContent = 'Registrando…';
                 try {
                     const desfazer = await igRegistrar(l); feitas++; i++;
+                    if (opcoes.aoRegistrar) await opcoes.aoRegistrar();
                     _igUltimo = { nome: l.title || l.name || '@' + h, desfazer, sozinho };
                     if (fila.length > 1) mostrar(); else fechar();
                 } catch (e) { feito = false; showToast('Não consegui registrar: ' + e.message, 'err'); sim.disabled = false; sim.textContent = 'Mandei'; }
@@ -12176,7 +12228,7 @@ async function igAbordar(fila, inicio) {
             sim.onclick = () => registrar(false);
             acoes.append(nao, de, sim);
         };
-        gerar();
+        if (gerarInicio) gerar();
     };
     mostrar();
 }
@@ -12186,6 +12238,182 @@ function igAbordarCard(id) {
     const c = pkLeads.find(k => String(k.id) === String(id)); if (!c) return;
     igAbordar([{ title: c.name, name: c.name, category: c.cat, phone: c.phone, rating: c.rating, reviews: c.reviews, website: c.website, instagram: c.instagram }]);
 }
+
+// ===================== ABORDAGEM PELO LINKEDIN (assistida) =====================
+// Página de empresa não recebe mensagem: o app abre a lista de pessoas da empresa (ou a busca) para você
+// achar o dono/sócio, a IA escreve o convite (até 200 caracteres) e a mensagem para quando ele aceitar.
+// Quem envia é sempre você, no próprio LinkedIn.
+const LI_LIMITE_PADRAO = 15;
+const _LI_GLIFO = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3.5" y="3.5" width="17" height="17" rx="3.5"/><path d="M8 10.5v6M8 7.6v.1M11.5 16.5v-6M11.5 13c0-1.6 1-2.6 2.4-2.6s2.1 1 2.1 2.6v3.5"/></svg>`;
+var _liFeitos = null, _liHoje = 0;
+function liLimite() { const n = Number(userGet('li_limite', LI_LIMITE_PADRAO)); return n >= 1 && n <= 100 ? n : LI_LIMITE_PADRAO; }
+function liUrl(l) {
+    const u = String((l && l.linkedin) || '');
+    const m = u.match(/^https:\/\/([a-z]{2,3}\.)?(www\.)?linkedin\.com\/(company|in|school)\/([^/?#]+)/i);
+    return m ? 'https://www.linkedin.com/' + m[3].toLowerCase() + '/' + m[4] + '/' : '';
+}
+function liChave(l) { const u = liUrl(l); if (u) return u.toLowerCase(); const n = String((l && (l.title || l.name)) || '').toLowerCase().trim(); return n ? 'nome:' + n + '|' + String((l && l.phone) || '').replace(/\D/g, '').slice(-8) : ''; }
+// Onde achar quem decide: a aba "Pessoas" da página da empresa, ou a busca de pessoas pelo nome da empresa
+function liPessoasUrl(l) {
+    const u = liUrl(l);
+    const cargos = 'sócio OR proprietário OR dono OR CEO OR fundador OR diretor';
+    if (/\/company\//.test(u)) return u + 'people/?keywords=' + encodeURIComponent(cargos);
+    if (/\/in\//.test(u)) return u;
+    return 'https://www.linkedin.com/search/results/people/?keywords=' + encodeURIComponent('"' + ((l && (l.title || l.name)) || '') + '" ' + cargos);
+}
+async function liCarregarFeitos(forcar) {
+    if (_liFeitos && !forcar) return _liFeitos;
+    _liFeitos = new Set(); _liHoje = 0;
+    if (!currentUser) return _liFeitos;
+    try {
+        const { data } = await supabaseClient.from('abordagens_linkedin').select('chave,criado_em').eq('user_id', currentUser.id).order('criado_em', { ascending: false }).limit(5000);
+        const ini = new Date(); ini.setHours(0, 0, 0, 0);
+        (data || []).forEach(r => { _liFeitos.add(r.chave); if (new Date(r.criado_em) >= ini) _liHoje++; });
+    } catch (e) {}
+    return _liFeitos;
+}
+function liJaAbordado(l) { const k = liChave(l); return !!k && !!_liFeitos && _liFeitos.has(k); }
+function liFila() {
+    const base = (_leadsBase && _leadsBase.length) ? _leadsBase : todosLeads;
+    return (base || []).filter(l => l && liUrl(l) && !liJaAbordado(l) && !bloqueadoLead(l))
+        .map(l => ({ l, sc: calcScore(l) })).sort((a, b) => b.sc - a.sc).map(x => x.l);
+}
+function liBotaoHtml(onclick) {
+    return `<button type="button" class="tag-rede tag-lidm" onclick="${onclick}" title="Abordar pelo LinkedIn: ache o dono, a IA escreve o convite" aria-label="Abordar pelo LinkedIn">${_LI_GLIFO}</button>`;
+}
+function liPrompt(l, prod, pessoa, contexto) {
+    return 'Você escreve uma abordagem de prospecção B2B pelo LinkedIn para o dono/sócio de uma empresa que não conhece você.\n\n' +
+        'O QUE VOCÊ VENDE:\n' + ((prod && prod.instrucoes) || 'Apresente nosso serviço e peça uma conversa rápida.') + '\n\n' +
+        'EMPRESA: ' + (l.title || l.name || 'não informado') + ' · ' + (l.category || l.cat || 'categoria não informada') + (l.address ? ' · ' + l.address : '') +
+        '\nPESSOA: ' + (pessoa ? pessoa : 'nome desconhecido (não use nome; comece com "Olá!")') + (contexto ? '\nCONTEXTO: ' + contexto : '') +
+        '\n\nEscreva DUAS coisas, exatamente neste formato:\nCONVITE: <nota do convite de conexão, no máximo 190 caracteres, cordial, sem vender ainda, diz por que quer conectar (mesmo mercado/região ou algo da empresa)>\n' +
+        'MENSAGEM: <mensagem para mandar depois que a pessoa aceitar: 2 a 3 frases curtas, agradece a conexão, o benefício principal para a empresa dela e termina com UMA pergunta simples>\n' +
+        'Sem link, sem hashtag, sem emoji. Português do Brasil, tom profissional e próximo.';
+}
+async function liGerar(l, pessoa, contexto) {
+    const prod = typeof prodAtual === 'function' ? prodAtual() : null;
+    const t = await iaServidor(liPrompt(l, prod, pessoa, contexto), 400, config.iaProvider || undefined);
+    const limpar = x => String(x || '').replace(/^["“\s]+|["”\s]+$/g, '').replace(/\s*\n+\s*/g, ' ').trim();
+    const mc = t.match(/CONVITE:\s*([\s\S]*?)(?:\n\s*MENSAGEM:|$)/i), mm = t.match(/MENSAGEM:\s*([\s\S]*)$/i);
+    let convite = limpar(mc ? mc[1] : t), mensagem = limpar(mm ? mm[1] : '');
+    if (convite.length > 200) convite = convite.slice(0, 197).replace(/\s+\S*$/, '') + '…';
+    return { convite, mensagem };
+}
+async function liRegistrar(l, pessoa, mensagem) {
+    const k = liChave(l);
+    const prod = typeof prodAtual === 'function' ? prodAtual() : null;
+    const { error } = await supabaseClient.from('abordagens_linkedin').insert({
+        user_id: currentUser.id, chave: k, nome: (l.title || l.name || '').slice(0, 200), telefone: String(l.phone || '').replace(/\D/g, '') || null,
+        linkedin: liUrl(l) || null, pessoa: (pessoa || '').slice(0, 120) || null, produto_id: (prod && prod.id) || null
+    });
+    if (error && !/duplicate|unique/i.test(error.message || '')) throw error;
+    if (_liFeitos) _liFeitos.add(k);
+    _liHoje++;
+    if (typeof pkLoad === 'function') pkLoad();
+    const nome = (l.title || l.name || '').toLowerCase().trim();
+    let card = pkLeads.find(c => nome && (c.name || c.title || '').toLowerCase().trim() === nome);
+    const lembrete = new Date(); lembrete.setDate(lembrete.getDate() + 3); lembrete.setHours(9, 0, 0, 0);
+    if (!card) {
+        card = { id: Date.now() + Math.random(), name: l.title || l.name || '', cat: l.category || l.cat || '', phone: String(l.phone || '').replace(/\D/g, ''),
+            website: l.website || '', rating: l.rating || 0, reviews: l.reviews || 0, col: 'contatado', dias: 0, movedAt: Date.now(), nota: '' };
+        pkLeads.push(card);
+    } else if (card.col === 'novo') { card.col = 'contatado'; card.movedAt = Date.now(); }
+    card.canal = card.canal || 'linkedin';
+    card.linkedin = liUrl(l) || card.linkedin || null;
+    if (mensagem) card.nota = ((card.nota ? card.nota + '\n\n' : '') + 'LinkedIn' + (pessoa ? ' (' + pessoa + ')' : '') + ' — mensagem para quando aceitar:\n' + mensagem).slice(0, 4000);
+    if (!card.proximaAcaoEm && card.col !== 'fechado' && card.col !== 'descartado') {
+        card.proximaAcaoEm = lembrete.getTime(); card.proximaAcaoTxt = 'Ver se aceitou o convite no LinkedIn e mandar a mensagem (está nas notas)';
+    }
+    pkSave();
+}
+// Janela de abordagem. opcoes: { textoInicial, aoRegistrar } (usado pela cadência)
+async function liAbordar(fila, opcoes) {
+    if (!currentUser) return;
+    opcoes = opcoes || {};
+    fila = (fila || []).filter(Boolean);
+    if (!fila.length) { showToast('Nenhum lead para abordar no LinkedIn', 'err'); return; }
+    await liCarregarFeitos();
+    let i = 0, feitas = 0;
+    const fundo = prEl('div', 'modal-backdrop active');
+    const m = prEl('div', 'modal ig-modal li-modal');
+    fundo.appendChild(m);
+    const fechar = () => { fundo.remove(); try { atualizarAcoesBusca(); if (typeof renderPagina === 'function') renderPagina(paginaAtual || 1); } catch (e) {} if (feitas) showToast(`✓ ${feitas} convite(s) no LinkedIn registrados · lembrete em 3 dias no Pipeline`, 'ok'); };
+    fundo.onclick = e => { if (e.target === fundo) fechar(); };
+    document.body.appendChild(fundo);
+    const copiar = async (t) => { try { await Promise.race([navigator.clipboard.writeText(t), new Promise((_, r) => setTimeout(() => r(), 1500))]); return true; } catch (e) { return false; } };
+    const mostrar = () => {
+        while (i < fila.length && liJaAbordado(fila[i]) && !opcoes.aoRegistrar) i++;
+        m.replaceChildren();
+        if (i >= fila.length) {
+            m.appendChild(prEl('div', 'modal-title', 'Fila do LinkedIn concluída'));
+            m.appendChild(prEl('div', 'modal-sub', feitas ? `${feitas} convite(s) enviados. Em 3 dias o Pipeline lembra de ver quem aceitou; a mensagem fica nas notas do card.` : 'Ninguém novo para abordar agora.'));
+            const a = prEl('div', 'modal-actions'); const ok = prEl('button', 'modal-btn primary', 'Fechar'); ok.onclick = fechar; a.appendChild(ok); m.appendChild(a); return;
+        }
+        const l = fila[i], lim = liLimite();
+        const topo = prEl('div', 'ig-topo');
+        const tit = prEl('div', 'modal-title'); tit.innerHTML = _LI_GLIFO + ' <span></span>'; tit.querySelector('span').textContent = 'Abordar pelo LinkedIn';
+        topo.appendChild(tit);
+        if (fila.length > 1) topo.appendChild(prEl('span', 'ig-pos', `${i + 1} de ${fila.length}`));
+        m.appendChild(topo);
+        const quem = prEl('div', 'ig-quem'); quem.appendChild(prEl('b', '', l.title || l.name || 'Empresa'));
+        const cidade = (() => { const partes = String(l.address || '').split(',').map(x => x.trim()).filter(x => x && !/^(brasil|brazil|\d{5}-?\d{3})$/i.test(x)); const ult = partes[partes.length - 1] || ''; return partes.length > 1 ? ult.split(' - ')[0].trim() : ''; })();
+        quem.appendChild(prEl('span', '', ' · ' + [l.category || l.cat, cidade].filter(Boolean).join(' · ')));
+        m.appendChild(quem);
+        const cont = prEl('div', 'ig-cont' + (_liHoje >= lim ? ' passou' : ''), `Hoje: ${_liHoje} de ${lim} convites`);
+        const mudar = prEl('button', 'ig-link', 'mudar limite');
+        mudar.onclick = () => { const v = prompt('Quantos convites pelo LinkedIn por dia? (recomendado: até 15)', String(lim)); const n = Number(v); if (n >= 1 && n <= 100) { userSet('li_limite', Math.round(n)); mostrar(); } };
+        cont.appendChild(mudar); m.appendChild(cont);
+        if (_liHoje >= lim) m.appendChild(prEl('div', 'ig-aviso', 'Você já chegou no limite de hoje. Convites demais seguidos fazem o LinkedIn restringir a conta: o melhor é continuar amanhã.'));
+        // 1) achar quem decide
+        m.appendChild(prEl('div', 'ig-rot', '1. Ache quem decide'));
+        const l1 = prEl('div', 'li-linha');
+        const achar = prEl('button', 'modal-btn', liUrl(l) && /\/in\//.test(liUrl(l)) ? 'Abrir perfil' : 'Ver sócios e donos no LinkedIn');
+        achar.onclick = () => window.open(liPessoasUrl(l), '_blank', 'noopener');
+        const pessoa = document.createElement('input'); pessoa.className = 'ig-texto li-pessoa'; pessoa.placeholder = 'Nome da pessoa (opcional, a IA personaliza)'; pessoa.maxLength = 80;
+        l1.append(achar, pessoa); m.appendChild(l1);
+        // 2) convite e mensagem
+        const rotC = prEl('div', 'ig-rot', '2. Convite com nota (até 200 caracteres)'); const conta = prEl('span', 'li-conta', ''); rotC.appendChild(conta); m.appendChild(rotC);
+        const convite = document.createElement('textarea'); convite.className = 'ig-texto'; convite.rows = 3; convite.maxLength = 200; convite.disabled = true; convite.placeholder = 'A IA está escrevendo…';
+        convite.addEventListener('input', () => { conta.textContent = ' · ' + convite.value.length + '/200'; });
+        m.appendChild(convite);
+        m.appendChild(prEl('div', 'ig-rot', '3. Mensagem para quando ele aceitar (fica nas notas do Pipeline)'));
+        const msg = document.createElement('textarea'); msg.className = 'ig-texto'; msg.rows = 4; msg.maxLength = 1500; msg.disabled = true;
+        m.appendChild(msg);
+        m.appendChild(prEl('div', 'ig-passo', 'No perfil da pessoa: Conectar → Adicionar nota → colar o convite → Enviar. Conta grátis tem poucos convites com nota por mês: se acabar, conecte sem nota e mande a mensagem quando aceitar.'));
+        const acoes = prEl('div', 'modal-actions');
+        const pular = prEl('button', 'modal-btn', fila.length > 1 ? 'Pular' : 'Cancelar');
+        const outra = prEl('button', 'modal-btn', 'Gerar de novo');
+        const copiaC = prEl('button', 'modal-btn', 'Copiar convite');
+        const mandei = prEl('button', 'modal-btn primary', 'Mandei o convite');
+        acoes.append(pular, outra, copiaC, mandei); m.appendChild(acoes);
+        pular.onclick = () => { if (fila.length > 1) { i++; mostrar(); } else fechar(); };
+        const gerar = async () => {
+            convite.disabled = msg.disabled = outra.disabled = copiaC.disabled = mandei.disabled = true; convite.value = ''; msg.value = '';
+            try { const r = await liGerar(l, pessoa.value.trim(), opcoes.contexto); convite.value = r.convite; msg.value = r.mensagem; }
+            catch (e) { convite.placeholder = 'Não consegui gerar (' + e.message + '). Escreva aqui.'; }
+            if (opcoes.textoInicial && !convite.value) convite.value = opcoes.textoInicial.slice(0, 200);
+            conta.textContent = ' · ' + convite.value.length + '/200';
+            convite.disabled = msg.disabled = outra.disabled = copiaC.disabled = mandei.disabled = false;
+        };
+        outra.onclick = gerar;
+        pessoa.addEventListener('change', () => { if (pessoa.value.trim()) gerar(); });
+        copiaC.onclick = async () => { const ok = await copiar(convite.value.trim()); if (!ok) { convite.select(); try { document.execCommand('copy'); } catch (e) {} } copiaC.textContent = 'Convite copiado ✓'; };
+        mandei.onclick = async () => {
+            mandei.disabled = true; mandei.textContent = 'Registrando…';
+            try {
+                await liRegistrar(l, pessoa.value.trim(), msg.value.trim()); feitas++;
+                if (opcoes.aoRegistrar) await opcoes.aoRegistrar();
+                i++; if (fila.length > 1) mostrar(); else fechar();
+            } catch (e) { showToast('Não consegui registrar: ' + e.message, 'err'); mandei.disabled = false; mandei.textContent = 'Mandei o convite'; }
+        };
+        if (opcoes.textoInicial) { convite.value = opcoes.textoInicial.slice(0, 200); msg.value = ''; conta.textContent = ' · ' + convite.value.length + '/200'; convite.disabled = msg.disabled = false; gerarSoMensagem(); }
+        else gerar();
+        async function gerarSoMensagem() { try { const r = await liGerar(l, '', opcoes.contexto); if (!msg.value) msg.value = r.mensagem; } catch (e) {} }
+    };
+    mostrar();
+}
+function liAbordarLead(realIdx) { const l = todosLeads[realIdx]; if (l) liAbordar([l]); }
+async function liAbrirFila() { await liCarregarFeitos(); const f = liFila(); if (!f.length) { showToast('Ninguém novo com LinkedIn nesta busca', 'err'); return; } liAbordar(f); }
 
 // ===================== PRODUTOS (SDR com vários produtos) =====================
 // Cada produto tem as próprias instruções para a IA. Trocou o produto, a campanha, as respostas
@@ -14890,6 +15118,12 @@ function prDesenharFunil(d) {
         const igN = Math.max(_igFeitos ? _igFeitos.size : 0, igPipe.length);
         box.appendChild(prEl('div', 'ph-linha', `Instagram: ${igN} abordados · ${igResp} responderam${igN ? ' (' + Math.round(igResp / igN * 100) + '%)' : ''}. Conta quem você moveu para Respondeu ou além no Pipeline.`));
     }
+    const liPipe = d.pipeline.filter(p => p.canal === 'linkedin');
+    if (liPipe.length || (_liFeitos && _liFeitos.size)) {
+        const liResp = liPipe.filter(p => ['respondeu', 'negociando', 'fechado'].includes(p.col)).length;
+        const liN = Math.max(_liFeitos ? _liFeitos.size : 0, liPipe.length);
+        box.appendChild(prEl('div', 'ph-linha', `LinkedIn: ${liN} convites · ${liResp} responderam${liN ? ' (' + Math.round(liResp / liN * 100) + '%)' : ''}.`));
+    }
     const motivos = {};
     d.pipeline.filter(p => p.col === 'descartado' && p.motivo_perda).forEach(p => { motivos[p.motivo_perda] = (motivos[p.motivo_perda] || 0) + 1; });
     const nomesMot = { sem_interesse: 'sem interesse', tem_fornecedor: 'já tem fornecedor', preco: 'preço', nao_responde: 'não responde', robo: 'só robô', momento: 'não é o momento', outro: 'outro' };
@@ -15434,6 +15668,14 @@ function atualizarAcoesBusca() {
         btIg.innerHTML = _IG_GLIFO + ' <span></span>';
         btIg.querySelector('span').textContent = `Abordar no Instagram (${nIg})`;
         if (!_igFeitos) igCarregarFeitos().then(() => atualizarAcoesBusca());
+    }
+    const btLi = document.getElementById('ps-btn-li');
+    if (btLi) {
+        const nLi = liFila().length;
+        btLi.hidden = !nLi;
+        btLi.innerHTML = _LI_GLIFO + ' <span></span>';
+        btLi.querySelector('span').textContent = `Abordar no LinkedIn (${nLi})`;
+        if (!_liFeitos) liCarregarFeitos().then(() => atualizarAcoesBusca());
     }
 }
 // Vai para a Prospecção IA já com os melhores marcados (o envio continua pedindo a sua confirmação).
@@ -16498,6 +16740,10 @@ function cpPintarCadencia() {
         modo.innerHTML = `<option value="ia"${e.modoIA ? ' selected' : ''}>A IA escreve</option><option value="fixo"${!e.modoIA ? ' selected' : ''}>Texto fixo</option>`;
         modo.addEventListener('change', () => { e.modoIA = modo.value === 'ia'; cpPintarCadencia(); });
         top.appendChild(modo);
+        const canal = prEl('select', 'pk-sel'); canal.setAttribute('aria-label', 'Canal da etapa');
+        canal.innerHTML = `<option value="whatsapp"${!e.canal || e.canal === 'whatsapp' ? ' selected' : ''}>WhatsApp</option><option value="instagram"${e.canal === 'instagram' ? ' selected' : ''}>Instagram (você envia)</option><option value="linkedin"${e.canal === 'linkedin' ? ' selected' : ''}>LinkedIn (você envia)</option>`;
+        canal.addEventListener('change', () => { e.canal = canal.value; cpPintarCadencia(); });
+        top.appendChild(canal);
         const rm = prEl('button', 'ph-btn', 'Remover'); rm.type = 'button';
         rm.addEventListener('click', () => { ed.etapas.splice(i, 1); cpPintarCadencia(); });
         top.appendChild(rm);
@@ -16509,6 +16755,7 @@ function cpPintarCadencia() {
         ta.addEventListener('input', () => { if (e.modoIA) e.contextoIA = ta.value; else e.mensagem = ta.value; });
         box.appendChild(ta);
         if (e.modoIA) box.appendChild(prEl('div', 'ph-linha', 'Se a IA falhar, vai o texto: "' + (e.mensagem || '—') + '"'));
+        if (e.canal === 'instagram' || e.canal === 'linkedin') box.appendChild(prEl('div', 'ph-linha cad-canal-dica', (e.canal === 'instagram' ? 'Instagram' : 'LinkedIn') + ': entra na aba Respostas como tarefa; o app escreve e abre, você envia. Quem não tem ' + (e.canal === 'instagram' ? 'Instagram' : 'LinkedIn') + ' pula esta etapa sozinho.'));
         cx.appendChild(box);
     });
     const add = prEl('div', 'pk-motivos');
