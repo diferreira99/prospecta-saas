@@ -309,7 +309,7 @@ test('redes pelo Google e quem decide: completa o que faltou, sugere o dono no L
       return { pet: _leadsBase[0] };
     });
     assert.strictEqual(pedidosGoogle.length, 1, 'uma busca só; quem já tem tudo nem entra');
-    assert.deepStrictEqual(pedidosGoogle[0].leads, [{ id: '0', nome: 'Pet Feliz', cidade: 'Campinas', faltam: ['instagram', 'linkedin'] }]);
+    assert.deepStrictEqual(pedidosGoogle[0].leads, [{ id: '0', nome: 'Pet Feliz', cidade: 'Campinas', telefone: '11977776666', site: '', faltam: ['instagram', 'linkedin'] }]);
     assert.strictEqual(r1.pet.instagram, 'https://www.instagram.com/petfeliz/');
     assert.strictEqual(r1.pet.linkedin, 'https://www.linkedin.com/company/pet-feliz/');
     assert.strictEqual(r1.pet.googleOk, true);

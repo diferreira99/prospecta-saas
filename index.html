@@ -6488,6 +6488,7 @@ async function completarRedesPeloGoogle(leads) {
         const d = await _apiOficial('/leads/redes-google', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ leads: alvo.map((l, n) => ({ id: String(n), nome: l.title || l.name, cidade: cidadeDoLead(l),
+                telefone: l.telefone_maps || l.phone || '', site: l.website || '',
                 faltam: [!l.instagram && 'instagram', !l.linkedin && 'linkedin'].filter(Boolean) })) })
         });
         let novos = 0;
@@ -6509,7 +6510,7 @@ async function buscarDecisores(l) {
     if (l.decisoresBuscados) return [];
     const d = await _apiOficial('/leads/redes-google', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ leads: [{ id: '0', nome: l.title || l.name || '', cidade: cidadeDoLead(l), faltam: ['decisor'].concat(l.linkedin ? [] : ['linkedin']) }] })
+        body: JSON.stringify({ leads: [{ id: '0', nome: l.title || l.name || '', cidade: cidadeDoLead(l), telefone: l.telefone_maps || l.phone || '', site: l.website || '', faltam: ['decisor'].concat(l.linkedin ? [] : ['linkedin']) }] })
     });
     const r = (d.resultados || {})['0'] || {};
     if (r.erro) throw new Error(r.erro);
