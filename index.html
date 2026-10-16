@@ -389,6 +389,18 @@
         .canal-lista li.cl-multi .cl-meio { flex-basis: 100%; }
         .canal-dicas { margin: 0; padding-left: 18px; font-size: 0.72rem; color: var(--muted); line-height: 1.6; }
         @media (max-width: 900px) { .canal-topo { grid-template-columns: repeat(2, minmax(0, 1fr)); } .canal-grade { grid-template-columns: 1fr; } .canal-filtros { margin-left: 0; width: 100%; } .canal-filtros select { flex: 1; max-width: none; } .canal-acao > .ps-acao { flex: 1 1 auto; } .canal-lista .cl-selo { display: none; } }
+        .ps-grade { display: flex; align-items: center; gap: 12px; width: 100%; margin: 4px 0 12px; padding: 10px 12px; border-radius: 12px; border: 1.5px solid var(--border, #e2e8f0); background: var(--surface, #fff); cursor: pointer; text-align: left; font-family: 'Inter', sans-serif; transition: border-color .15s, background .15s; }
+        .ps-grade:hover { border-color: #c7d2fe; }
+        .ps-grade[aria-checked="true"] { border-color: #165DFF; background: #EEF3FF; }
+        .ps-grade-ico { display: grid; grid-template-columns: repeat(3, 7px); gap: 2px; flex: 0 0 auto; padding: 5px; border-radius: 8px; background: linear-gradient(135deg, #3B82F6, #165DFF); }
+        .ps-grade-ico i { width: 7px; height: 7px; border-radius: 2px; background: rgba(255,255,255,.85); }
+        .ps-grade-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+        .ps-grade-txt b { font-size: 0.8rem; color: var(--text); }
+        .ps-grade-txt small { font-size: 0.66rem; color: var(--muted); }
+        .ps-grade-chave { flex: 0 0 34px; height: 20px; border-radius: 999px; background: #cbd5e1; position: relative; transition: background .15s; }
+        .ps-grade-chave::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: left .15s; }
+        .ps-grade[aria-checked="true"] .ps-grade-chave { background: #165DFF; }
+        .ps-grade[aria-checked="true"] .ps-grade-chave::after { left: 16px; }
         .cons { margin-bottom: 22px; border-color: #FFD6B0; background: linear-gradient(135deg, #FFF8F2, #F5F8FF); }
         .cons h3 { margin: 0 0 2px; font-size: 1rem; color: var(--text); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .cons .cons-sub { font-size: 0.7rem; color: var(--muted); margin-bottom: 12px; }
@@ -2106,6 +2118,12 @@ function iniciarAppPosLogin() {
                 <div id="nicho-aviso" class="ps-aviso" role="status" hidden></div>
                 <div id="nicho-sinonimos" class="ps-sugestoes" hidden></div>
                 <div id="prosp-sugestoes" class="ps-sugestoes" hidden></div>
+                <!-- Busca em 9 regiões: a cidade dividida em grade (bem mais empresas; só pela API principal) -->
+                <button type="button" id="ps-grade" class="ps-grade" role="switch" aria-checked="false" onclick="alternarGrade()">
+                    <span class="ps-grade-ico" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+                    <span class="ps-grade-txt"><b>Buscar em 9 regiões</b><small>Divide a cidade e traz bem mais empresas · 20 a 40 min</small></span>
+                    <span class="ps-grade-chave" aria-hidden="true"></span>
+                </button>
                     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                     <button class="btn" onclick="buscar()" id="btn" style="flex:1;">
                         <span class="btn-label">Buscar Leads</span>
@@ -6973,8 +6991,9 @@ async function retomarBuscaOficial() {
 async function buscar() {
     const nicho    = document.getElementById('nicho').value.trim();
     const local    = document.getElementById('local').value.trim();
-    const emGrade  = _proximaBuscaGrade;              // "Buscar mais nesta cidade": traz todas as regiões
+    const emGrade  = _proximaBuscaGrade || _gradeLigada;   // "Buscar mais nesta cidade" ou a chave "Buscar em 9 regiões"
     _proximaBuscaGrade = false;
+    if (_gradeLigada) alternarGrade(false);
     const maxLeads = emGrade ? 1000 : (parseInt(document.getElementById('max-leads').value) || 20);
     const btn      = document.getElementById('btn');
     const status   = document.getElementById('status');
@@ -16223,7 +16242,15 @@ var _nichosEvitar = [];             // nichos que o Consultor manda parar
 var _cidadesUsadas = [];
 var _intelCarregadaEm = 0;
 var _filtrosExtra = {};
-var _proximaBuscaGrade = false, _ultimaBuscaGrade = false, _ultimaQtdBruta = 0;
+var _proximaBuscaGrade = false, _ultimaBuscaGrade = false, _ultimaQtdBruta = 0, _gradeLigada = false;
+function alternarGrade(ligar) {
+    _gradeLigada = typeof ligar === 'boolean' ? ligar : !_gradeLigada;
+    const b = document.getElementById('ps-grade');
+    if (b) b.setAttribute('aria-checked', String(_gradeLigada));
+    const lbl = document.querySelector('#btn .btn-label');
+    if (lbl) lbl.textContent = _gradeLigada ? 'Buscar Leads em 9 regiões' : 'Buscar Leads';
+    if (_gradeLigada) showToast('🗺️ A próxima busca divide a cidade em 9 regiões: bem mais empresas, leva de 20 a 40 min e continua mesmo se você sair', 'ok');
+}
 const SCORE_MIN_ENVIOS = 200, SCORE_MIN_HUMANAS = 20, SCORE_MIN_GRUPO = 30;
 const SCORE_SINAIS = [
     { k: 'celular',   nome: 'Celular',                       tem: l => ehCelularBR(l.phone) },

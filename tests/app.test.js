@@ -586,6 +586,29 @@ test('busca principal reiniciando: o app insiste antes de ir para a reserva; ata
   } finally { await a.fechar(); }
 });
 
+test('chave "Buscar em 9 regiões" fica à vista antes da busca e manda a busca em grade', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    await a.pagina.evaluate(() => trocarAba('prospeccao', document.querySelector(`.nav-item[onclick*="'prospeccao'"]`)));
+    assert.ok(await a.pagina.isVisible('#ps-grade'));
+    await a.pagina.click('#ps-grade');
+    const r = await a.pagina.evaluate(async () => {
+      const antes = { chk: document.getElementById('ps-grade').getAttribute('aria-checked'), lbl: document.querySelector('#btn .btn-label').textContent };
+      window._grades = [];
+      buscarViaApiOficial = async (n, l, m, g) => { window._grades.push(g); return [{ title: 'Empresa X', phone: '11999990000' }]; };
+      document.getElementById('nicho').value = 'Facilities'; document.getElementById('local').value = 'São Paulo';
+      await buscar();
+      const depois = { chk: document.getElementById('ps-grade').getAttribute('aria-checked'), lbl: document.querySelector('#btn .btn-label').textContent };
+      await buscar();
+      return { antes, depois, grades: window._grades };
+    });
+    assert.deepStrictEqual(r.antes, { chk: 'true', lbl: 'Buscar Leads em 9 regiões' });
+    assert.deepStrictEqual(r.depois, { chk: 'false', lbl: 'Buscar Leads' }, 'desliga depois de usar');
+    assert.deepStrictEqual(r.grades, [true, false]);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
 test('cadência multicanal: etapa de Instagram vira tarefa em Respostas e conta como feita ao registrar', async () => {
   const db = { fila_followups: [
     { id: 5, user_id: 'u1', phone: '5511999990000', lead_nome: 'Clínica Sol', campanha_id: 'c1', campanha_nome: 'Dentistas', dia_etapa: 6, status: 'pendente', canal: 'instagram', extra: { instagram: 'https://www.instagram.com/clinicasol/' }, mensagem: 'Oi! Te mandei um WhatsApp, vi que vocês usam mais o Instagram. Posso te mostrar em 2 min?', criado_em: new Date().toISOString() },
