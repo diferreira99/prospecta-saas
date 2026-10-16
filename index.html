@@ -1624,10 +1624,36 @@ async function aoLogar(user) {
 
 async function fazerLogout() {
     if (!confirm('Sair da conta? Seus dados já estão salvos na nuvem.')) return;
-    await supabaseClient.auth.signOut();
+    await supabaseClient.auth.signOut({ scope: 'local' });   // sai só deste aparelho
     localStorage.removeItem('prospectaEmail');
     location.reload();
 }
+
+// Limite de aparelhos (o administrador define no painel): de tempos em tempos este aparelho pergunta
+// se ainda está liberado. Se a conta entrou em aparelhos demais, os logins mais antigos saem sozinhos.
+var _limiteTimer = null;
+async function conferirLimiteAparelhos() {
+    try {
+        const { data, error } = await supabaseClient.rpc('sessao_valida');
+        if (error || !data || data.ok !== false) return;
+        clearInterval(_limiteTimer);
+        try { sessionStorage.setItem('prospectaSaiuPorLimite', String(data.limite || '')); } catch (e) {}
+        await supabaseClient.auth.signOut({ scope: 'local' });
+        location.reload();
+    } catch (e) {}
+}
+function iniciarLimiteAparelhos() {
+    if (_limiteTimer) return;
+    setTimeout(conferirLimiteAparelhos, 5000);
+    _limiteTimer = setInterval(conferirLimiteAparelhos, 60000);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') conferirLimiteAparelhos(); });
+}
+(function avisoSaiuPorLimite() {
+    let lim = null;
+    try { lim = sessionStorage.getItem('prospectaSaiuPorLimite'); sessionStorage.removeItem('prospectaSaiuPorLimite'); } catch (e) {}
+    const el = document.getElementById('login-msg');
+    if (lim !== null && el) { el.style.color = '#f59e0b'; el.textContent = 'Sua conta entrou em outro aparelho e este saiu' + (lim ? ' (seu plano permite ' + lim + (lim === '1' ? ' aparelho' : ' aparelhos') + ' ao mesmo tempo)' : '') + '.'; }
+})();
 
 // Pré-preenche o e-mail do último login (conveniência, sem expor senha)
 (function preencherUltimoEmail() {
@@ -1754,6 +1780,7 @@ function _initAppSemLogin() {
     if (typeof renderCampanhas === 'function') renderCampanhas();
 }
 function iniciarAppPosLogin() {
+    iniciarLimiteAparelhos();
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', _initAppSemLogin);
     } else {

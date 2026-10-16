@@ -31,8 +31,8 @@ function ipDe(req) {
 async function handler(req, res) {
   if (req.method !== "POST") return responder(res, 405, { ok: false, erro: "metodo" });
   if (estourou("ip:" + ipDe(req), POR_MINUTO_IP)) return responder(res, 429, { ok: false, erro: "muitos_pedidos" });
-  const destino = process.env.N8N_AGENDA_URL || "";
-  if (!destino) return responder(res, 503, { ok: false, erro: "agenda_desligada" });
+  // Até a variável secreta existir na Vercel, usa o endereço antigo (já público) — com login e limite na frente
+  const destino = process.env.N8N_AGENDA_URL || "https://primary-production-c1c7c.up.railway.app/webhook/prospecta-reuniao";
 
   const token = String((req.headers || {}).authorization || "").replace(/^Bearer\s+/i, "").trim();
   if (!token || token.length > 4000) return responder(res, 401, { ok: false, erro: "sem_login" });

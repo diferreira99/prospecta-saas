@@ -25,7 +25,7 @@ window.supabase = { createClient: () => {
         else data = tb.filter(r => st.f.every(f => f(r)));
         return Promise.resolve({ data: st.head ? null : JSON.parse(JSON.stringify(data)), error: null, count: data.length }).then(res, rej); } };
     return q; }
-  return { auth: { getSession: async () => ({ data: { session: { access_token: 'tk', user: { id: 'u1', email: 'teste@x.com', user_metadata: { nome: 'Teste' } } } } }), onAuthStateChange(){ return { data: { subscription: { unsubscribe(){} } } } }, signOut: async () => ({}), signUp: async () => ({ data: {}, error: null }), signInWithPassword: async () => ({ data: {}, error: null }) },
+  return { auth: { getSession: async () => ({ data: { session: sessionStorage.getItem('stubSaiu') ? null : { access_token: 'tk', user: { id: 'u1', email: 'teste@x.com', user_metadata: { nome: 'Teste' } } } } }), onAuthStateChange(){ return { data: { subscription: { unsubscribe(){} } } } }, signOut: async () => { sessionStorage.setItem('stubSaiu', '1'); return {}; }, signUp: async () => ({ data: {}, error: null }), signInWithPassword: async () => ({ data: {}, error: null }) },
            from(t){ return Q(t) }, rpc: async (n) => ({ data: n in _rpcs ? _rpcs[n] : null, error: null }),
            storage: { from(){ return { upload: async () => ({}), getPublicUrl: () => ({ data: {} }) } } },
            channel(){ return { on(){ return this }, subscribe(){ return this } } }, removeChannel(){} };

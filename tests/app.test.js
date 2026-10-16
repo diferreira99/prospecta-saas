@@ -137,3 +137,19 @@ test('Painel mostra o resultado por produto', async () => {
     assert.match(t, /Stone \(1 campanha\)\s+10/);
   } finally { await a.fechar(); }
 });
+
+test('limite de aparelhos: liberado fica; passou do limite sai sozinho e avisa', async () => {
+  const a = await abrirApp({ rpcs: { sessao_valida: { ok: true, limite: 2 } } });
+  try {
+    await a.pagina.evaluate(() => { window._marca = 1; });
+    await a.pagina.evaluate(() => conferirLimiteAparelhos());
+    await a.pagina.waitForTimeout(400);
+    assert.equal(await a.pagina.evaluate(() => window._marca), 1, 'liberado: não pode sair');
+    await a.pagina.evaluate(() => { window._rpcs.sessao_valida = { ok: false, limite: 2 }; window._saiu = null; const so = supabaseClient.auth.signOut; supabaseClient.auth.signOut = async (o) => { sessionStorage.setItem('escopo', JSON.stringify(o)); return so(o); }; });
+    await a.pagina.evaluate(() => conferirLimiteAparelhos());
+    await a.pagina.waitForTimeout(1500);
+    assert.equal(await a.pagina.evaluate(() => window._marca), undefined, 'recarregou a página');
+    assert.deepEqual(JSON.parse(await a.pagina.evaluate(() => sessionStorage.getItem('escopo'))), { scope: 'local' }, 'sai só deste aparelho');
+    assert.match(await a.pagina.textContent('#login-msg'), /outro aparelho.*2 aparelhos/);
+  } finally { await a.fechar(); }
+});
