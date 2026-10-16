@@ -479,6 +479,88 @@ test('voltar uma abordagem (abriu e não mandou): sai do registro, volta para a 
   } finally { await a.fechar(); }
 });
 
+test('Instagram/LinkedIn: marcar Respondeu/Sem interesse move o Pipeline; Retomar hoje aparece em 3 dias com o 2º contato da IA', async () => {
+  const quatroDias = new Date(Date.now() - 4 * 86400000).toISOString();
+  const db = { abordagens_instagram: [
+    { user_id: 'u1', chave: 'alfa', nome: 'Escritório Alfa', instagram: 'https://www.instagram.com/alfa/', criado_em: new Date().toISOString() },
+    { user_id: 'u1', chave: 'beta', nome: 'Contábil Beta', instagram: 'https://www.instagram.com/beta/', criado_em: new Date().toISOString() },
+    { user_id: 'u1', chave: 'sol', nome: 'Clínica Sol', instagram: 'https://www.instagram.com/sol/', bio: 'Estética facial em Campinas', criado_em: quatroDias },
+  ] };
+  const a = await abrirApp({ db, largura: 1280, rotas: [[/\/ia$/, (j) => ({ texto: /SEGUNDO contato/.test(JSON.stringify(j)) ? 'Muitas clínicas lotam a agenda com isso. Quer ver um exemplo?' : 'x' })]] });
+  try {
+    await a.pagina.evaluate(() => {
+      config.uazapi = { url: 'https://srv.test', token: 't' }; window.open = () => null;
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => {} }, configurable: true });
+      pkLeads = [{ id: 1, name: 'Escritório Alfa', col: 'contatado', canal: 'instagram', movedAt: 1, proximaAcaoEm: Date.now(), proximaAcaoTxt: 'Ver se respondeu' },
+                 { id: 2, name: 'Contábil Beta', col: 'contatado', canal: 'instagram', movedAt: 1 }]; pkSave();
+      trocarAba('insta', document.querySelector(`.nav-item[onclick*="'insta'"]`));
+    });
+    await a.pagina.waitForSelector('#canal-insta .canal-retomar');
+    assert.match(await a.pagina.textContent('#canal-insta .canal-retomar'), /Retomar hoje \(1\).*Clínica Sol/s);
+    // 1) marcar resultado
+    await a.pagina.click('#canal-insta li:has-text("Escritório Alfa") .cl-res.sim');
+    await a.pagina.waitForTimeout(300);
+    await a.pagina.click('#canal-insta li:has-text("Contábil Beta") .cl-res.nao');
+    await a.pagina.waitForTimeout(400);
+    const r1 = await a.pagina.evaluate(() => ({ db: _db.abordagens_instagram.map(r => [r.chave, r.resultado || null]), pk: pkLeads.map(k => [k.name, k.col, k.motivoPerda || null, k.proximaAcaoEm || null]),
+      selos: [...document.querySelectorAll('#canal-insta .cl-selo')].map(x => x.textContent), topo: document.querySelector('#canal-insta .canal-num:nth-child(4) b').textContent }));
+    assert.deepStrictEqual(r1.db, [['alfa', 'respondeu'], ['beta', 'sem_interesse'], ['sol', null]]);
+    assert.deepStrictEqual(r1.pk, [['Escritório Alfa', 'respondeu', null, null], ['Contábil Beta', 'descartado', 'sem_interesse', null]]);
+    assert.ok(r1.selos.includes('respondeu') && r1.selos.includes('sem interesse'));
+    assert.strictEqual(r1.topo, '1');
+    // 2) retomar: a IA escreve o 2º contato usando a bio; "Mandei" tira da lista
+    await a.pagina.click('#canal-insta .canal-retomar button:has-text("Retomar")');
+    await a.pagina.waitForSelector('.ig-modal textarea:not([disabled])');
+    assert.match(await a.pagina.inputValue('.ig-modal textarea'), /Quer ver um exemplo/);
+    const ia = a.pedidos.filter(p => /\/ia$/.test(p.caminho)).pop();
+    assert.match(JSON.stringify(ia.corpo), /Estética facial em Campinas/);
+    await a.pagina.click('.ig-modal button:has-text("Mandei")');
+    await a.pagina.waitForTimeout(500);
+    const r2 = await a.pagina.evaluate(() => ({ ret: !!_db.abordagens_instagram.find(r => r.chave === 'sol').retomado_em, secao: !!document.querySelector('#canal-insta .canal-retomar') }));
+    assert.deepStrictEqual(r2, { ret: true, secao: false });
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('score: LinkedIn vale mais quando o produto é para quem usa LinkedIn; DM do Instagram usa a bio', async () => {
+  const a = await abrirApp({ largura: 1280 });
+  try {
+    const r = await a.pagina.evaluate(() => {
+      const l = { title: 'Contábil Alfa', phone: '11999990000', linkedin: 'https://www.linkedin.com/company/alfa/' };
+      _produtos = [{ id: 'p1', nome: 'Site', instrucoes: 'Vendo sites', padrao: true }];
+      const sem = calcScore(l);
+      _produtos = [{ id: 'p2', nome: 'Kaizen Connect', instrucoes: 'Automatiza a prospecção no LinkedIn', padrao: true }];
+      const com = calcScore(l), semLi = calcScore({ ...l, linkedin: '' }), comDecisor = calcScore({ ...l, decisores: [{ nome: 'Ana' }] });
+      const p1 = igPrompt({ title: 'Pet Feliz', instagram: 'https://www.instagram.com/pf/', instagramBio: 'Banho e tosa em Campinas' }, null);
+      const p2 = igPrompt({ title: 'Pet Feliz' }, null);
+      return { dif: com - sem, semLi: semLi - calcScore({ ...l, linkedin: '' }), decisor: comDecisor - com, extra: blocoContatosExtras(l), p1, p2 };
+    });
+    assert.strictEqual(r.dif, 12); assert.strictEqual(r.decisor, 3);
+    assert.match(r.extra, /\+12 no score/);
+    assert.match(r.p1, /Bio do Instagram deles: "Banho e tosa em Campinas"/); assert.match(r.p1, /detalhe real da BIO/);
+    assert.ok(!/Bio do Instagram/.test(r.p2));
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('consultor: passo de Instagram/LinkedIn com fila e retomar, e comparação por canal', async () => {
+  const a = await abrirApp({ largura: 1280 });
+  try {
+    const txt = await a.pagina.evaluate(() => {
+      const velho = new Date(Date.now() - 5 * 86400000).toISOString();
+      const ab = n => Array.from({ length: n }, (_, i) => ({ chave: 'k' + i, criado_em: velho, resultado: i < 2 ? 'respondeu' : null, retomado_em: i < 4 ? velho : null }));
+      consDesenhar({ leads: [], campanhas: [], interesses: [], pipeline: [], followups: [],
+        canais: { insta: { fila: 30, semZap: 9, ab: ab(10), retomar: 6 }, linkedin: { fila: 4, decisor: 2, ab: ab(2), retomar: 0 } } });
+      return document.getElementById('cons-dia').innerText;
+    });
+    assert.match(txt, /6 para retomar no Instagram · 20 DMs novas no Instagram \(9 na fila sem WhatsApp\) · 4 convites no LinkedIn \(2 com o decisor achado\)/);
+    assert.match(txt, /Comece pelos 2º contatos/);
+    assert.match(txt, /Instagram: 20% responderam \(10 abordados\)/);
+    assert.match(txt, /LinkedIn: 2 abordados/);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
 test('cadência multicanal: etapa de Instagram vira tarefa em Respostas e conta como feita ao registrar', async () => {
   const db = { fila_followups: [
     { id: 5, user_id: 'u1', phone: '5511999990000', lead_nome: 'Clínica Sol', campanha_id: 'c1', campanha_nome: 'Dentistas', dia_etapa: 6, status: 'pendente', canal: 'instagram', extra: { instagram: 'https://www.instagram.com/clinicasol/' }, mensagem: 'Oi! Te mandei um WhatsApp, vi que vocês usam mais o Instagram. Posso te mostrar em 2 min?', criado_em: new Date().toISOString() },
