@@ -561,6 +561,31 @@ test('consultor: passo de Instagram/LinkedIn com fila e retomar, e comparação 
   } finally { await a.fechar(); }
 });
 
+test('busca principal reiniciando: o app insiste antes de ir para a reserva; atalhos de nicho seguem o Consultor', async () => {
+  const a = await abrirApp({ largura: 1280 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      let n = 0, avisos = 0;
+      _apiOficial = async () => { if (++n === 1) { const e = new Error('HTTP 502'); e.status = 502; throw e; } return { ok: true }; };
+      const ok = await _apiOficialInsistente('/leads/buscas', {}, () => avisos++);
+      let m = 0, erro = '';
+      _apiOficial = async () => { m++; const e = new Error('faça login'); e.status = 401; throw e; };
+      try { await _apiOficialInsistente('/leads/buscas', {}); } catch (e) { erro = e.message; }
+      _statsNicho = [{ nome: 'PetShop', env: 39, hum: 8, pare: 12, evitar: true }, { nome: 'Facilities', env: 27, hum: 10, pare: 0 }, { nome: 'Agência', env: 61, hum: 7, pare: 2 }];
+      pintarSugestoesNicho();
+      const atalhos = document.getElementById('prosp-sugestoes').textContent;
+      document.getElementById('nicho').value = 'petshop'; avisarNichoFraco();
+      return { ok: ok.ok, n, avisos, m, erro, atalhos, aviso: document.getElementById('nicho-aviso').textContent };
+    });
+    assert.deepStrictEqual([r.ok, r.n, r.avisos], [true, 2, 1], 'tentou de novo depois do 502');
+    assert.deepStrictEqual([r.m, r.erro], [1, 'faça login'], 'erro de login não fica tentando');
+    assert.match(r.atalhos, /Mais geram interessados:Facilities.*Agência/);
+    assert.ok(!/PetShop/.test(r.atalhos), 'nicho que o Consultor manda parar não vira atalho');
+    assert.match(r.aviso, /O Consultor do dia recomenda parar este nicho/);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
 test('cadência multicanal: etapa de Instagram vira tarefa em Respostas e conta como feita ao registrar', async () => {
   const db = { fila_followups: [
     { id: 5, user_id: 'u1', phone: '5511999990000', lead_nome: 'Clínica Sol', campanha_id: 'c1', campanha_nome: 'Dentistas', dia_etapa: 6, status: 'pendente', canal: 'instagram', extra: { instagram: 'https://www.instagram.com/clinicasol/' }, mensagem: 'Oi! Te mandei um WhatsApp, vi que vocês usam mais o Instagram. Posso te mostrar em 2 min?', criado_em: new Date().toISOString() },

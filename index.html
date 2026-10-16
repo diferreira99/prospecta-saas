@@ -6479,8 +6479,22 @@ async function _apiOficial(path, opts) {
     const res = await fetch(API_LEADS_OFICIAL + path, opts);
     let data = {};
     try { data = await res.json(); } catch {}
-    if (!res.ok) throw new Error(data.erro || `HTTP ${res.status}`);
+    if (!res.ok) { const e = new Error(data.erro || `HTTP ${res.status}`); e.status = res.status; throw e; }
     return data;
+}
+// O servidor da busca reinicia por alguns segundos quando é atualizado (502/503/504 ou sem conexão).
+// Antes de cair na reserva, insiste por até ~45 s: uma atualização não pode jogar a busca para o Serper.
+async function _apiOficialInsistente(path, opts, aoEsperar) {
+    const esperas = [3000, 5000, 8000, 12000, 15000];
+    for (let n = 0; ; n++) {
+        try { return await _apiOficial(path, opts); }
+        catch (e) {
+            const passageiro = !e.status || [502, 503, 504].includes(e.status);
+            if (!passageiro || n >= esperas.length) throw e;
+            if (aoEsperar) aoEsperar(n + 1);
+            await _esperar(esperas[n]);
+        }
+    }
 }
 
 // Botõezinhos com o logo do Instagram, Facebook e LinkedIn (a API oficial acha no Google Maps e no site da empresa).
@@ -6647,11 +6661,11 @@ async function buscarViaApiOficial(nicho, local, maxLeads, emGrade) {
     if (emGrade) { pedido.grade = 3; pedido.tempo_limite_min = 45; }   // cidade em 9 regiões
     if (_forcarNovaBusca) pedido.forcar_nova = true;
     _forcarNovaBusca = false;
-    const criada = await _apiOficial('/leads/buscas', {
+    const criada = await _apiOficialInsistente('/leads/buscas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(pedido)
-    });
+    }, () => { const st = document.getElementById('status'); if (st) { st.className = 'status'; st.innerText = '// a busca principal está reiniciando, tentando de novo…'; } });
     _ultimaBuscaInfo = { id: criada.id, reaproveitada: !!criada.reaproveitada, emAndamento: !!criada.em_andamento, criadaEm: criada.criada_em, inicio: Date.now() };
     // Cache: a mesma busca (mesmo nicho e cidade) já foi feita nos últimos dias -> resultado na hora.
     if (criada.reaproveitada && !criada.em_andamento && criada.status === 'pronta') {
@@ -16204,7 +16218,8 @@ async function prMoverColuna(ids, col, bt) {
 // melhores em 1 clique, filtros extras e busca em grade ("buscar mais nesta cidade").
 // ====================================================================
 var _ajusteScore = null;            // { ativo, envios, humanas, feats: { chave: { ajuste, lift, com, sem } } }
-var _statsNicho = null;             // [{ nome, env, hum }] dos nichos com volume, do melhor para o pior
+var _statsNicho = null;             // [{ nome, env, hum (= interessados) }] dos nichos com volume, do melhor para o pior (mesma conta do Consultor)
+var _nichosEvitar = [];             // nichos que o Consultor manda parar
 var _cidadesUsadas = [];
 var _intelCarregadaEm = 0;
 var _filtrosExtra = {};
@@ -16306,22 +16321,21 @@ async function carregarInteligenciaProspeccao(forcar) {
     _intelCarregadaEm = Date.now();
     try {
         const uid = currentUser.id;
-        const [leads, campanhasNuvem, perfis] = await Promise.all([
-            prBuscarTudo(() => supabaseClient.from('leads').select('campanha_id,phone,respondeu,resposta_suspeita_bot').eq('user_id', uid).not('enviado_em', 'is', null).order('id')),
+        const [leads, campanhasNuvem, perfis, pipeline, interesses] = await Promise.all([
+            prBuscarTudo(() => supabaseClient.from('leads').select('campanha_id,phone,respondeu,resposta_suspeita_bot,opt_out').eq('user_id', uid).not('enviado_em', 'is', null).order('id')),
             prBuscarTudo(() => supabaseClient.from('campanhas').select('id,nicho,local').eq('user_id', uid).order('id')),
             prBuscarTudo(() => supabaseClient.from('lead_perfil').select('campanha_id,phone,perfil').eq('user_id', uid).order('campanha_id')).catch(() => []),
+            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('phone,col,ultima_classificacao').eq('user_id', uid).order('id')).catch(() => []),
+            prBuscarTudo(() => supabaseClient.from('fila_sugestoes').select('phone,classificacao').eq('user_id', uid).in('classificacao', ['quente', 'duvida']).order('id')).catch(() => []),
         ]);
-        // nichos que mais respondem
-        const nichoDe = {}, grupos = {};
+        // nichos que mais geram interessados: a mesma conta do Consultor do dia (morno/quente, descontando quem pede para parar)
         const cidades = new Set();
-        campanhasNuvem.forEach(c => { nichoDe[c.id] = String(c.nicho || '').trim(); if (c.local) cidades.add(String(c.local).trim()); });
-        leads.forEach(l => {
-            const n = nichoDe[l.campanha_id];
-            if (!n) return;
-            const g = grupos[_normNicho(n)] || (grupos[_normNicho(n)] = { nome: n, env: 0, hum: 0 });
-            g.env++; if (l.respondeu && !l.resposta_suspeita_bot) g.hum++;
-        });
-        _statsNicho = Object.values(grupos).filter(g => g.env >= 15).sort((a, b) => b.hum / b.env - a.hum / a.env);
+        campanhasNuvem.forEach(c => { if (c.local) cidades.add(String(c.local).trim()); });
+        const an = consAnalisar({ leads, campanhas: campanhasNuvem, interesses, pipeline });
+        _nichosEvitar = an.evitar.map(g => ({ nome: g.nome, env: g.env, hum: g.morno + g.int, pare: g.pare }));
+        const evitar = new Set(an.evitar.map(g => _normNicho(g.nome)));
+        _statsNicho = an.lista.filter(g => g.env >= 15).sort((a, b) => b.nota - a.nota)
+            .map(g => ({ nome: g.nome, env: g.env, hum: g.morno + g.int, pare: g.pare, evitar: evitar.has(_normNicho(g.nome)) }));
         _cidadesUsadas = Array.from(cidades);
         // score que aprende: junta perfil (no envio) com a resposta (depois)
         const resp = {};
@@ -16349,13 +16363,13 @@ function pintarSugestoesNicho() {
     const box = document.getElementById('prosp-sugestoes');
     if (!box) return;
     box.innerHTML = '';
-    const top = (_statsNicho || []).slice(0, 3);
+    const top = (_statsNicho || []).filter(g => !g.evitar && g.hum > 0).slice(0, 3);
     if (top.length >= 2) {
-        box.appendChild(prEl('span', 'ps-rot', 'Mais respondem:'));
+        box.appendChild(prEl('span', 'ps-rot', 'Mais geram interessados:'));
         top.forEach(g => {
             const b = prEl('button', 'ps-sug', g.nome);
             b.type = 'button';
-            b.title = `${g.hum} de ${g.env} pessoas responderam`;
+            b.title = `${g.hum} de ${g.env} viraram interessados (morno ou quente)`;
             b.appendChild(prEl('small', '', prPctTxt(g.hum, g.env)));
             b.addEventListener('click', () => {
                 const n = document.getElementById('nicho');
@@ -16383,13 +16397,18 @@ function avisarNichoFraco() {
     const lista = _statsNicho || [];
     el.hidden = true;
     if (termo.length < 3 || lista.length < 2) return;
-    const g = lista.find(x => _normNicho(x.nome) === termo) || lista.find(x => { const n = _normNicho(x.nome); return n.includes(termo) || termo.includes(n); });
-    const melhor = lista[0];
+    const acha = l => l.find(x => _normNicho(x.nome) === termo) || l.find(x => { const n = _normNicho(x.nome); return n.includes(termo) || termo.includes(n); });
+    const g = acha(lista);
+    const melhor = lista.find(x => !x.evitar) || lista[0];
     if (!g || g === melhor) return;
+    if (g.evitar) {
+        el.textContent = `⚠️ ${g.nome}: ${prPctTxt(g.hum, g.env)} viraram interessados` + (g.pare / g.env > 0.25 ? ` e ${prPctTxt(g.pare, g.env)} disseram não ou pediram para parar` : '') + ` (${g.env} envios). O Consultor do dia recomenda parar este nicho.`;
+        el.hidden = false; return;
+    }
     const tg = g.hum / g.env, tm = melhor.hum / melhor.env;
     if (tg >= tm * 0.75) return;
-    const comp = tm / tg >= 1.8 ? `metade de ${melhor.nome} (${prPctTxt(melhor.hum, melhor.env)})` : `menos que ${melhor.nome} (${prPctTxt(melhor.hum, melhor.env)})`;
-    el.textContent = `⚠️ ${g.nome} responde ${prPctTxt(g.hum, g.env)}, ${comp}. Vale buscar mesmo assim, mas os atalhos abaixo costumam render mais.`;
+    const comp = tg > 0 && tm / tg >= 1.8 ? `metade de ${melhor.nome} (${prPctTxt(melhor.hum, melhor.env)})` : `menos que ${melhor.nome} (${prPctTxt(melhor.hum, melhor.env)})`;
+    el.textContent = `⚠️ ${g.nome} gera ${prPctTxt(g.hum, g.env)} de interessados, ${comp}. Vale buscar mesmo assim, mas os atalhos abaixo costumam render mais.`;
     el.hidden = false;
 }
 document.addEventListener('input', e => { if (e.target && e.target.id === 'nicho') avisarNichoFraco(); });
@@ -17441,7 +17460,7 @@ function cpRepetir(g, oQue) {
     if ((oQue === 'cidade' && !g.nicho) || (oQue === 'nicho' && !g.local)) return;
     const sugCidade = (typeof _cidadesPlano !== 'undefined' ? _cidadesPlano : []).concat(typeof CIDADES_VIZINHAS_SP !== 'undefined' ? CIDADES_VIZINHAS_SP : [])
         .find(c => !_cpGrupos.some(x => x.k === _normNicho(g.nicho) + '|' + _normNicho(c))) || '';
-    const sugNicho = (typeof _statsNicho !== 'undefined' && _statsNicho ? _statsNicho.map(s => s.nome) : [])
+    const sugNicho = (typeof _statsNicho !== 'undefined' && _statsNicho ? _statsNicho.filter(s => !s.evitar).map(s => s.nome) : [])
         .find(n => !_cpGrupos.some(x => x.k === _normNicho(n) + '|' + _normNicho(g.local))) || '';
     const valor = (prompt(oQue === 'cidade' ? `Repetir "${g.nicho}" em qual cidade?` : `Qual nicho buscar em ${g.local}?`, oQue === 'cidade' ? sugCidade : sugNicho) || '').trim();
     if (!valor) return;
