@@ -357,6 +357,50 @@ test('redes pelo Google e quem decide: completa o que faltou, sugere o dono no L
   } finally { await a.fechar(); }
 });
 
+test('consultor do dia: escolhe pelo interesse (não por qualquer resposta), sugere cidade nova e manda parar o que não funciona', async () => {
+  const a = await abrirApp({ largura: 1280 });
+  try {
+    const r = await a.pagina.evaluate(() => {
+      const leads = [], pipeline = [], campanhas = [
+        { id: 'c1', nicho: 'Contabilidade', local: 'Guarulhos' }, { id: 'c2', nicho: 'Contabilidade', local: 'Campinas, SP' },
+        { id: 'c3', nicho: 'Facilities', local: 'Guarulhos' }, { id: 'c4', nicho: 'Suporte de TI', local: 'Osasco' }, { id: 'c5', nicho: 'PetShop', local: 'Barueri' }];
+      let n = 0;
+      const lote = (cid, qtd, respondem, mornos, quentes, descartam) => {
+        for (let i = 0; i < qtd; i++) {
+          const phone = '55119' + String(10000000 + n++);
+          leads.push({ campanha_id: cid, phone, enviado_em: new Date().toISOString(), respondeu: i < respondem, resposta_suspeita_bot: false, opt_out: false });
+          if (i < quentes) pipeline.push({ phone, col: 'negociando', ultima_classificacao: 'quente', moved_at: new Date().toISOString() });
+          else if (i < quentes + mornos) pipeline.push({ phone, col: 'respondeu', ultima_classificacao: 'morno', moved_at: new Date(Date.now() - 5 * 86400000).toISOString() });
+          else if (i < quentes + mornos + descartam) pipeline.push({ phone, col: 'descartado', ultima_classificacao: 'frio', moved_at: new Date().toISOString() });
+        }
+      };
+      lote('c1', 60, 16, 12, 1, 2);   // contabilidade Guarulhos: 22% interessados
+      lote('c2', 40, 14, 2, 0, 12);   // Campinas: responde muito, mas quase tudo "não"
+      lote('c3', 25, 9, 8, 1, 0);     // facilities: 36% interessados
+      lote('c4', 30, 1, 0, 0, 0);     // suporte de TI: ninguém se interessa
+      lote('c5', 30, 12, 2, 0, 12);   // petshop: responde, mas 40% descartam
+      const d = { leads, campanhas, interesses: [], pipeline, followups: [{ phone: '1' }, { phone: '2' }] };
+      const an = consAnalisar(d);
+      consDesenhar(d);
+      return { principal: an.principal.nome, cidade: an.cidadePrincipal.nome, teste: an.teste && an.teste.nome, evitar: an.evitar.map(g => g.nome), txt: document.getElementById('cons-dia').innerText, oculto: document.getElementById('cons-dia').hidden };
+    });
+    assert.strictEqual(r.principal, 'Facilities');
+    assert.strictEqual(r.cidade, '', 'Osasco (ninguém se interessa), Campinas e Barueri (muitos dizem não) ficam de fora');
+    assert.strictEqual(r.teste, 'Contabilidade', 'segunda opção acima da média');
+    assert.deepStrictEqual(r.evitar.sort(), ['PetShop', 'Suporte de TI']);
+    assert.strictEqual(r.oculto, false);
+    assert.match(r.txt, /2 follow-ups prontos/);
+    assert.match(r.txt, /Campanha nova: Facilities · uns 30 leads/);
+    assert.match(r.txt, /cidade nova parecida com Guarulhos/);
+    assert.match(r.txt, /Pare de prospectar/);
+    // botão leva para a Prospecção com nicho e cidade preenchidos
+    await a.pagina.click('#cons-dia button:has-text("Buscar Facilities")');
+    assert.strictEqual(await a.pagina.inputValue('#nicho'), 'Facilities');
+    assert.strictEqual(await a.pagina.inputValue('#local'), '', 'cidade fica para a pessoa escolher');
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
 test('cadência multicanal: etapa de Instagram vira tarefa em Respostas e conta como feita ao registrar', async () => {
   const db = { fila_followups: [
     { id: 5, user_id: 'u1', phone: '5511999990000', lead_nome: 'Clínica Sol', campanha_id: 'c1', campanha_nome: 'Dentistas', dia_etapa: 6, status: 'pendente', canal: 'instagram', extra: { instagram: 'https://www.instagram.com/clinicasol/' }, mensagem: 'Oi! Te mandei um WhatsApp, vi que vocês usam mais o Instagram. Posso te mostrar em 2 min?', criado_em: new Date().toISOString() },

@@ -353,6 +353,20 @@
         .toast.ok { background: #166534; }
         .toast.err { background: #991b1b; }
         .ph-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; margin-bottom: 22px; }
+        .cons { margin-bottom: 22px; border-color: #FFD6B0; background: linear-gradient(135deg, #FFF8F2, #F5F8FF); }
+        .cons h3 { margin: 0 0 2px; font-size: 1rem; color: var(--text); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .cons .cons-sub { font-size: 0.7rem; color: var(--muted); margin-bottom: 12px; }
+        .cons ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+        .cons li { display: flex; gap: 10px; align-items: flex-start; background: var(--surface, #fff); border: 1px solid var(--border, #e2e8f0); border-radius: 12px; padding: 10px 12px; }
+        .cons .cons-n { flex: 0 0 24px; height: 24px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 0.72rem; font-weight: 800; color: #fff; background: linear-gradient(135deg, #FF6A00, #E23A6B); }
+        .cons .cons-corpo { flex: 1; min-width: 0; }
+        .cons .cons-tit { font-size: 0.82rem; font-weight: 700; color: var(--text); }
+        .cons .cons-pq { font-size: 0.7rem; color: var(--muted); margin-top: 2px; line-height: 1.45; }
+        .cons .cons-bts { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+        .cons li.feito { opacity: .55; }
+        .cons li.evitar .cons-n { background: #9ca3af; }
+        .cons .cons-conta { margin-top: 10px; font-size: 0.72rem; }
+        .cons .cons-conta summary { cursor: pointer; color: var(--muted); font-weight: 600; }
         .ph-card { background: var(--surface, #fff); border: 1.5px solid var(--border, #e2e8f0); border-radius: 14px; padding: 16px 18px; font-family: 'Inter', sans-serif; }
         .ph-card h3 { margin: 0 0 10px; font-size: 0.95rem; color: var(--text, #0f172a); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .ph-tag { font-size: 0.6rem; font-weight: 600; color: var(--muted, #64748b); border: 1px solid var(--border, #e2e8f0); border-radius: 999px; padding: 2px 8px; cursor: help; }
@@ -5814,6 +5828,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div style="font-family:'Inter',sans-serif;font-size:0.62rem;color:rgba(255,255,255,0.8);margin-top:6px;">Bem-vindo ao seu painel de controle</div>
                 </div>
                             </div>
+            <!-- CONSULTOR DO DIA: o que fazer hoje, pelos números (preenchido pelo JS) -->
+            <section id="cons-dia" class="ph-card cons" aria-labelledby="cons-t" hidden></section>
             <section id="painel-aovivo" class="cp-aovivo" aria-live="polite" hidden></section>
             <!-- PAINEL: o que precisa de você + saúde do número -->
             <div id="painel-hoje" class="ph-grid" aria-live="polite">
@@ -15219,15 +15235,15 @@ async function prCarregar() {
             prBuscarTudo(() => supabaseClient.from('leads')
                 .select('campanha_id,phone,enviado_em,respondeu,resposta_suspeita_bot,opt_out,variante_ab,gatilho_cta')
                 .eq('user_id', uid).not('enviado_em', 'is', null).order('id')),
-            prBuscarTudo(() => supabaseClient.from('campanhas').select('id,nome,nicho,sequencia').eq('user_id', uid).order('id')),
+            prBuscarTudo(() => supabaseClient.from('campanhas').select('id,nome,nicho,local,sequencia').eq('user_id', uid).order('id')),
             prBuscarTudo(() => supabaseClient.from('fila_sugestoes')
                 .select('id,phone,lead_nome,campanha_id,classificacao,mensagem_recebida,status,criado_em')
                 .eq('user_id', uid).in('classificacao', ['quente', 'duvida']).order('id')),
-            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('id,name,phone,col,valor,fechado_em,moved_at,motivo_perda,canal').eq('user_id', uid).order('id')),
+            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('id,name,phone,col,valor,fechado_em,moved_at,motivo_perda,canal,ultima_classificacao').eq('user_id', uid).order('id')),
             prBuscarTudo(() => supabaseClient.from('fila_followups').select('phone,status').eq('user_id', uid).eq('status', 'pendente').order('id')),
         ]);
         _prDados = { leads, campanhas, interesses, pipeline, followups };
-        const partes = [prDesenharFunil, prDesenharQuentes, prDesenharNichos, prDesenharAB, prDesenharParado];
+        const partes = [consDesenhar, prDesenharFunil, prDesenharQuentes, prDesenharNichos, prDesenharAB, prDesenharParado];
         partes.forEach(f => { try { f(_prDados); } catch (e) { console.warn('Painel (' + f.name + '):', e && e.message); } });
         if (_prRankingArgs) _renderRankingCampanhas(_prRankingArgs[0], _prRankingArgs[1]);
     } catch (e) {
@@ -15423,6 +15439,144 @@ function _renderRankingCampanhas(porCampanha, campanhaId) {
     const leg = prEl('div', 'ph-linha', 'Ordenado por taxa de resposta de pessoas (campanhas com 10 envios ou mais primeiro).');
     leg.style.padding = '8px 10px 0';
     ranking.appendChild(leg);
+}
+
+// ===================== CONSULTOR DO DIA =====================
+// Monta o plano de hoje só com os números da conta (nada de achismo): primeiro quem já respondeu,
+// depois a campanha nova no nicho e cidade que mais dão resultado, e o que parar de fazer.
+// Conta igual à do teste A/B: suavizada, para 3 respostas em 10 envios não parecer melhor que 30 em 150.
+function consCidade(t) { return String(t || '').split(',')[0].trim(); }
+function consAnalisar(d) {
+    const camp = {};
+    (d.campanhas || []).forEach(c => { camp[c.id] = { nicho: String(c.nicho || '').trim(), cidade: consCidade(c.local) }; });
+    // Interesse de verdade (não basta responder "não, obrigado"): quente/negociando/ganho vale 3, morno vale 1.
+    const quentes = new Set((d.interesses || []).filter(r => r.classificacao === 'quente').map(r => prTel(r.phone)));
+    const mornos = new Set();
+    // "não quer": pediu para parar OU você descartou no Pipeline
+    const descartados = new Set();
+    (d.pipeline || []).forEach(p => {
+        const t = prTel(p.phone);
+        if (p.col === 'negociando' || p.col === 'fechado' || p.ultima_classificacao === 'quente') quentes.add(t);
+        else if (p.ultima_classificacao === 'morno') mornos.add(t);
+        if (p.col === 'descartado' || p.ultima_classificacao === 'pare') descartados.add(t);
+    });
+    [quentes, mornos, descartados].forEach(x => x.delete(''));
+    const nichos = {}, combos = {}, cidades = {};
+    const somar = (g, l) => {
+        const t = prTel(l.phone);
+        g.env++; if (prHumana(l)) g.hum++;
+        if (l.opt_out || descartados.has(t)) g.pare++;
+        if (quentes.has(t)) g.int++; else if (mornos.has(t) && !descartados.has(t)) g.morno++;
+    };
+    (d.leads || []).forEach(l => {
+        const c = camp[l.campanha_id];
+        if (!c || !c.nicho) return;
+        const kn = _normNicho(c.nicho), kc = _normNicho(c.cidade);
+        somar(nichos[kn] || (nichos[kn] = { nome: c.nicho, env: 0, hum: 0, pare: 0, int: 0, morno: 0, cidades: {} }), l);
+        if (kc) {
+            nichos[kn].cidades[kc] = c.cidade;
+            somar(combos[kn + '|' + kc] || (combos[kn + '|' + kc] = { nicho: c.nicho, cidade: c.cidade, env: 0, hum: 0, pare: 0, int: 0, morno: 0 }), l);
+            somar(cidades[kc] || (cidades[kc] = { nome: c.cidade, env: 0, hum: 0, pare: 0, int: 0, morno: 0 }), l);
+        }
+    });
+    const pontos = g => g.morno + 3 * g.int;
+    const nota = g => (pontos(g) + 1) / (g.env + 10);   // suavizada: poucos envios não parecem melhores do que são
+    const lista = Object.values(nichos).map(g => ({ ...g, nota: nota(g), tx: g.hum / g.env, txInt: (g.morno + g.int) / g.env, txPare: g.pare / g.env }));
+    const total = lista.reduce((a, g) => ({ env: a.env + g.env, hum: a.hum + g.hum }), { env: 0, hum: 0 });
+    const media = total.env ? total.hum / total.env : 0;
+    const mediaInt = lista.reduce((a, g) => a + g.morno + g.int, 0) / (total.env || 1);
+    const ruim = g => g.env >= 20 && (g.txInt < mediaInt * 0.35 || g.txPare > 0.25);
+    const bons = lista.filter(g => g.env >= 10 && !ruim(g) && g.txPare <= 0.2).sort((a, b) => b.nota - a.nota);
+    // 20 envios já separam o que é bom (a nota suavizada segura quem tem poucos envios)
+    const principal = bons.find(g => g.env >= 20) || bons[0] || null;
+    const teste = bons.find(g => g !== principal && g.env >= 20 && g.txInt >= mediaInt) || null;   // segunda opção, só se for acima da média
+    const evitar = lista.filter(ruim).sort((a, b) => a.txInt - b.txInt);
+    // cidade: entre as que você já usa, a que mais responde e onde este nicho ainda não rodou
+    const cidadePara = g => {
+        if (!g) return { nome: '', motivo: '' };
+        const usadas = new Set(Object.keys(g.cidades));
+        const cand = Object.entries(cidades).filter(([k, c]) => !usadas.has(k) && c.env >= 10 && c.pare / c.env <= 0.2 && (c.morno + c.int) / c.env >= mediaInt * 0.5)
+            .map(([, c]) => c).sort((a, b) => nota(b) - nota(a));
+        if (cand.length) return { nome: cand[0].nome, motivo: `${cand[0].nome} tem ${prPctTxt(cand[0].morno + cand[0].int, cand[0].env)} de interessados nos outros nichos e ainda não recebeu ${g.nome}` };
+        const melhor = Object.values(combos).filter(c => _normNicho(c.nicho) === _normNicho(g.nome) && c.env >= 10).sort((a, b) => nota(b) - nota(a))[0];
+        return { nome: '', motivo: melhor ? `Escolha uma cidade nova parecida com ${melhor.cidade}, onde ${g.nome} foi melhor (${prPctTxt(melhor.morno + melhor.int, melhor.env)} de interessados)` : 'Escolha uma cidade onde você ainda não mandou' };
+    };
+    return { principal, teste, evitar, media, mediaInt, total, lista, cidadePrincipal: cidadePara(principal), cidadeTeste: cidadePara(teste) };
+}
+function consBuscar(nicho, cidade) {
+    const n = document.getElementById('nicho'), l = document.getElementById('local');
+    if (n) n.value = nicho;
+    if (l) l.value = cidade || '';
+    trocarAba('prospeccao', document.querySelector(".nav-item[onclick*=\"trocarAba('prospeccao'\"]"));
+    setTimeout(() => { const alvo = cidade ? document.getElementById('btn') : l; if (alvo) { try { alvo.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {} if (!cidade && l) l.focus(); } }, 300);
+    showToast(cidade ? `Confira e toque em Buscar Leads: ${nicho} em ${cidade}` : `Coloque a cidade e toque em Buscar Leads (${nicho})`, 'ok');
+}
+function consDesenhar(d) {
+    const box = document.getElementById('cons-dia');
+    if (!box) return;
+    box.replaceChildren();
+    const a = consAnalisar(d);
+    const hoje = new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', timeZone: 'America/Sao_Paulo' });
+    const h3 = prEl('h3'); h3.id = 'cons-t'; h3.append('🧭 Seu plano de hoje', prEl('span', 'ph-tag', hoje));
+    box.appendChild(h3);
+    let janela = '';
+    try { const j = typeof _cpProximaJanela === 'function' ? _cpProximaJanela() : null; if (j) janela = j.agora ? 'Janela de envio aberta agora.' : 'Janela de envio fechada: volta ' + j.quando + '. Deixe a busca pronta.'; } catch (e) {}
+    box.appendChild(prEl('div', 'cons-sub', (a.total.env ? `Baseado nos seus ${a.total.env} envios: em média ${prPctTxt(Math.round(a.mediaInt * a.total.env), a.total.env)} viram interessados (morno ou quente). ` : '') + janela));
+    const ol = prEl('ol');
+    let n = 0;
+    const passo = (tit, pq, botoes, cls) => {
+        const li = prEl('li', cls || ''); li.appendChild(prEl('span', 'cons-n', cls === 'evitar' ? '✕' : String(++n)));
+        const c = prEl('div', 'cons-corpo'); c.appendChild(prEl('div', 'cons-tit', tit));
+        if (pq) c.appendChild(prEl('div', 'cons-pq', pq));
+        if (botoes && botoes.length) { const bs = prEl('div', 'cons-bts'); botoes.forEach(([t, fn, pri]) => { const b = prEl('button', 'ps-acao' + (pri ? ' principal' : ''), t); b.type = 'button'; b.onclick = fn; bs.appendChild(b); }); c.appendChild(bs); }
+        li.appendChild(c); ol.appendChild(li);
+    };
+    const aba = (x) => () => trocarAba(x, document.querySelector(`.nav-item[onclick*="trocarAba('${x}'"]`));
+    // 1) quem já respondeu vem antes de lead novo
+    const fu = (d.followups || []).length;
+    const quentesPend = (d.interesses || []).filter(r => r.status === 'pendente' && r.classificacao === 'quente').length;
+    const dois = Date.now() - 2 * 86400000;
+    const parados = (d.pipeline || []).filter(p => p.col === 'respondeu' && p.moved_at && new Date(p.moved_at).getTime() < dois).length;
+    if (quentesPend || fu || parados) {
+        const partes = [quentesPend && `${quentesPend} interessado${quentesPend > 1 ? 's' : ''} esperando resposta`, fu && `${fu} follow-up${fu > 1 ? 's' : ''} prontos`, parados && `${parados} conversa${parados > 1 ? 's' : ''} parada${parados > 1 ? 's' : ''} há mais de 2 dias`].filter(Boolean);
+        passo('Primeiro, quem já respondeu: ' + partes.join(' · '), 'Quem já respondeu está bem mais perto de fechar do que um lead novo. Resolva isso antes de mandar a campanha.',
+            [quentesPend || fu ? ['Abrir Respostas', aba('respostas'), true] : null, parados ? ['Abrir Pipeline', aba('pipeline')] : null].filter(Boolean));
+    }
+    // 2) campanha principal
+    if (a.principal) {
+        const g = a.principal, c = a.cidadePrincipal;
+        passo(`Campanha nova: ${g.nome}${c.nome ? ' em ' + c.nome : ''} · uns 30 leads`,
+            `${g.nome} é o que mais gera interessados na sua conta: ${prPctTxt(g.morno + g.int, g.env)} em ${g.env} envios (${g.int} quente${g.int === 1 ? '' : 's'}, ${g.morno} morno${g.morno === 1 ? '' : 's'}), e poucos pedem para parar (${prPctTxt(g.pare, g.env)}).` + (g.env < 40 ? ' Ainda são poucos envios: esta campanha confirma se é isso mesmo.' : '') + ` ${c.motivo}.`,
+            [[`Buscar ${g.nome}` + (c.nome ? ' em ' + c.nome : ''), () => consBuscar(g.nome, c.nome), true]]);
+    } else {
+        passo('Campanha nova: teste 2 nichos com 30 leads cada', 'Ainda não há envios suficientes para comparar nichos. Com uns 60 envios o plano passa a escolher pelos números.', [['Ir para Prospecção', aba('prospeccao'), true]]);
+    }
+    // 3) teste do promissor
+    if (a.teste) {
+        const g = a.teste, c = a.cidadeTeste;
+        passo(`Se sobrar janela: ${g.nome}${c.nome ? ' em ' + c.nome : ''}`,
+            `Segunda opção: ${prPctTxt(g.morno + g.int, g.env)} viraram interessados em ${g.env} envios (${g.int} quente${g.int === 1 ? '' : 's'}). ${c.motivo}.`,
+            [[`Buscar ${g.nome}` + (c.nome ? ' em ' + c.nome : ''), () => consBuscar(g.nome, c.nome)]]);
+    }
+    // 4) LinkedIn e Instagram com os leads da busca
+    passo('Depois do WhatsApp: LinkedIn e Instagram com os leads da busca', `Até ${typeof liLimite === 'function' ? liLimite() : 15} convites no LinkedIn e ${typeof igLimite === 'function' ? igLimite() : 20} mensagens no Instagram por dia, para quem não tem WhatsApp. Botões "Abordar no LinkedIn" e "Abordar no Instagram" na Prospecção.`);
+    // ✕) o que parar
+    if (a.evitar.length) {
+        passo('Pare de prospectar: ' + a.evitar.slice(0, 4).map(g => g.nome).join(', '),
+            a.evitar.slice(0, 4).map(g => `${g.nome}: ${prPctTxt(g.morno + g.int, g.env)} interessados` + (g.txPare > 0.25 ? `, ${prPctTxt(g.pare, g.env)} sem interesse ou pediram para parar` : '') + ` (${g.env} envios)`).join(' · ') + '. Mandar para quem não se interessa gasta o número à toa.', null, 'evitar');
+    }
+    box.appendChild(ol);
+    // a conta por trás, para conferir (nada de caixa-preta)
+    const det = prEl('details', 'cons-conta'); det.appendChild(prEl('summary', '', 'Ver a conta por nicho'));
+    const tab = prEl('table', 'pr-tabela');
+    const cab = prEl('tr'); ['Nicho', 'Envios', 'Interessados', 'Não querem'].forEach(h => cab.appendChild(prEl('th', '', h))); tab.appendChild(cab);
+    a.lista.filter(g => g.env >= 5).sort((x, y) => y.nota - x.nota).forEach(g => {
+        const tr = prEl('tr', g === a.principal ? 'vence' : '');
+        tr.append(prEl('td', '', g.nome), prEl('td', '', String(g.env)), prEl('td', '', prPctTxt(g.morno + g.int, g.env) + (g.int ? ` (${g.int} quente${g.int > 1 ? 's' : ''})` : '')), prEl('td', '', prPctTxt(g.pare, g.env)));
+        tab.appendChild(tr);
+    });
+    det.appendChild(tab); box.appendChild(det);
+    box.hidden = false;
 }
 
 // 5) Onde prospectar: nichos, celular x fixo e dia da semana
