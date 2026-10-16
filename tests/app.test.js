@@ -277,6 +277,71 @@ test('LinkedIn: acha quem decide, IA escreve convite e mensagem, registra com a 
   } finally { await a.fechar(); }
 });
 
+test('redes pelo Google e quem decide: completa o que faltou, sugere o dono no LinkedIn e mostra no detalhe', async () => {
+  const pedidosGoogle = [];
+  const a = await abrirApp({ largura: 1280, rotas: [
+    [/\/ia$/, (j) => ({ texto: 'CONVITE: Olá! Gostaria de conectar.\nMENSAGEM: Obrigado por aceitar! Posso te mostrar em 10 minutos?' })],
+    [/\/leads\/redes-google$/, (j) => {
+      pedidosGoogle.push(j);
+      const r = {};
+      j.leads.forEach(x => {
+        if (x.faltam.includes('decisor')) r[x.id] = { decisores: [{ nome: 'Paula Reis', cargo: 'Sócia', linkedin: 'https://br.linkedin.com/in/paula-reis', fonte: 'google' }] };
+        else if (x.nome === 'Pet Feliz') r[x.id] = { instagram: 'https://www.instagram.com/petfeliz/', linkedin: 'https://www.linkedin.com/company/pet-feliz/' };
+        else r[x.id] = {};
+      });
+      return { resultados: r, uso_hoje: 3 };
+    }],
+  ] });
+  try {
+    // 1) depois das redes do site, o que faltou vai para o Google (uma vez por lead)
+    const r1 = await a.pagina.evaluate(async () => {
+      config.uazapi = { url: 'https://srv.test', token: 't' };
+      trocarAba('prospeccao', document.querySelector(`.nav-item[onclick*="'prospeccao'"]`));
+      const leads = [
+        { title: 'Pet Feliz', category: 'Pet shop', phone: '11977776666', address: 'R. A, 1 - Centro, Campinas - SP, 13000-000' },
+        { title: 'Contábil Alfa', category: 'Contabilidade', phone: '1133334444', instagram: 'https://www.instagram.com/alfa/', linkedin: 'https://www.linkedin.com/company/alfa/',
+          emails: ['contato@alfa.com.br'], decisores: [{ nome: 'João Silva', cargo: 'Sócio-fundador', linkedin: 'https://www.linkedin.com/in/joao-silva/', fonte: 'site' }] },
+      ];
+      todosLeads = leads; _leadsBase = leads.slice(); _liFeitos = new Set(); _liHoje = 0;
+      renderPagina(1);
+      await completarRedesPeloGoogle(_leadsBase);
+      await completarRedesPeloGoogle(_leadsBase);   // segunda vez não busca de novo
+      return { pet: _leadsBase[0] };
+    });
+    assert.strictEqual(pedidosGoogle.length, 1, 'uma busca só; quem já tem tudo nem entra');
+    assert.deepStrictEqual(pedidosGoogle[0].leads, [{ id: '0', nome: 'Pet Feliz', cidade: 'Campinas', faltam: ['instagram', 'linkedin'] }]);
+    assert.strictEqual(r1.pet.instagram, 'https://www.instagram.com/petfeliz/');
+    assert.strictEqual(r1.pet.linkedin, 'https://www.linkedin.com/company/pet-feliz/');
+    assert.strictEqual(r1.pet.googleOk, true);
+
+    // 2) decisor do site já vem preenchido na janela do LinkedIn e a IA usa o nome
+    await a.pagina.evaluate(() => liAbordar([_leadsBase[1]]));
+    await a.pagina.waitForSelector('.li-modal textarea:not([disabled])');
+    assert.strictEqual(await a.pagina.inputValue('.li-modal .li-pessoa'), 'João Silva');
+    assert.strictEqual(await a.pagina.inputValue('.li-modal .li-perfil'), 'https://www.linkedin.com/in/joao-silva/');
+    assert.match(await a.pagina.textContent('.li-modal .li-sug'), /Provável decisor:.*João Silva · Sócio-fundador/);
+    const ia = a.pedidos.filter(p => /\/ia$/.test(p.caminho)).pop();
+    assert.match(JSON.stringify(ia.corpo), /PESSOA: João Silva/);
+    await a.pagina.click('.li-modal button:has-text("Cancelar")');
+
+    // 3) sem decisor: procura no Google ao abrir e um toque preenche nome e perfil
+    await a.pagina.evaluate(() => liAbordar([_leadsBase[0]]));
+    await a.pagina.waitForSelector('.li-modal .li-sug-p');
+    assert.strictEqual(await a.pagina.inputValue('.li-modal .li-pessoa'), '', 'do Google não preenche sozinho');
+    await a.pagina.click('.li-modal .li-sug-p');
+    assert.strictEqual(await a.pagina.inputValue('.li-modal .li-pessoa'), 'Paula Reis');
+    assert.strictEqual(await a.pagina.inputValue('.li-modal .li-perfil'), 'https://www.linkedin.com/in/paula-reis/');
+    assert.deepStrictEqual(pedidosGoogle[1].leads[0].faltam, ['decisor']);
+    await a.pagina.click('.li-modal button:has-text("Cancelar")');
+
+    // 4) no detalhe do lead: quem decide e e-mail
+    const html = await a.pagina.evaluate(() => blocoContatosExtras(_leadsBase[1]));
+    assert.match(html, /Quem decide/); assert.match(html, /joao-silva/); assert.match(html, /mailto:contato@alfa\.com\.br/);
+    assert.strictEqual(await a.pagina.evaluate(() => blocoContatosExtras({ emails: ['x"><img src=x>@a.com'] })), '', 'e-mail estranho não entra');
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
 test('cadência multicanal: etapa de Instagram vira tarefa em Respostas e conta como feita ao registrar', async () => {
   const db = { fila_followups: [
     { id: 5, user_id: 'u1', phone: '5511999990000', lead_nome: 'Clínica Sol', campanha_id: 'c1', campanha_nome: 'Dentistas', dia_etapa: 6, status: 'pendente', canal: 'instagram', extra: { instagram: 'https://www.instagram.com/clinicasol/' }, mensagem: 'Oi! Te mandei um WhatsApp, vi que vocês usam mais o Instagram. Posso te mostrar em 2 min?', criado_em: new Date().toISOString() },

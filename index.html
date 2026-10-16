@@ -302,6 +302,11 @@
         .li-linha { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
         .li-linha .modal-btn { flex: 0 0 auto; }
         .li-pessoa { flex: 1 1 180px; min-width: 0; }
+        .li-sug { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 2px; font-size: 0.74rem; }
+        .li-sug:empty { display: none; }
+        .li-sug-rot { color: var(--muted); }
+        .li-sug-p { border: 1px solid #b6d3f2; background: #EEF5FC; color: #0A66C2; border-radius: 999px; padding: 4px 10px; font: inherit; font-weight: 600; cursor: pointer; }
+        .li-sug-p.ativo { background: #0A66C2; color: #fff; border-color: #0A66C2; }
         .li-conta { font-weight: 400; text-transform: none; letter-spacing: 0; }
         .li-modal .modal-actions { flex-wrap: wrap; }
         .fu-canal { display: inline-flex; align-items: center; gap: 4px; font-size: 0.68rem; font-weight: 700; padding: 3px 9px; border-radius: 20px; }
@@ -6444,19 +6449,75 @@ async function buscarRedesEmFundo(buscaId, leads) {
             const l = porChave.get(x.place_id || chave(x.nome, x.endereco));
             if (!l) continue;
             for (const k of ['instagram', 'facebook', 'linkedin']) if (x[k] && !l[k]) { l[k] = x[k]; novos++; }
+            for (const k of ['emails', 'decisores']) if (Array.isArray(x[k]) && x[k].length && !(l[k] && l[k].length)) { l[k] = x[k].slice(0, k === 'emails' ? 5 : 4); novos++; }
         }
-        if (novos && _leadsBase.includes(leads[0])) {   // ainda são estes leads na tela
-            const u = userGet('ultimosLeads', null);
-            if (u) userSet('ultimosLeads', { ...u, leads: _leadsBase });
-            if (_expandAberto === null) renderPagina(paginaAtual || 1);
-        }
+        if (novos) _redesMostrar(leads);
         if (d.enriquecimento !== 'andamento') {
             const u = userGet('ultimosLeads', null);
             if (d.enriquecimento === 'pronto' && u && _leadsBase.includes(leads[0])) userSet('ultimosLeads', { ...u, leads: _leadsBase, redesOk: true });
+            completarRedesPeloGoogle(leads);
             return;
         }
         await _esperar(8000);
     }
+}
+
+function _redesMostrar(leads) {
+    if (!leads || !_leadsBase.includes(leads[0])) return;   // a pessoa já está em outra busca
+    const u = userGet('ultimosLeads', null);
+    if (u) userSet('ultimosLeads', { ...u, leads: _leadsBase });
+    if (_expandAberto === null) renderPagina(paginaAtual || 1);
+}
+// Cidade a partir do endereço do Google ("Rua X, 10 - Centro, Campinas - SP, 13000-000" -> "Campinas")
+function cidadeDoLead(l) {
+    const partes = String((l && l.address) || '').split(',').map(x => x.trim()).filter(x => x && !/^(brasil|brazil|\d{5}-?\d{3})$/i.test(x));
+    const ult = partes[partes.length - 1] || '';
+    return partes.length > 1 ? ult.split(' - ')[0].trim() : '';
+}
+// O que o site não mostrou (Instagram e LinkedIn da empresa), a API procura no Google.
+// Só para os melhores leads e uma vez por lead (fica guardado), porque cada busca no Google conta no limite do dia.
+const GOOGLE_REDES_MAX = 30;
+let _googleRedesRodando = false;
+async function completarRedesPeloGoogle(leads) {
+    if (_googleRedesRodando || !currentUser) return;
+    const alvo = (leads || []).filter(l => l && !l.googleOk && (l.title || l.name) && (!l.instagram || !l.linkedin) && !bloqueadoLead(l))
+        .map(l => ({ l, sc: calcScore(l) })).sort((a, b) => b.sc - a.sc).slice(0, GOOGLE_REDES_MAX).map(x => x.l);
+    if (!alvo.length) return;
+    _googleRedesRodando = true;
+    try {
+        const d = await _apiOficial('/leads/redes-google', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ leads: alvo.map((l, n) => ({ id: String(n), nome: l.title || l.name, cidade: cidadeDoLead(l),
+                faltam: [!l.instagram && 'instagram', !l.linkedin && 'linkedin'].filter(Boolean) })) })
+        });
+        let novos = 0;
+        alvo.forEach((l, n) => {
+            const r = (d.resultados || {})[String(n)];
+            if (!r || r.erro) return;
+            l.googleOk = true;
+            if (r.instagram && !l.instagram) { l.instagram = r.instagram; novos++; }
+            if (r.linkedin && !l.linkedin) { l.linkedin = r.linkedin; novos++; }
+        });
+        _redesMostrar(leads);
+        if (novos) showToast(`🔎 Achei mais ${novos} Instagram/LinkedIn no Google`, 'ok');
+    } catch (e) { console.warn('[redes google]', e); }   // é só um extra
+    finally { _googleRedesRodando = false; }
+}
+// Quem decide (sócio, dono, diretor): do site da empresa ou, se não tiver, do Google, só quando a pessoa pede.
+async function buscarDecisores(l) {
+    if (Array.isArray(l.decisores) && l.decisores.length) return l.decisores;
+    if (l.decisoresBuscados) return [];
+    const d = await _apiOficial('/leads/redes-google', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ leads: [{ id: '0', nome: l.title || l.name || '', cidade: cidadeDoLead(l), faltam: ['decisor'].concat(l.linkedin ? [] : ['linkedin']) }] })
+    });
+    const r = (d.resultados || {})['0'] || {};
+    if (r.erro) throw new Error(r.erro);
+    l.decisoresBuscados = true;
+    if (r.linkedin && !l.linkedin) l.linkedin = r.linkedin;
+    l.decisores = Array.isArray(r.decisores) ? r.decisores.slice(0, 4) : [];
+    if (_leadsBase.includes(l)) { const u = userGet('ultimosLeads', null); if (u) userSet('ultimosLeads', { ...u, leads: _leadsBase }); }
+    return l.decisores;
 }
 
 // Leads restaurados do aparelho: se vieram da API oficial e ainda não têm redes, busca agora.
@@ -6717,6 +6778,8 @@ function converterLeadOficial(x) {
         instagram: x.instagram || '',
         facebook: x.facebook || '',
         linkedin: x.linkedin || '',
+        emails: Array.isArray(x.emails) ? x.emails.slice(0, 5) : [],
+        decisores: Array.isArray(x.decisores) ? x.decisores.slice(0, 4) : [],
         hours: Object.keys(dias).map(d => d + ': ' + dias[d]).join('\n'),
         horario: x.horario || '',
         place_id: x.place_id || '',
@@ -7528,6 +7591,7 @@ function toggleExpandScore(realIdx, btn) {
                 </div>
             </div>
             ${blocoSinais(l)}
+            ${blocoContatosExtras(l)}
             ${blocoAvaliacoes(l)}
             ${blocoAjusteScore(l)}`;
 
@@ -7546,6 +7610,22 @@ function toggleExpandScore(realIdx, btn) {
             });
         });
     }
+}
+
+function blocoContatosExtras(l) {
+    const pessoas = (Array.isArray(l.decisores) ? l.decisores : []).filter(p => p && p.nome);
+    const emails = (Array.isArray(l.emails) ? l.emails : []).filter(e => /^[^@\s<>"']+@[^@\s<>"']+\.[a-z]{2,}$/i.test(e));
+    if (!pessoas.length && !emails.length) return '';
+    const pp = pessoas.map(p => {
+        const perfil = liPerfilOk(p.linkedin);
+        const nome = escapeHtml(p.nome) + (p.cargo ? ` <span style="color:var(--muted);font-weight:500;">· ${escapeHtml(p.cargo)}</span>` : '');
+        return perfil ? `<a href="${escapeHtml(perfil)}" target="_blank" rel="noopener" style="color:#0A66C2;font-weight:700;text-decoration:none;">${nome}</a>` : `<span style="font-weight:700;">${nome}</span>`;
+    }).join(' &nbsp;·&nbsp; ');
+    const ee = emails.map(e => `<a href="mailto:${escapeHtml(e)}" style="color:var(--text);">${escapeHtml(e)}</a>`).join(' · ');
+    return `<div class="lead-extras" style="margin-top:12px;padding-top:10px;border-top:1px solid #EBF0FF;font-family:'Inter',sans-serif;font-size:0.72rem;line-height:1.7;">
+        ${pp ? `<div><span style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.5px;">Quem decide</span><br>${pp}</div>` : ''}
+        ${ee ? `<div style="margin-top:4px;"><span style="font-size:0.6rem;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.5px;">E-mail</span><br>${ee}</div>` : ''}
+    </div>`;
 }
 
 function buildRadarSVG(d) {
@@ -12398,7 +12478,7 @@ async function liAbordar(fila, opcoes) {
         if (fila.length > 1) topo.appendChild(prEl('span', 'ig-pos', `${i + 1} de ${fila.length}`));
         m.appendChild(topo);
         const quem = prEl('div', 'ig-quem'); quem.appendChild(prEl('b', '', l.title || l.name || 'Empresa'));
-        const cidade = (() => { const partes = String(l.address || '').split(',').map(x => x.trim()).filter(x => x && !/^(brasil|brazil|\d{5}-?\d{3})$/i.test(x)); const ult = partes[partes.length - 1] || ''; return partes.length > 1 ? ult.split(' - ')[0].trim() : ''; })();
+        const cidade = cidadeDoLead(l);
         quem.appendChild(prEl('span', '', ' · ' + [l.category || l.cat, cidade].filter(Boolean).join(' · ')));
         m.appendChild(quem);
         const cont = prEl('div', 'ig-cont' + (_liHoje >= lim ? ' passou' : ''), `Hoje: ${_liHoje} de ${lim} convites`);
@@ -12410,12 +12490,40 @@ async function liAbordar(fila, opcoes) {
         m.appendChild(prEl('div', 'ig-rot', '1. Ache quem decide'));
         const l1 = prEl('div', 'li-linha');
         const achar = prEl('button', 'modal-btn', liUrl(l) && /\/in\//.test(liUrl(l)) ? 'Abrir perfil' : 'Ver sócios e donos no LinkedIn');
-        achar.onclick = () => window.open(liPessoasUrl(l), '_blank', 'noopener');
+        achar.onclick = () => window.open(liPerfilOk(perfil.value) || liPessoasUrl(l), '_blank', 'noopener');
         const pessoa = document.createElement('input'); pessoa.className = 'ig-texto li-pessoa'; pessoa.placeholder = 'Nome da pessoa (opcional, a IA personaliza)'; pessoa.maxLength = 80;
         l1.append(achar, pessoa); m.appendChild(l1);
         const perfil = document.createElement('input'); perfil.className = 'ig-texto li-perfil'; perfil.type = 'url'; perfil.maxLength = 300;
         perfil.placeholder = 'Link do perfil da pessoa (opcional: o card do Pipeline abre direto nele)';
         m.appendChild(perfil);
+        // Provável decisor: veio do site da empresa ou do Google. Um toque preenche nome e perfil.
+        const sug = prEl('div', 'li-sug');
+        m.appendChild(sug);
+        const usar = (p) => {
+            pessoa.value = p.nome || ''; if (liPerfilOk(p.linkedin)) perfil.value = liPerfilOk(p.linkedin);
+            achar.textContent = liPerfilOk(perfil.value) ? 'Abrir perfil' : 'Ver sócios e donos no LinkedIn';
+            sug.querySelectorAll('.li-sug-p').forEach(b => b.classList.toggle('ativo', b._p === p));
+        };
+        const pintarSug = (lista, auto) => {
+            sug.replaceChildren();
+            if (!lista.length) { sug.appendChild(prEl('span', 'li-sug-rot', 'Não achei o dono no site nem no Google: use o botão acima.')); return; }
+            sug.appendChild(prEl('span', 'li-sug-rot', 'Provável decisor:'));
+            lista.forEach(p => {
+                const b = prEl('button', 'li-sug-p', p.nome + (p.cargo ? ' · ' + p.cargo : '')); b.type = 'button'; b._p = p;
+                b.title = p.fonte === 'site' ? 'Achado no site da empresa' : 'Achado no Google (LinkedIn)';
+                b.onclick = () => { usar(p); gerar(); };
+                sug.appendChild(b);
+            });
+            if (auto && !pessoa.value) usar(lista[0]);
+        };
+        const jaTem = Array.isArray(l.decisores) && l.decisores.length;
+        if (jaTem) pintarSug(l.decisores, true);
+        else if (!l.decisoresBuscados) {
+            sug.appendChild(prEl('span', 'li-sug-rot', 'Procurando quem decide no Google…'));
+            const eraI = i;
+            buscarDecisores(l).then(lista => { if (i === eraI && m.isConnected) pintarSug(lista, false); })
+                .catch(() => { if (i === eraI && m.isConnected) sug.replaceChildren(); });
+        }
         // 2) convite e mensagem
         const rotC = prEl('div', 'ig-rot', '2. Convite com nota (até 200 caracteres)'); const conta = prEl('span', 'li-conta', ''); rotC.appendChild(conta); m.appendChild(rotC);
         const convite = document.createElement('textarea'); convite.className = 'ig-texto'; convite.rows = 3; convite.maxLength = 200; convite.disabled = true; convite.placeholder = 'A IA está escrevendo…';
