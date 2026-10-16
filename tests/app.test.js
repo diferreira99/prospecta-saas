@@ -253,12 +253,26 @@ test('LinkedIn: acha quem decide, IA escreve convite e mensagem, registra com a 
     await a.pagina.click('.li-modal button:has-text("Ver sócios e donos")');
     const ab = await a.pagina.evaluate(() => window._abertos[0]);
     assert.match(ab, /^https:\/\/www\.linkedin\.com\/company\/contabil-alfa\/people\/\?keywords=/);
+    await a.pagina.fill('.li-modal .li-perfil', 'https://br.linkedin.com/in/joao-alfa?utm=x');
     await a.pagina.click('.li-modal button:has-text("Mandei o convite")');
     await a.pagina.waitForTimeout(400);
     const r2 = await a.pagina.evaluate(() => ({ reg: (_db.abordagens_linkedin || []).map(x => x.chave), card: pkLeads.find(k => k.name === 'Contábil Alfa') }));
     assert.deepStrictEqual(r2.reg, ['https://www.linkedin.com/company/contabil-alfa/']);
     assert.strictEqual(r2.card.canal, 'linkedin'); assert.strictEqual(r2.card.col, 'contatado');
-    assert.match(r2.card.nota, /Obrigado por aceitar/);
+    assert.match(r2.card.liMensagem, /Obrigado por aceitar/);
+    assert.strictEqual(r2.card.liPerfil, 'https://www.linkedin.com/in/joao-alfa/');
+    // no Pipeline: um toque copia a mensagem e abre o perfil da pessoa
+    const r3 = await a.pagina.evaluate(async () => {
+      let copiado = ''; Object.defineProperty(navigator, 'clipboard', { value: { writeText: async t => { copiado = t; } }, configurable: true });
+      window._abertos = [];
+      trocarAba('pipeline', document.querySelector(`.nav-item[onclick*="'pipeline'"]`));
+      await new Promise(r => setTimeout(r, 300));
+      const bt = [...document.querySelectorAll('.pk-card')].find(c => c.textContent.includes('Contábil Alfa')).querySelector('[data-acao="li"]');
+      bt.click(); await new Promise(r => setTimeout(r, 300));
+      return { copiado, abertos: window._abertos };
+    });
+    assert.match(r3.copiado, /Obrigado por aceitar/);
+    assert.deepStrictEqual(r3.abertos, ['https://www.linkedin.com/in/joao-alfa/']);
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });

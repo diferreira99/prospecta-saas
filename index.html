@@ -2751,7 +2751,8 @@ async function pkSincronizarParaNuvem() {
             proxima_acao_txt: l.proximaAcaoTxt || null,
             reuniao_em: l.reuniaoEm ? new Date(l.reuniaoEm).toISOString() : null,
             motivo_perda: l.col === 'descartado' ? (l.motivoPerda || null) : null,
-            canal: l.canal || null, instagram: l.instagram || null, linkedin: l.linkedin || null
+            canal: l.canal || null, instagram: l.instagram || null, linkedin: l.linkedin || null,
+            li_mensagem: l.liMensagem || null, li_perfil: l.liPerfil || null
         }));
         const idsAtuais = rows.map(r => r.id);
 
@@ -2794,7 +2795,8 @@ async function pkSincronizarDaNuvem() {
                 proximaAcaoTxt: r.proxima_acao_txt || '',
                 reuniaoEm: r.reuniao_em ? new Date(r.reuniao_em).getTime() : null,
                 motivoPerda: r.motivo_perda || null,
-                canal: r.canal || null, instagram: r.instagram || null, linkedin: r.linkedin || null
+                canal: r.canal || null, instagram: r.instagram || null, linkedin: r.linkedin || null,
+                liMensagem: r.li_mensagem || null, liPerfil: r.li_perfil || null
             }));
             userSet('pk_leads', pkLeads); // mantém o cache local coerente com a nuvem
             if (document.getElementById('tab-pipeline')?.classList.contains('active') && typeof pkRender === 'function') pkRender();
@@ -3749,6 +3751,7 @@ function pkRender() {
                         <span class="pk-card-days" title="Dias nesta etapa" style="background:${dc.bg};color:${dc.color};padding:2px 6px;border-radius:5px;font-size:0.55rem;font-weight:700;">${dias}d</span>
                         <span class="pk-card-rapidos">
                             ${lead.phone ? `<button type="button" class="tag-rede tag-zap pk-rapido" data-acao="wa" title="Abrir conversa no WhatsApp" aria-label="Abrir conversa no WhatsApp">${_LOGO_REDE.whatsapp}</button>` : ''}
+                            ${lead.liMensagem || lead.liPerfil || liUrl(lead) ? `<button type="button" class="tag-rede tag-lidm pk-rapido${lead.liMensagem ? ' feito' : ''}" data-acao="li" title="${lead.liMensagem ? 'Ele aceitou? Copia a mensagem e abre o perfil' : 'Abordar pelo LinkedIn'}" aria-label="LinkedIn">${_LI_GLIFO}</button>` : ''}
                             ${igHandle(lead.instagram) ? `<button type="button" class="tag-rede tag-igdm pk-rapido" data-acao="ig" title="${lead.canal === 'instagram' ? 'Abrir o Instagram' : 'Abordar pelo Instagram'}" aria-label="Instagram">${_IG_GLIFO}</button>` : ''}
                             ${pkProximaEtapa(lead.col) ? `<button type="button" class="pk-rapido pk-avancar" data-acao="avancar" title="Mover para ${PK_COLS.find(c => c.id === pkProximaEtapa(lead.col)).label}" aria-label="Mover para a próxima etapa">→</button>` : ''}
                         </span>
@@ -3758,6 +3761,7 @@ function pkRender() {
                 card.querySelectorAll('.pk-rapido').forEach(b => b.addEventListener('click', e => {
                     e.stopPropagation();
                     if (b.dataset.acao === 'wa') pkOpenWA(lead.id);
+                    else if (b.dataset.acao === 'li') { if (lead.liMensagem) liCopiarEAbrir(lead.id); else liAbordar([{ title: lead.name, name: lead.name, category: lead.cat, phone: lead.phone, linkedin: lead.linkedin }]); }
                     else if (b.dataset.acao === 'ig') { if (lead.canal === 'instagram') window.open(igUrl(lead), '_blank', 'noopener'); else igAbordarCard(lead.id); }
                     else pkMoverEtapa(lead.id, pkProximaEtapa(lead.col));
                 }));
@@ -3839,6 +3843,7 @@ function pkAbrirDetail(id) {
         ${pkBlocoMotivo(lead)}
         ${pkBlocoProximaAcao(lead)}
         ${pkBlocoConversa(lead)}
+        ${pkBlocoLinkedin(lead)}
         <div>
             <div class="pk-detail-section">Informações</div>
             <div class="pk-detail-row"><span>Telefone</span><span>${lead.phone?lead.phone.replace(/(\d{2})(\d{5})(\d{4})/,'($1) $2-$3'):'—'}</span></div>
@@ -3864,7 +3869,7 @@ function pkAbrirDetail(id) {
         </div>
         <div>
             <div class="pk-detail-section">Notas</div>
-            <textarea class="pk-nota-area" id="pk-nota-${id}">${lead.nota||''}</textarea>
+            <textarea class="pk-nota-area" id="pk-nota-${id}">${escapeHtml(lead.nota||'')}</textarea>
             <button class="pk-nota-save" onclick="pkSalvarNota(${id})">Salvar nota</button>
         </div>
         <div style="margin-top:4px">
@@ -4059,6 +4064,40 @@ function renderizarFunilConversao() {
 }
 
 function pkToggleReuniao(id) { pkLoad(); const l=pkLeads.find(x=>String(x.id)===String(id)); if(l){ l.reuniaoMarcada = !l.reuniaoMarcada; } pkSave(); pkAbrirDetail(id); }
+// LinkedIn: depois que a pessoa aceita o convite, um toque copia a mensagem e abre o perfil dela
+function liLinkDoCard(c) { return c.liPerfil || (liUrl(c) ? liPessoasUrl(c) : ''); }
+async function liCopiarEAbrir(id) {
+    pkLoad();
+    const c = pkLeads.find(x => String(x.id) === String(id)); if (!c) return;
+    const t = (document.getElementById('pk-limsg-' + id)?.value || c.liMensagem || '').trim();
+    let ok = false;
+    if (t) { try { await Promise.race([navigator.clipboard.writeText(t).then(() => { ok = true; }), new Promise((_, r) => setTimeout(r, 1500))]); } catch (e) {} }
+    const u = liLinkDoCard(c);
+    if (u) window.open(u, '_blank', 'noopener');
+    showToast(ok ? 'Mensagem copiada ✓ No perfil: Mensagem → colar → enviar' : (t ? 'Copie a mensagem no card (segure e copie)' : 'Sem mensagem salva neste card'), ok ? 'ok' : 'err');
+}
+function liSalvarCampos(id) {
+    pkLoad();
+    const c = pkLeads.find(x => String(x.id) === String(id)); if (!c) return;
+    const msg = document.getElementById('pk-limsg-' + id), per = document.getElementById('pk-liperfil-' + id);
+    if (msg) c.liMensagem = msg.value.trim().slice(0, 1500) || null;
+    if (per) { const p = liPerfilOk(per.value); if (per.value.trim() && !p) { showToast('Cole o link do perfil (linkedin.com/in/…)', 'err'); return; } c.liPerfil = p || null; }
+    pkSave(); showToast('✓ Salvo', 'ok');
+}
+function pkBlocoLinkedin(lead) {
+    if (!(lead.canal === 'linkedin' || lead.liMensagem || lead.liPerfil)) return '';
+    const id = lead.id, link = liLinkDoCard(lead);
+    return `<div>
+        <div class="pk-detail-section">LinkedIn${lead.liPessoa ? ' · ' + escapeHtml(lead.liPessoa) : ''}</div>
+        <div style="font-size:0.66rem;color:var(--muted);margin-bottom:6px;">Quando a pessoa aceitar o convite: copie a mensagem, abra o perfil, toque em Mensagem e cole.</div>
+        <textarea class="pk-nota-area" id="pk-limsg-${id}" placeholder="Mensagem para mandar quando ela aceitar">${escapeHtml(lead.liMensagem || '')}</textarea>
+        <input id="pk-liperfil-${id}" type="url" value="${escapeHtml(lead.liPerfil || '')}" placeholder="Link do perfil da pessoa (linkedin.com/in/…)" style="width:100%;box-sizing:border-box;margin-top:6px;padding:8px 10px;border-radius:8px;border:1.5px solid var(--border);font-family:'Inter',sans-serif;font-size:0.74rem;background:var(--surface);color:var(--text);">
+        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap;">
+            <button type="button" onclick="liCopiarEAbrir(${id})" style="flex:1;padding:8px 10px;border-radius:8px;border:none;background:#0A66C2;color:#fff;font-weight:700;font-size:0.72rem;cursor:pointer;">Copiar mensagem${link ? ' e abrir perfil' : ''}</button>
+            <button type="button" onclick="liSalvarCampos(${id})" style="padding:8px 10px;border-radius:8px;border:1.5px solid var(--border);background:transparent;color:var(--text);font-weight:600;font-size:0.72rem;cursor:pointer;">Salvar</button>
+        </div>
+    </div>`;
+}
 function pkSalvarNota(id) { pkLoad(); const l=pkLeads.find(x=>String(x.id)===String(id)); const el=document.getElementById('pk-nota-'+id); if(l&&el){l.nota=el.value;pkSave();} const btn=document.querySelector('.pk-nota-save'); if(btn){const o=btn.textContent;btn.textContent='✓ Salvo!';setTimeout(()=>btn.textContent=o,1200);} }
 async function pkLimparColuna(colId) {
     pkLoad();
@@ -12299,7 +12338,8 @@ async function liGerar(l, pessoa, contexto) {
     if (convite.length > 200) convite = convite.slice(0, 197).replace(/\s+\S*$/, '') + '…';
     return { convite, mensagem };
 }
-async function liRegistrar(l, pessoa, mensagem) {
+function liPerfilOk(u) { const m = String(u || '').trim().match(/^https?:\/\/([a-z]{2,3}\.)?(www\.)?linkedin\.com\/in\/([^/?#\s]+)/i); return m ? 'https://www.linkedin.com/in/' + m[3] + '/' : ''; }
+async function liRegistrar(l, pessoa, mensagem, perfil) {
     const k = liChave(l);
     const prod = typeof prodAtual === 'function' ? prodAtual() : null;
     const { error } = await supabaseClient.from('abordagens_linkedin').insert({
@@ -12320,9 +12360,11 @@ async function liRegistrar(l, pessoa, mensagem) {
     } else if (card.col === 'novo') { card.col = 'contatado'; card.movedAt = Date.now(); }
     card.canal = card.canal || 'linkedin';
     card.linkedin = liUrl(l) || card.linkedin || null;
-    if (mensagem) card.nota = ((card.nota ? card.nota + '\n\n' : '') + 'LinkedIn' + (pessoa ? ' (' + pessoa + ')' : '') + ' — mensagem para quando aceitar:\n' + mensagem).slice(0, 4000);
+    if (mensagem) card.liMensagem = mensagem.slice(0, 1500);
+    if (liPerfilOk(perfil)) card.liPerfil = liPerfilOk(perfil);
+    if (pessoa) card.liPessoa = pessoa.slice(0, 80);
     if (!card.proximaAcaoEm && card.col !== 'fechado' && card.col !== 'descartado') {
-        card.proximaAcaoEm = lembrete.getTime(); card.proximaAcaoTxt = 'Ver se aceitou o convite no LinkedIn e mandar a mensagem (está nas notas)';
+        card.proximaAcaoEm = lembrete.getTime(); card.proximaAcaoTxt = 'Ver se aceitou o convite no LinkedIn: se sim, toque no LinkedIn do card para copiar a mensagem';
     }
     pkSave();
 }
@@ -12371,6 +12413,9 @@ async function liAbordar(fila, opcoes) {
         achar.onclick = () => window.open(liPessoasUrl(l), '_blank', 'noopener');
         const pessoa = document.createElement('input'); pessoa.className = 'ig-texto li-pessoa'; pessoa.placeholder = 'Nome da pessoa (opcional, a IA personaliza)'; pessoa.maxLength = 80;
         l1.append(achar, pessoa); m.appendChild(l1);
+        const perfil = document.createElement('input'); perfil.className = 'ig-texto li-perfil'; perfil.type = 'url'; perfil.maxLength = 300;
+        perfil.placeholder = 'Link do perfil da pessoa (opcional: o card do Pipeline abre direto nele)';
+        m.appendChild(perfil);
         // 2) convite e mensagem
         const rotC = prEl('div', 'ig-rot', '2. Convite com nota (até 200 caracteres)'); const conta = prEl('span', 'li-conta', ''); rotC.appendChild(conta); m.appendChild(rotC);
         const convite = document.createElement('textarea'); convite.className = 'ig-texto'; convite.rows = 3; convite.maxLength = 200; convite.disabled = true; convite.placeholder = 'A IA está escrevendo…';
@@ -12401,7 +12446,7 @@ async function liAbordar(fila, opcoes) {
         mandei.onclick = async () => {
             mandei.disabled = true; mandei.textContent = 'Registrando…';
             try {
-                await liRegistrar(l, pessoa.value.trim(), msg.value.trim()); feitas++;
+                await liRegistrar(l, pessoa.value.trim(), msg.value.trim(), perfil.value.trim()); feitas++;
                 if (opcoes.aoRegistrar) await opcoes.aoRegistrar();
                 i++; if (fila.length > 1) mostrar(); else fechar();
             } catch (e) { showToast('Não consegui registrar: ' + e.message, 'err'); mandei.disabled = false; mandei.textContent = 'Mandei o convite'; }
