@@ -353,6 +353,35 @@
         .toast.ok { background: #166534; }
         .toast.err { background: #991b1b; }
         .ph-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 14px; margin-bottom: 22px; }
+        .canal { max-width: 1040px; font-family: 'Inter', sans-serif; }
+        .canal-topo { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .canal-num { background: var(--surface, #fff); border: 1.5px solid var(--border, #e2e8f0); border-radius: 14px; padding: 12px 14px; }
+        .canal-num b { display: block; font-size: 1.35rem; font-weight: 800; color: var(--text); line-height: 1.2; }
+        .canal-num span { font-size: 0.68rem; color: var(--muted); }
+        .canal-num .ig-link { font-size: 0.66rem; }
+        .canal-num.passou b { color: #d97706; }
+        .canal-acao { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 16px; }
+        .canal-acao .ps-acao.principal { font-size: 0.85rem; padding: 11px 18px; }
+        .canal-filtros { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-left: auto; font-size: 0.72rem; color: var(--muted); }
+        .canal-filtros select { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--surface); color: var(--text); max-width: 220px; }
+        .canal-grade { display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px; align-items: start; }
+        .canal-lista { list-style: none; margin: 0; padding: 0; }
+        .canal-lista li { display: flex; gap: 10px; align-items: center; padding: 9px 2px; border-bottom: 1px solid var(--border, #e2e8f0); }
+        .canal-lista li:last-child { border-bottom: 0; }
+        .canal-lista .cl-meio { flex: 1; min-width: 0; }
+        .canal-lista .cl-nome { font-size: 0.8rem; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .canal-lista .cl-sub { font-size: 0.66rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .canal-lista .cl-selo { font-size: 0.6rem; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: #EEF5FC; color: #0A66C2; white-space: nowrap; }
+        .canal-lista .cl-selo.sem { background: #FFF3E0; color: #c2410c; }
+        .canal-lista .cl-selo.ok { background: #dcfce7; color: #15803d; }
+        .canal-vazio { text-align: center; padding: 26px 14px; color: var(--muted); font-size: 0.8rem; }
+        .canal-vazio b { display: block; color: var(--text); font-size: 0.95rem; margin-bottom: 6px; }
+        .canal-grade > *, .canal-topo > * { min-width: 0; }
+        .canal-lista .ps-acao { width: auto !important; flex: 0 0 auto; padding: 7px 14px; margin: 0; }
+        .canal-filtros label { display: inline-flex !important; align-items: center; gap: 6px; white-space: nowrap; margin: 0; font-size: 0.72rem; color: var(--muted); }
+        .canal-filtros input[type=checkbox] { width: 16px !important; height: 16px; margin: 0; flex: 0 0 auto; }
+        .canal-dicas { margin: 0; padding-left: 18px; font-size: 0.72rem; color: var(--muted); line-height: 1.6; }
+        @media (max-width: 900px) { .canal-topo { grid-template-columns: repeat(2, minmax(0, 1fr)); } .canal-grade { grid-template-columns: 1fr; } .canal-filtros { margin-left: 0; width: 100%; } .canal-filtros select { flex: 1; max-width: none; } .canal-acao > .ps-acao { flex: 1 1 auto; } .canal-lista .cl-selo { display: none; } }
         .cons { margin-bottom: 22px; border-color: #FFD6B0; background: linear-gradient(135deg, #FFF8F2, #F5F8FF); }
         .cons h3 { margin: 0 0 2px; font-size: 1rem; color: var(--text); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .cons .cons-sub { font-size: 0.7rem; color: var(--muted); margin-bottom: 12px; }
@@ -1893,7 +1922,9 @@ function iniciarAppPosLogin() {
         <button class="nav-item" onclick="trocarAba('plano', this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z"/></svg> Plano de Prospecção</button>
         <button class="nav-item" onclick="trocarAba('pipeline', this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="13" rx="1"/><rect x="17" y="3" width="5" height="16" rx="1"/></svg> Pipeline</button>
         <button class="nav-item" onclick="trocarAba('campanhas', this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg> Campanhas</button>
-        <button class="nav-item" onclick="trocarAba('ia', this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V18H8v-3.26A7 7 0 0 1 5 9a7 7 0 0 1 7-7z"/><path d="M9 21h6M10 17h4"/></svg> Prospecção IA</button>
+        <button class="nav-item" onclick="trocarAba('ia', this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 2a7 7 0 0 1 7 7c0 2.38-1.19 4.47-3 5.74V18H8v-3.26A7 7 0 0 1 5 9a7 7 0 0 1 7-7z"/><path d="M9 21h6M10 17h4"/></svg> Prospecção WhatsApp</button>
+        <button class="nav-item" onclick="trocarAba('insta', this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="3.9"/><circle cx="17.2" cy="6.8" r="0.9" fill="currentColor" stroke="none"/></svg> Prospecção Instagram</button>
+        <button class="nav-item" onclick="trocarAba('linkedin', this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M7.5 10.5v6M7.5 7.5v.01M11 16.5v-6M11 13c0-1.5 1-2.5 2.5-2.5S16 11.5 16 13v3.5"/></svg> Prospecção LinkedIn</button>
         <button class="nav-item" onclick="trocarAba('respostas', this)" style="position:relative;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Respostas <span id="nav-respostas-badge" style="display:none;margin-left:6px;background:#dc2626;color:#fff;font-family:'Inter',sans-serif;font-size:0.6rem;font-weight:800;border-radius:20px;padding:1px 7px;">0</span></button>
         <div class="nav-section">Dados</div>
         <button class="nav-item" onclick="trocarAba('inbox', this)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Inbox</button>
@@ -1962,6 +1993,10 @@ function iniciarAppPosLogin() {
     </div>
 
     <div class="content" id="main-content">
+
+        <!-- PROSPECÇÃO INSTAGRAM e LINKEDIN (montadas pelo JS: canalAbrir) -->
+        <div class="tab-content" id="tab-insta"><div class="canal" id="canal-insta"></div></div>
+        <div class="tab-content" id="tab-linkedin"><div class="canal" id="canal-linkedin"></div></div>
 
         <!-- PLANO DE PROSPECÇÃO -->
         <div class="tab-content" id="tab-plano">
@@ -6250,7 +6285,9 @@ const titulos = {
     inbox:       ['Inbox', 'Converse com seus leads direto por aqui'],
     pipeline:    ['Pipeline', 'Kanban de vendas — arraste os leads entre etapas'],
     campanhas:   ['Campanhas',     'Gerenciador de campanhas'],
-    ia:          ['Prospecção IA', 'Envio de mensagens'],
+    ia:          ['Prospecção WhatsApp', 'Envio de mensagens pela IA'],
+    insta:       ['Prospecção Instagram', 'A IA escreve a DM, você segue e envia no Instagram'],
+    linkedin:    ['Prospecção LinkedIn', 'Ache quem decide, a IA escreve o convite, você envia no LinkedIn'],
     respostas:   ['Respostas',     'Sugestões da IA aguardando sua aprovação'],
     inbox:       ['Inbox WhatsApp',  'Suas conversas em tempo real'],
     historico:   ['Histórico',     'Suas buscas e ações anteriores'],
@@ -6310,6 +6347,7 @@ function trocarAba(aba, el) {
     }
 
     if (aba === 'integracoes') setTimeout(() => { try { integAbrir(); } catch (e) {} }, 50);
+    if (aba === 'insta' || aba === 'linkedin') setTimeout(() => { try { canalAbrir(aba); } catch (e) { console.warn('[canal]', e); } }, 50);
     // Renderizar histórico ao entrar na aba
     if (aba === 'historico') {
         setTimeout(() => histAtualizar(), 50);
@@ -6470,6 +6508,7 @@ async function buscarRedesEmFundo(buscaId, leads) {
         if (d.enriquecimento !== 'andamento') {
             const u = userGet('ultimosLeads', null);
             if (d.enriquecimento === 'pronto' && u && _leadsBase.includes(leads[0])) userSet('ultimosLeads', { ...u, leads: _leadsBase, redesOk: true });
+            if (_leadsBase.includes(leads[0])) histAtualizarRedes(leads);
             completarRedesPeloGoogle(leads);
             return;
         }
@@ -6531,7 +6570,7 @@ async function completarRedesPeloGoogle(leads) {
             for (const k of ['instagram', 'linkedin']) if (r[k] && !l[k]) { l[k] = r[k]; l.doGoogle = { ...(l.doGoogle || {}), [k]: true }; novos++; }
         });
         _redesMostrar(leads);
-        if (novos) showToast(`🔎 Achei mais ${novos} Instagram/LinkedIn no Google`, 'ok');
+        if (novos) { showToast(`🔎 Achei mais ${novos} Instagram/LinkedIn no Google`, 'ok'); if (_leadsBase.includes(leads[0])) histAtualizarRedes(leads); }
     } catch (e) { console.warn('[redes google]', e); }   // é só um extra
     finally { _googleRedesRodando = false; }
 }
@@ -7801,7 +7840,7 @@ window.addEventListener('error', ev => registrarErroApp(ev.message || (ev.error 
 window.addEventListener('unhandledrejection', ev => { const r = ev.reason; registrarErroApp(r && r.message ? r.message : String(r), r && r.stack); });
 
 function pedirAjuda() {
-    const NOMES_ABA = { prospeccao: 'Prospecção', plano: 'Plano', pipeline: 'Pipeline', campanhas: 'Campanhas', ia: 'Prospecção IA', respostas: 'Respostas', inbox: 'Inbox', historico: 'Histórico', meusleads: 'Meus leads', integracoes: 'Integrações', metricas: 'Painel' };
+    const NOMES_ABA = { prospeccao: 'Prospecção', plano: 'Plano', pipeline: 'Pipeline', campanhas: 'Campanhas', ia: 'Prospecção WhatsApp', insta: 'Prospecção Instagram', linkedin: 'Prospecção LinkedIn', respostas: 'Respostas', inbox: 'Inbox', historico: 'Histórico', meusleads: 'Meus leads', integracoes: 'Integrações', metricas: 'Painel' };
     const fundo = prEl('div', 'modal-backdrop active');
     const m = prEl('div', 'modal');
     m.appendChild(prEl('div', 'modal-title', '🆘 Peça ajuda'));
@@ -9830,6 +9869,26 @@ async function histAtualizarWhats() {
     } catch (e) {}
 }
 
+// Instagram, LinkedIn, e-mails e decisores achados depois da busca também ficam guardados nela
+async function histAtualizarRedes(leadsTela) {
+    if (!_buscaAtualId || !currentUser) return;
+    try {
+        const { data } = await supabaseClient.from('buscas').select('leads').eq('user_id', currentUser.id).eq('id', _buscaAtualId).limit(1);
+        const row = data && data[0]; if (!row) return;
+        const porChave = new Map();
+        (leadsTela || []).forEach(l => { porChave.set(l.place_id || pkTel(l.phone) || _normNicho(l.title), l); });
+        let mudou = 0;
+        const leads = (row.leads || []).map(x => {
+            const l = porChave.get(x.place_id || pkTel(x.phone) || _normNicho(x.title)); if (!l) return x;
+            const novo = Object.assign({}, x);
+            ['instagram', 'linkedin', 'facebook'].forEach(k => { if (l[k] && l[k] !== x[k]) { novo[k] = l[k]; mudou++; } });
+            ['emails', 'decisores'].forEach(k => { if (Array.isArray(l[k]) && l[k].length && JSON.stringify(l[k]) !== JSON.stringify(x[k] || [])) { novo[k] = l[k]; mudou++; } });
+            return novo;
+        });
+        if (mudou) { await supabaseClient.from('buscas').update({ leads }).eq('user_id', currentUser.id).eq('id', _buscaAtualId); _histBuscas = []; _canalBuscas = null; }
+    } catch (e) {}
+}
+
 // Tudo que aconteceu com os leads: enviado, respondeu, Pipeline, WhatsApp
 async function _histTodos(tabela, campos) {
     let out = [];
@@ -10025,7 +10084,7 @@ function histCarregarLeads(g, leads, tipo) {
     userSet('ultimosLeads', { leads, nicho: g.nicho, local: g.local || '', maxLeads: leads.length, data: new Date().toLocaleString('pt-BR') });
     trocarAba('prospeccao', document.querySelector(`.nav-item[onclick*="'prospeccao'"]`));
     renderPagina(1);
-    showToast(tipo === 'faltam' ? `▶ ${leads.length} empresas esperando contato. Selecione e envie pela Prospecção IA.` : `↩ ${leads.length} empresas carregadas do histórico`, 'ok');
+    showToast(tipo === 'faltam' ? `▶ ${leads.length} empresas esperando contato. Selecione e envie pela Prospecção WhatsApp.` : `↩ ${leads.length} empresas carregadas do histórico`, 'ok');
 }
 function histContinuar(g) { histCarregarLeads(g, g.faltam, 'faltam'); }
 function histBuscar(nicho, local, soNovasDe) {
@@ -12287,7 +12346,7 @@ async function igAbordar(fila, inicio, opcoes) {
     const fundo = prEl('div', 'modal-backdrop active');
     const m = prEl('div', 'modal ig-modal');
     fundo.appendChild(m);
-    const fechar = () => { fundo.remove(); try { atualizarAcoesBusca(); if (typeof renderPagina === 'function') renderPagina(paginaAtual || 1); } catch (e) {} if (feitas) showToast(`✓ ${feitas} abordagem(ns) no Instagram registradas · lembrete em 3 dias no Pipeline`, 'ok'); };
+    const fechar = () => { fundo.remove(); try { atualizarAcoesBusca(); if (typeof renderPagina === 'function') renderPagina(paginaAtual || 1); } catch (e) {} if (feitas) showToast(`✓ ${feitas} abordagem(ns) no Instagram registradas · lembrete em 3 dias no Pipeline`, 'ok'); if (opcoes.aoFechar) opcoes.aoFechar(); };
     fundo.onclick = e => { if (e.target === fundo) fechar(); };
     document.body.appendChild(fundo);
 
@@ -12492,7 +12551,7 @@ async function liAbordar(fila, opcoes) {
     const fundo = prEl('div', 'modal-backdrop active');
     const m = prEl('div', 'modal ig-modal li-modal');
     fundo.appendChild(m);
-    const fechar = () => { fundo.remove(); try { atualizarAcoesBusca(); if (typeof renderPagina === 'function') renderPagina(paginaAtual || 1); } catch (e) {} if (feitas) showToast(`✓ ${feitas} convite(s) no LinkedIn registrados · lembrete em 3 dias no Pipeline`, 'ok'); };
+    const fechar = () => { fundo.remove(); try { atualizarAcoesBusca(); if (typeof renderPagina === 'function') renderPagina(paginaAtual || 1); } catch (e) {} if (feitas) showToast(`✓ ${feitas} convite(s) no LinkedIn registrados · lembrete em 3 dias no Pipeline`, 'ok'); if (opcoes.aoFechar) opcoes.aoFechar(); };
     fundo.onclick = e => { if (e.target === fundo) fechar(); };
     document.body.appendChild(fundo);
     const copiar = async (t) => { try { await Promise.race([navigator.clipboard.writeText(t), new Promise((_, r) => setTimeout(() => r(), 1500))]); return true; } catch (e) { return false; } };
@@ -12600,6 +12659,170 @@ async function liAbordar(fila, opcoes) {
 }
 function liAbordarLead(realIdx) { const l = todosLeads[realIdx]; if (l) liAbordar([l]); }
 async function liAbrirFila() { await liCarregarFeitos(); const f = liFila(); if (!f.length) { showToast('Ninguém novo com LinkedIn nesta busca', 'err'); return; } liAbordar(f); }
+
+// ===================== ABAS: PROSPECÇÃO INSTAGRAM e PROSPECÇÃO LINKEDIN =====================
+// Cada canal com a própria aba: números do dia, a fila pronta (busca atual + buscas salvas),
+// abordar um ou começar a fila, e quem já foi abordado. A abordagem em si é a mesma janela assistida.
+var _canalBuscas = null, _canalFonte = { insta: 'todas', linkedin: 'todas' }, _canalSemZap = false;
+const CANAIS = {
+    insta: {
+        nome: 'Instagram', tabela: 'abordagens_instagram', canal: 'instagram', glifo: () => _IG_GLIFO,
+        limite: () => igLimite(), hoje: () => _igHoje, limiteChave: 'ig_limite', limiteMax: 200, recomendado: 'até 20',
+        carregar: (f) => igCarregarFeitos(f), tem: l => !!igHandle(l.instagram), chave: l => igHandle(l.instagram), feito: l => igJaAbordado(l),
+        // o WhatsApp vai primeiro: quem já recebeu WhatsApp não entra (igual à fila de dentro da Prospecção)
+        entra: l => !(l.phone && leadJaFoiEnviado(l.phone)),
+        abrir: (fila, op) => igAbordar(fila, 0, op), verbo: 'DMs', unidade: 'abordagem',
+        dicas: ['Seguir a empresa antes de mandar a DM aumenta a chance de ela ver a mensagem.', 'Até 20 por dia: mais que isso o Instagram pode limitar a conta.', 'Quem não tem WhatsApp aparece primeiro: para essas empresas o Instagram é o único caminho.', 'Respondeu? Mova o card no Pipeline: a cadência continua por lá.']
+    },
+    linkedin: {
+        nome: 'LinkedIn', tabela: 'abordagens_linkedin', canal: 'linkedin', glifo: () => _LI_GLIFO,
+        limite: () => liLimite(), hoje: () => _liHoje, limiteChave: 'li_limite', limiteMax: 100, recomendado: 'até 15',
+        carregar: (f) => liCarregarFeitos(f), tem: l => !!liUrl(l), chave: l => liChave(l), feito: l => liJaAbordado(l),
+        entra: () => true,
+        abrir: (fila, op) => liAbordar(fila, op), verbo: 'convites', unidade: 'convite',
+        dicas: ['Mande o convite para a pessoa (sócio, dono, diretor), não para a página da empresa.', 'Até 15 convites por dia. Conta grátis tem poucos convites com nota por mês.', 'Em 3 dias o Pipeline lembra de ver quem aceitou; a mensagem já fica pronta no card.', 'O provável decisor aparece sozinho quando a gente acha no site ou no Google.']
+    }
+};
+async function canalBuscasSalvas(forcar) {
+    if (_canalBuscas && !forcar) return _canalBuscas;
+    _canalBuscas = [];
+    if (!currentUser) return _canalBuscas;
+    try {
+        const { data } = await supabaseClient.from('buscas').select('id,nicho,local,criado_em,leads').eq('user_id', currentUser.id).order('criado_em', { ascending: false }).limit(60);
+        _canalBuscas = (data || []).map(b => ({ id: String(b.id), nome: [b.nicho, b.local].filter(Boolean).join(' · ') || 'Busca', leads: Array.isArray(b.leads) ? b.leads : [] }));
+    } catch (e) {}
+    return _canalBuscas;
+}
+// Fila do canal: busca na tela primeiro, depois as salvas; sem repetir empresa; quem não tem WhatsApp e melhor score antes
+function canalFila(aba, buscas) {
+    const c = CANAIS[aba], vistos = new Set(), fila = [];
+    const atual = (_leadsBase && _leadsBase.length) ? _leadsBase : (todosLeads || []);
+    const fontes = [{ id: 'atual', nome: 'Busca na tela', leads: atual }].concat(buscas || []);
+    const escolha = _canalFonte[aba] || 'todas';
+    fontes.forEach(f => {
+        if (escolha !== 'todas' && escolha !== f.id) return;
+        (f.leads || []).forEach(l => {
+            if (!l || !c.tem(l)) return;
+            const k = c.chave(l);
+            if (!k || vistos.has(k)) return;
+            vistos.add(k);
+            if (c.feito(l) || bloqueadoLead(l) || !c.entra(l)) return;
+            if (aba === 'insta' && _canalSemZap && l.phone && l.is_whatsapp !== false) return;
+            fila.push({ l, origem: f.nome, semZap: (!l.phone || l.is_whatsapp === false) ? 1 : 0, sc: calcScore(l) });
+        });
+    });
+    return fila.sort((a, b) => (b.semZap - a.semZap) || (b.sc - a.sc));
+}
+async function canalAbrir(aba, forcar) {
+    const c = CANAIS[aba], box = document.getElementById('canal-' + aba);
+    if (!c || !box || !currentUser) return;
+    if (!box.childElementCount) box.appendChild(prEl('div', 'ph-mudo', 'Carregando…'));
+    const [buscas] = await Promise.all([canalBuscasSalvas(forcar), c.carregar(true)]);
+    let feitos = [];
+    try {
+        const { data } = await supabaseClient.from(c.tabela).select('*').eq('user_id', currentUser.id).order('criado_em', { ascending: false }).limit(200);
+        feitos = data || [];
+    } catch (e) {}
+    canalDesenhar(aba, buscas, feitos);
+}
+function canalDesenhar(aba, buscas, feitos) {
+    const c = CANAIS[aba], box = document.getElementById('canal-' + aba);
+    box.replaceChildren();
+    const fila = canalFila(aba, buscas);
+    const lim = c.limite(), hoje = c.hoje();
+    // respostas: cards do Pipeline que vieram por este canal e andaram
+    try { if (typeof pkLoad === 'function' && !pkLeads.length) pkLoad(); } catch (e) {}
+    const doCanal = (pkLeads || []).filter(k => k.canal === c.canal);
+    const responderam = doCanal.filter(k => ['respondeu', 'negociando', 'fechado'].includes(k.col)).length;
+    // números
+    const topo = prEl('div', 'canal-topo');
+    const num = (valor, rotulo, cls) => { const d = prEl('div', 'canal-num' + (cls ? ' ' + cls : '')); d.append(prEl('b', '', valor), prEl('span', '', rotulo)); topo.appendChild(d); return d; };
+    const nHoje = num(`${hoje} de ${lim}`, `${c.verbo} hoje · `, hoje >= lim ? 'passou' : '');
+    const mudar = prEl('button', 'ig-link', 'mudar limite'); mudar.type = 'button';
+    mudar.onclick = () => { const v = prompt(`Quantos ${c.verbo} pelo ${c.nome} por dia? (recomendado: ${c.recomendado})`, String(lim)); const n = Number(v); if (n >= 1 && n <= c.limiteMax) { userSet(c.limiteChave, Math.round(n)); canalDesenhar(aba, buscas, feitos); } };
+    nHoje.querySelector('span').appendChild(mudar);
+    num(String(fila.length), 'na fila agora');
+    num(String(feitos.length >= 200 ? '200+' : feitos.length), `abordados pelo ${c.nome}`);
+    num(String(responderam), 'responderam (no Pipeline)');
+    box.appendChild(topo);
+    // ações
+    const acao = prEl('div', 'canal-acao');
+    const comecar = prEl('button', 'ps-acao principal', fila.length ? `▶ Começar a abordar (${Math.min(fila.length, Math.max(lim - hoje, 0)) || fila.length})` : '▶ Começar a abordar'); comecar.type = 'button';
+    comecar.disabled = !fila.length;
+    comecar.onclick = () => c.abrir(fila.map(x => x.l), { aoFechar: () => canalAbrir(aba) });
+    const buscar = prEl('button', 'ps-acao', '🔍 Buscar mais leads'); buscar.type = 'button';
+    buscar.onclick = () => trocarAba('prospeccao', document.querySelector(".nav-item[onclick*=\"trocarAba('prospeccao'\"]"));
+    acao.append(comecar, buscar);
+    const filtros = prEl('div', 'canal-filtros');
+    const sel = document.createElement('select'); sel.setAttribute('aria-label', 'De onde vêm os leads');
+    [['todas', 'Todas as buscas'], ['atual', 'Só a busca na tela']].concat((buscas || []).map(b => [b.id, b.nome])).forEach(([v, t]) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sel.appendChild(o); });
+    sel.value = _canalFonte[aba] || 'todas';
+    sel.onchange = () => { _canalFonte[aba] = sel.value; canalDesenhar(aba, buscas, feitos); };
+    filtros.append('Leads de', sel);
+    if (aba === 'insta') {
+        const lb = document.createElement('label'); lb.style.cursor = 'pointer';
+        const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = _canalSemZap;
+        cb.onchange = () => { _canalSemZap = cb.checked; canalDesenhar(aba, buscas, feitos); };
+        lb.append(cb, 'Só sem WhatsApp'); filtros.appendChild(lb);
+    }
+    acao.appendChild(filtros);
+    box.appendChild(acao);
+    if (hoje >= lim) box.appendChild(prEl('div', 'ig-aviso', `Você já chegou no limite de hoje no ${c.nome}. Continuar amanhã protege a sua conta.`));
+    // fila + abordados
+    const grade = prEl('div', 'canal-grade');
+    const sFila = prEl('section', 'ph-card'); sFila.appendChild(prEl('h3', '', `Fila do ${c.nome}`));
+    if (!fila.length) {
+        const v = prEl('div', 'canal-vazio');
+        v.append(prEl('b', '', `Ninguém novo com ${c.nome} agora`), document.createTextNode(`Faça uma busca na Prospecção: o ${c.nome} das empresas aparece sozinho em 1 a 2 minutos (site da empresa e Google). Quem tiver entra aqui.`));
+        sFila.appendChild(v);
+    } else {
+        const ul = prEl('ul', 'canal-lista');
+        fila.slice(0, 60).forEach(({ l, origem, semZap }) => {
+            const li = prEl('li');
+            const meio = prEl('div', 'cl-meio');
+            meio.appendChild(prEl('div', 'cl-nome', l.title || l.name || 'Empresa'));
+            const dec = aba === 'linkedin' && Array.isArray(l.decisores) && l.decisores[0] ? ' · ' + l.decisores[0].nome : '';
+            const cid = cidadeDoLead(l);
+            // a origem só aparece quando acrescenta algo (o nome da busca costuma repetir nicho e cidade)
+            const mostraOrigem = origem && !(cid && _normNicho(origem).includes(_normNicho(cid)));
+            meio.appendChild(prEl('div', 'cl-sub', [l.category || l.cat, cid].filter(Boolean).join(' · ') + dec + (mostraOrigem ? ' · ' + origem : '')));
+            li.appendChild(meio);
+            if (aba === 'insta' && semZap) li.appendChild(prEl('span', 'cl-selo sem', 'sem WhatsApp'));
+            if (aba === 'linkedin' && dec) li.appendChild(prEl('span', 'cl-selo', 'decisor achado'));
+            const b = prEl('button', 'ps-acao', 'Abordar'); b.type = 'button';
+            b.onclick = () => c.abrir([l], { aoFechar: () => canalAbrir(aba) });
+            li.appendChild(b);
+            ul.appendChild(li);
+        });
+        sFila.appendChild(ul);
+        if (fila.length > 60) sFila.appendChild(prEl('div', 'ph-linha', `Mostrando 60 de ${fila.length}. O botão Começar segue a fila inteira, na mesma ordem.`));
+    }
+    const lado = prEl('div'); lado.style.cssText = 'display:flex;flex-direction:column;gap:14px;';
+    const sFeitos = prEl('section', 'ph-card'); sFeitos.appendChild(prEl('h3', '', 'Últimos abordados'));
+    if (!feitos.length) sFeitos.appendChild(prEl('div', 'ph-mudo', `Ninguém ainda. Cada ${c.unidade} que você registrar aparece aqui e vai para o Pipeline.`));
+    else {
+        const porNome = new Map(doCanal.map(k => [String(k.name || '').toLowerCase().trim(), k]));
+        const ul = prEl('ul', 'canal-lista');
+        feitos.slice(0, 12).forEach(r => {
+            const li = prEl('li');
+            const meio = prEl('div', 'cl-meio');
+            meio.appendChild(prEl('div', 'cl-nome', r.nome || r.chave));
+            meio.appendChild(prEl('div', 'cl-sub', (r.pessoa ? r.pessoa + ' · ' : '') + (r.criado_em ? _histQuando(new Date(r.criado_em).getTime()) : '')));
+            li.appendChild(meio);
+            const k = porNome.get(String(r.nome || '').toLowerCase().trim());
+            if (k && ['respondeu', 'negociando', 'fechado'].includes(k.col)) li.appendChild(prEl('span', 'cl-selo ok', k.col === 'fechado' ? 'ganho' : 'respondeu'));
+            const link = r.instagram || r.linkedin;
+            if (link && /^https:\/\//.test(link)) { const a = prEl('a', 'ig-link', 'abrir'); a.href = link; a.target = '_blank'; a.rel = 'noopener'; li.appendChild(a); }
+            ul.appendChild(li);
+        });
+        sFeitos.appendChild(ul);
+    }
+    const sDicas = prEl('section', 'ph-card'); sDicas.appendChild(prEl('h3', '', 'Como fazer bem'));
+    const ol = prEl('ul', 'canal-dicas'); c.dicas.forEach(t => ol.appendChild(prEl('li', '', t))); sDicas.appendChild(ol);
+    lado.append(sFeitos, sDicas);
+    grade.append(sFila, lado);
+    box.appendChild(grade);
+}
 
 // ===================== PRODUTOS (SDR com vários produtos) =====================
 // Cada produto tem as próprias instruções para a IA. Trocou o produto, a campanha, as respostas
@@ -13875,7 +14098,7 @@ async function grpImportar(grupos, btn, fundo) {
         salvarNoHistorico('Grupo: ' + nomeOrigem, '', leads.length, leads.length, 'grupo');
         trocarAba('prospeccao', document.querySelector(`.nav-item[onclick*="'prospeccao'"]`));
         renderPagina(1);
-        showToast(`👥 ${leads.length} leads do grupo ${nomeOrigem}. Selecione e envie pela Prospecção IA.`, 'ok');
+        showToast(`👥 ${leads.length} leads do grupo ${nomeOrigem}. Selecione e envie pela Prospecção WhatsApp.`, 'ok');
     } catch (e) {
         btn.disabled = false; btn.textContent = 'Importar números';
         showToast('❌ Não consegui importar: ' + (e && e.message), 'err');
@@ -18143,10 +18366,10 @@ async function dispararSequenciaIA(ci) {
     const jaFoiEnviadaPorFora = progExistente && (progExistente.enviados || 0) > 0;
     if (etapaPendente.tipo === 'apresentacao' && jaFoiEnviadaPorFora) {
         etapaPendente.status = 'concluido';
-        etapaPendente.obs = 'Pulada automaticamente — contato inicial já enviado pela Prospecção IA';
+        etapaPendente.obs = 'Pulada automaticamente — contato inicial já enviado pela Prospecção WhatsApp';
         salvarCampanhas();
         renderEtapasSequencia(c.sequencia);
-        showToast('📋 Dia 1 já tinha sido enviado pela Prospecção IA — marcado como concluído, sem duplicar.', 'ok');
+        showToast('📋 Dia 1 já tinha sido enviado pela Prospecção WhatsApp — marcado como concluído, sem duplicar.', 'ok');
         return dispararSequenciaIA(ci); // tenta a próxima etapa de verdade (ex: Dia 3)
     }
 

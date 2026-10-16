@@ -401,6 +401,54 @@ test('consultor do dia: escolhe pelo interesse (não por qualquer resposta), sug
   } finally { await a.fechar(); }
 });
 
+test('abas Prospecção Instagram e LinkedIn: menu com os 3 canais, fila da busca na tela + buscas salvas, começar e registrar', async () => {
+  const db = {
+    buscas: [{ user_id: 'u1', id: 111, nicho: 'Contabilidade', local: 'Guarulhos', criado_em: new Date().toISOString(), leads: [
+      { title: 'Contábil Beta', phone: '', instagram: 'https://www.instagram.com/contabilbeta/', linkedin: 'https://www.linkedin.com/company/contabil-beta/', decisores: [{ nome: 'Ana Reis', cargo: 'Sócia', linkedin: 'https://www.linkedin.com/in/ana-reis/' }] },
+      { title: 'Pet Já Abordado', phone: '11911112222', instagram: 'https://www.instagram.com/petja/' },
+    ] }],
+    abordagens_instagram: [{ user_id: 'u1', chave: 'petja', nome: 'Pet Já Abordado', instagram: 'https://www.instagram.com/petja/', criado_em: new Date(Date.now() - 86400000).toISOString() }],
+  };
+  const a = await abrirApp({ db, largura: 1280, rotas: [[/\/ia$/, () => ({ texto: 'Oi! Vi o perfil de vocês. Posso mostrar uma ideia rápida?' })]] });
+  try {
+    const menu = await a.pagina.$$eval('.nav-item', bs => bs.map(b => b.textContent.trim()));
+    assert.ok(menu.includes('Prospecção WhatsApp') && menu.includes('Prospecção Instagram') && menu.includes('Prospecção LinkedIn'), menu.join(' | '));
+    assert.ok(!menu.includes('Prospecção IA'));
+    await a.pagina.evaluate(() => {
+      config.uazapi = { url: 'https://srv.test', token: 't' };
+      window.open = () => null;
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => {} }, configurable: true });
+      _leadsBase = [{ title: 'Clínica Sol', phone: '1133334444', is_whatsapp: false, instagram: 'https://www.instagram.com/clinicasol/' },
+                    { title: 'Contábil Beta', phone: '', instagram: 'https://www.instagram.com/contabilbeta/' }];   // repetida na busca salva
+      todosLeads = _leadsBase.slice();
+    });
+    await a.pagina.click('.nav-item:has-text("Prospecção Instagram")');
+    await a.pagina.waitForSelector('#canal-insta .canal-lista');
+    const ig = await a.pagina.evaluate(() => ({
+      titulo: document.getElementById('page-title').textContent,
+      nomes: [...document.querySelectorAll('#canal-insta .canal-grade > .ph-card .cl-nome')].map(x => x.textContent),
+      fila: document.querySelector('#canal-insta .canal-num:nth-child(2) b').textContent,
+      feitos: [...document.querySelectorAll('#canal-insta .canal-lista')].pop().textContent,
+    }));
+    assert.strictEqual(ig.titulo, 'Prospecção Instagram');
+    assert.deepStrictEqual(ig.nomes.sort(), ['Clínica Sol', 'Contábil Beta'], 'sem repetir e sem quem já foi abordado');
+    assert.strictEqual(ig.fila, '2');
+    assert.match(ig.feitos, /Pet Já Abordado/);
+    // começar a fila: abre a janela de abordagem e, ao registrar, a aba se atualiza
+    await a.pagina.click('#canal-insta button:has-text("Começar a abordar")');
+    await a.pagina.waitForSelector('.ig-modal textarea:not([disabled])');
+    await a.pagina.click('.ig-modal button:has-text("Não deu")').catch(() => {});
+    await a.pagina.evaluate(() => document.querySelector('.modal-backdrop.active')?.remove());
+    // LinkedIn: só quem tem LinkedIn, com o decisor achado
+    await a.pagina.click('.nav-item:has-text("Prospecção LinkedIn")');
+    await a.pagina.waitForSelector('#canal-linkedin .canal-lista');
+    const li = await a.pagina.evaluate(() => [...document.querySelectorAll('#canal-linkedin .canal-grade > .ph-card li')].map(x => x.textContent));
+    assert.strictEqual(li.length, 1);
+    assert.match(li[0], /Contábil Beta.*Ana Reis.*decisor achado/);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
 test('cadência multicanal: etapa de Instagram vira tarefa em Respostas e conta como feita ao registrar', async () => {
   const db = { fila_followups: [
     { id: 5, user_id: 'u1', phone: '5511999990000', lead_nome: 'Clínica Sol', campanha_id: 'c1', campanha_nome: 'Dentistas', dia_etapa: 6, status: 'pendente', canal: 'instagram', extra: { instagram: 'https://www.instagram.com/clinicasol/' }, mensagem: 'Oi! Te mandei um WhatsApp, vi que vocês usam mais o Instagram. Posso te mostrar em 2 min?', criado_em: new Date().toISOString() },
