@@ -291,6 +291,7 @@
         .ig-rot { font-size: .7rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin: 10px 0 4px; }
         .ig-texto { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 10px; font-family: Inter, sans-serif; font-size: .85rem; background: var(--surface); color: var(--text); resize: vertical; }
         .ig-passo { font-size: .74rem; color: var(--muted); margin: 6px 0 2px; }
+        .ig-feito { margin: -4px 0 10px; padding: 7px 10px; border-radius: 8px; background: #ECFDF5; border: 1px solid #A7F3D0; color: #065F46; font-size: .74rem; }
         .tag-ig { background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fdf497 5%, #fd5949 45%, #d6249f 60%, #285AEB 90%); }
         .tag-fb { background: #1877F2; }
         .tag-in { background: #0A66C2; }
@@ -11983,6 +11984,7 @@ const IG_LIMITE_PADRAO = 20;
 const _IG_GLIFO = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="3.9"/><circle cx="17.2" cy="6.8" r="0.9" fill="currentColor" stroke="none"/></svg>`;
 var _igFeitos = null;          // chaves (@) já abordadas
 var _igHoje = 0;
+var _igUltimo = null;          // última abordagem registrada (para o "desfazer")
 function igLimite() { const n = Number(userGet('ig_limite', IG_LIMITE_PADRAO)); return n >= 1 && n <= 200 ? n : IG_LIMITE_PADRAO; }
 function igHandle(url) {
     const m = String(url || '').match(/instagram\.com\/([A-Za-z0-9._]{1,30})/i);
@@ -11991,6 +11993,8 @@ function igHandle(url) {
     return ['p', 'reel', 'reels', 'explore', 'stories', 'tv', 'accounts'].includes(h) ? '' : h;
 }
 function igUrl(l) { const h = igHandle(l && l.instagram); return h ? 'https://www.instagram.com/' + h + '/' : ''; }
+// Link que abre direto a conversa (DM) com a empresa, no app do Instagram ou no navegador
+function igDmUrl(l) { const h = igHandle(l && l.instagram); return h ? 'https://ig.me/m/' + h : ''; }
 async function igCarregarFeitos(forcar) {
     if (_igFeitos && !forcar) return _igFeitos;
     _igFeitos = new Set(); _igHoje = 0;
@@ -12045,6 +12049,7 @@ async function igRegistrar(l) {
     if (typeof pkLoad === 'function') pkLoad();
     const nome = (l.title || l.name || '').toLowerCase().trim();
     let card = pkLeads.find(k => (k.instagram && igHandle(k.instagram) === h) || (nome && (k.name || k.title || '').toLowerCase().trim() === nome));
+    const antes = card ? { col: card.col, movedAt: card.movedAt, canal: card.canal, instagram: card.instagram, proximaAcaoEm: card.proximaAcaoEm, proximaAcaoTxt: card.proximaAcaoTxt } : null;
     const lembrete = new Date(); lembrete.setDate(lembrete.getDate() + 3); lembrete.setHours(9, 0, 0, 0);
     if (!card) {
         card = { id: Date.now() + Math.random(), name: l.title || l.name || '', cat: l.category || l.cat || '', phone: String(l.phone || '').replace(/\D/g, ''),
@@ -12057,6 +12062,18 @@ async function igRegistrar(l) {
         card.proximaAcaoEm = lembrete.getTime(); card.proximaAcaoTxt = 'Ver se respondeu no Instagram (se sim, mova para Respondeu)';
     }
     pkSave();
+    const id = card.id;
+    // desfazer: apaga o registro e devolve o card como estava
+    return async () => {
+        try { await supabaseClient.from('abordagens_instagram').delete().eq('user_id', currentUser.id).eq('chave', h); } catch (e) {}
+        if (_igFeitos) _igFeitos.delete(h);
+        _igHoje = Math.max(0, _igHoje - 1);
+        if (typeof pkLoad === 'function') pkLoad();
+        const c = pkLeads.find(k => String(k.id) === String(id));
+        if (c && !antes) pkLeads = pkLeads.filter(k => k !== c);
+        else if (c) Object.assign(c, antes);
+        pkSave();
+    };
 }
 
 // Janela de abordagem. `fila` = lista de leads (um por vez); um lead só = fila de 1.
@@ -12083,6 +12100,13 @@ async function igAbordar(fila, inicio) {
             return;
         }
         const l = fila[i], h = igHandle(l.instagram), lim = igLimite();
+        if (_igUltimo) {
+            const u = _igUltimo; _igUltimo = null;
+            const av = prEl('div', 'ig-feito', '✓ ' + u.nome + (u.sozinho ? ' registrado ao voltar' : ' registrado') + ' · ');
+            const dz = prEl('button', 'ig-link', 'desfazer');
+            dz.onclick = async () => { dz.disabled = true; await u.desfazer(); feitas = Math.max(0, feitas - 1); i = Math.max(0, i - 1); mostrar(); };
+            av.appendChild(dz); m.appendChild(av);
+        }
         const topo = prEl('div', 'ig-topo');
         const tit = prEl('div', 'modal-title'); tit.innerHTML = _IG_GLIFO + ' <span></span>'; tit.querySelector('span').textContent = 'Abordar pelo Instagram';
         topo.appendChild(tit);
@@ -12090,7 +12114,9 @@ async function igAbordar(fila, inicio) {
         m.appendChild(topo);
         const quem = prEl('div', 'ig-quem');
         quem.appendChild(prEl('b', '', l.title || l.name || '@' + h));
-        quem.appendChild(prEl('span', '', ' @' + h + ' · ' + [l.category || l.cat, l.rating ? '★ ' + l.rating : '', (!l.phone || l.is_whatsapp === false) ? 'sem WhatsApp' : ''].filter(Boolean).join(' · ')));
+        const vp = document.createElement('a'); vp.href = igUrl(l); vp.target = '_blank'; vp.rel = 'noopener'; vp.className = 'ig-link'; vp.textContent = ' @' + h;
+        quem.appendChild(vp);
+        quem.appendChild(prEl('span', '', ' · ' + [l.category || l.cat, l.rating ? '★ ' + l.rating : '', (!l.phone || l.is_whatsapp === false) ? 'sem WhatsApp' : ''].filter(Boolean).join(' · ')));
         m.appendChild(quem);
         const cont = prEl('div', 'ig-cont' + (_igHoje >= lim ? ' passou' : ''), `Hoje: ${_igHoje} de ${lim} abordagens`);
         const mudar = prEl('button', 'ig-link', 'mudar limite');
@@ -12102,12 +12128,12 @@ async function igAbordar(fila, inicio) {
         m.appendChild(prEl('div', 'ig-rot', 'Mensagem (DM)' + (prod ? ' · vendendo ' + prod.nome : '')));
         const ta = document.createElement('textarea'); ta.className = 'ig-texto'; ta.rows = 5; ta.maxLength = 1000; ta.placeholder = 'A IA está escrevendo…'; ta.disabled = true;
         m.appendChild(ta);
-        const passo = prEl('div', 'ig-passo', 'Toque em "Copiar e abrir perfil". No Instagram: Seguir → Mensagem → colar → enviar.');
+        const passo = prEl('div', 'ig-passo', 'Toque em "Copiar e abrir conversa": a DM com a empresa abre direto. Cole, envie e toque em Seguir no topo.');
         m.appendChild(passo);
         const acoes = prEl('div', 'modal-actions');
         const pular = prEl('button', 'modal-btn', fila.length > 1 ? 'Pular' : 'Cancelar');
         const outra = prEl('button', 'modal-btn', 'Gerar outra');
-        const abrir = prEl('button', 'modal-btn primary', 'Copiar e abrir perfil');
+        const abrir = prEl('button', 'modal-btn primary', 'Copiar e abrir conversa');
         acoes.append(pular, outra, abrir); m.appendChild(acoes);
         pular.onclick = () => { if (fila.length > 1) { i++; mostrar(); } else fechar(); };
         const gerar = async () => {
@@ -12124,19 +12150,30 @@ async function igAbordar(fila, inicio) {
             let copiou = false;
             try { await Promise.race([navigator.clipboard.writeText(texto).then(() => { copiou = true; }), new Promise((_, rej) => setTimeout(() => rej(new Error('tempo')), 1500))]); } catch (e) {}
             if (!copiou) { ta.select(); try { copiou = document.execCommand('copy'); } catch (e2) {} }
-            window.open(igUrl(l), '_blank', 'noopener');
-            // Passo 2: confirmar
-            acoes.replaceChildren(); passo.textContent = (copiou ? 'Mensagem copiada ✓ ' : 'Copie a mensagem acima (segure e copie). ') + 'Depois de seguir e enviar no Instagram, volte aqui:';
+            const saiuEm = Date.now();
+            window.open(igDmUrl(l), '_blank', 'noopener');
+            // Passo 2: confirmar (ou registra sozinho quando a pessoa volta para o app)
+            acoes.replaceChildren(); passo.textContent = (copiou ? 'Mensagem copiada ✓ ' : 'Copie a mensagem acima (segure e copie). ') + 'Na conversa: colar → enviar → toque em Seguir no topo. Ao voltar para cá, registramos sozinhos.';
             const nao = prEl('button', 'modal-btn', 'Não deu');
             const de = prEl('button', 'modal-btn', 'Abrir de novo');
             const sim = prEl('button', 'modal-btn primary', 'Mandei');
-            nao.onclick = () => { if (fila.length > 1) { i++; mostrar(); } else fechar(); };
-            de.onclick = () => window.open(igUrl(l), '_blank', 'noopener');
-            sim.onclick = async () => {
+            let feito = false;
+            const registrar = async (sozinho) => {
+                if (feito) return; feito = true; tirarVolta();
                 sim.disabled = true; sim.textContent = 'Registrando…';
-                try { await igRegistrar(l); feitas++; i++; if (fila.length > 1) mostrar(); else fechar(); }
-                catch (e) { showToast('Não consegui registrar: ' + e.message, 'err'); sim.disabled = false; sim.textContent = 'Mandei'; }
+                try {
+                    const desfazer = await igRegistrar(l); feitas++; i++;
+                    _igUltimo = { nome: l.title || l.name || '@' + h, desfazer, sozinho };
+                    if (fila.length > 1) mostrar(); else fechar();
+                } catch (e) { feito = false; showToast('Não consegui registrar: ' + e.message, 'err'); sim.disabled = false; sim.textContent = 'Mandei'; }
             };
+            // Voltou para o app depois de pelo menos 4 s fora: conta como enviado (dá para desfazer)
+            const aoVoltar = () => { if (document.visibilityState === 'visible' && Date.now() - saiuEm >= 4000 && document.body.contains(m)) registrar(true); };
+            const tirarVolta = () => { document.removeEventListener('visibilitychange', aoVoltar); window.removeEventListener('focus', aoVoltar); };
+            document.addEventListener('visibilitychange', aoVoltar); window.addEventListener('focus', aoVoltar);
+            nao.onclick = () => { feito = true; tirarVolta(); if (fila.length > 1) { i++; mostrar(); } else fechar(); };
+            de.onclick = () => window.open(igDmUrl(l), '_blank', 'noopener');
+            sim.onclick = () => registrar(false);
             acoes.append(nao, de, sim);
         };
         gerar();

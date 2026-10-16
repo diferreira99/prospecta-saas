@@ -187,14 +187,17 @@ test('Instagram: botão discreto, DM da IA, copia e abre o perfil, registra e p�
     await a.pagina.waitForSelector('.ig-modal .ig-texto:not([disabled])');
     assert.match(await a.pagina.inputValue('.ig-modal .ig-texto'), /^Oi, Clínica Sol!/);
     assert.match(await a.pagina.textContent('.ig-modal'), /1 de 2/);
-    await a.pagina.click('.ig-modal button:has-text("Copiar e abrir perfil")');
+    await a.pagina.click('.ig-modal button:has-text("Copiar e abrir conversa")');
     await a.pagina.waitForSelector('.ig-modal button:has-text("Mandei")');
     const r2 = await a.pagina.evaluate(() => ({ abertos: window._abertos, copiado: window._copiado() }));
-    assert.deepStrictEqual(r2.abertos, ['https://www.instagram.com/clinicasol/']);
+    assert.deepStrictEqual(r2.abertos, ['https://ig.me/m/clinicasol'], 'abre direto a conversa');
     assert.match(r2.copiado, /Clínica Sol/);
-    await a.pagina.click('.ig-modal button:has-text("Mandei")');
+    // voltar para o app depois de 4 s registra sozinho
+    await a.pagina.waitForTimeout(4200);
+    await a.pagina.evaluate(() => window.dispatchEvent(new Event('focus')));
     await a.pagina.waitForTimeout(400);
     assert.match(await a.pagina.textContent('.ig-modal'), /2 de 2/);
+    assert.match(await a.pagina.textContent('.ig-modal .ig-feito'), /Clínica Sol registrado ao voltar/);
     const r3 = await a.pagina.evaluate(() => ({
       reg: (_db.abordagens_instagram || []).map(x => x.chave),
       card: pkLeads.find(k => k.name === 'Clínica Sol'),
@@ -205,6 +208,19 @@ test('Instagram: botão discreto, DM da IA, copia e abre o perfil, registra e p�
     assert.strictEqual(r3.card.canal, 'instagram');
     assert.ok(r3.card.proximaAcaoEm > Date.now(), 'lembrete para conferir a resposta');
     assert.strictEqual(r3.hoje, 1);
+    // desfazer volta tudo e reabre a Clínica Sol
+    await a.pagina.click('.ig-modal .ig-feito button:has-text("desfazer")');
+    await a.pagina.waitForTimeout(300);
+    const r3b = await a.pagina.evaluate(() => ({ reg: (_db.abordagens_instagram || []).length, card: pkLeads.some(k => k.name === 'Clínica Sol'), hoje: _igHoje, txt: document.querySelector('.ig-modal').innerText }));
+    assert.strictEqual(r3b.reg, 0); assert.strictEqual(r3b.card, false); assert.strictEqual(r3b.hoje, 0);
+    assert.match(r3b.txt, /1 de 2/);
+    // agora pelo botão "Mandei"
+    await a.pagina.waitForSelector('.ig-modal .ig-texto:not([disabled])');
+    await a.pagina.click('.ig-modal button:has-text("Copiar e abrir conversa")');
+    await a.pagina.waitForSelector('.ig-modal button:has-text("Mandei")');
+    await a.pagina.click('.ig-modal button:has-text("Mandei")');
+    await a.pagina.waitForTimeout(400);
+    assert.match(await a.pagina.textContent('.ig-modal'), /2 de 2/);
     // Pular o segundo fecha a fila sem registrar
     await a.pagina.click('.ig-modal button:has-text("Pular")');
     assert.match(await a.pagina.textContent('.ig-modal'), /concluída/);
