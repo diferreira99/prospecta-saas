@@ -10133,7 +10133,7 @@ function histPintarRanking(box, grupos) {
         const barra = prEl('div', 'hist-rank-barra'); const f = prEl('i', ''); f.style.width = Math.max(4, g.taxa / max * 100) + '%'; barra.appendChild(f); meio.appendChild(barra);
         meio.appendChild(prEl('small', '', `${g.taxa}% responderam · ${g.responderam} de ${g.enviados}` + (g.pipeline ? ` · ${g.pipeline} no Pipeline` : '')));
         r.appendChild(meio);
-        if (g.faltam.length) { const b = prEl('button', 'hist-bt prim', `▶ ${g.faltam.length} esperando`); b.type = 'button'; b.title = 'Levar para a Prospecção quem ainda não recebeu mensagem'; b.onclick = () => histContinuar(g); r.appendChild(b); }
+        if (g.faltam.length) { const b = prEl('button', 'hist-bt prim', `▶ Continuar · ${g.faltam.length} esperando`); b.type = 'button'; b.title = 'Levar para a Prospecção quem ainda não recebeu mensagem'; b.onclick = () => histContinuar(g); r.appendChild(b); }
         else if (g.origem !== 'grupo') { const b = prEl('button', 'hist-bt', '📍 Cidade vizinha'); b.type = 'button'; b.onclick = e => histMenuCidade(e, g); r.appendChild(b); }
         c.appendChild(r);
     });
@@ -10170,7 +10170,7 @@ function histCard(g) {
     card.appendChild(fun);
     const acoes = prEl('div', 'hist-acoes');
     if (g.faltam.length) {
-        const c = prEl('button', 'hist-bt prim', `▶ Continuar de onde parou · ${g.faltam.length} esperando`); c.type = 'button';
+        const c = prEl('button', 'hist-bt prim', `▶ Continuar · ${g.faltam.length} esperando`); c.type = 'button';
         c.title = 'Leva para a Prospecção só quem ainda não recebeu mensagem (sem Não contatar, sem quem já está no Pipeline e sem quem não tem WhatsApp)';
         c.onclick = () => histContinuar(g); acoes.appendChild(c);
     } else acoes.appendChild(prEl('span', 'hist-ok', '✓ Todo mundo desta busca já foi contatado'));
