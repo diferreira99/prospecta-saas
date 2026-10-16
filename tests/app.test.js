@@ -423,6 +423,10 @@ test('abas Prospecção Instagram e LinkedIn: menu com os 3 canais, fila da busc
                     { title: 'Contábil Beta', phone: '', instagram: 'https://www.instagram.com/contabilbeta/' }];   // repetida na busca salva
       todosLeads = _leadsBase.slice();
     });
+    // o menu vem recolhido: toca em "Conecte" e os canais aparecem
+    assert.strictEqual(await a.pagina.isVisible('.nav-item:has-text("Prospecção Instagram")'), false);
+    await a.pagina.click('.nav-trilha:has-text("Conecte")');
+    assert.strictEqual(await a.pagina.getAttribute('.nav-trilha:has-text("Conecte")', 'aria-expanded'), 'true');
     await a.pagina.click('.nav-item:has-text("Prospecção Instagram")');
     await a.pagina.waitForSelector('#canal-insta .canal-lista');
     const ig = await a.pagina.evaluate(() => ({
@@ -626,6 +630,29 @@ test('Painel começa pela campanha ao vivo; o Consultor fica no topo do Plano de
     assert.strictEqual(r.naPlano, 'cons-dia');
     assert.ok(r.visivel); assert.match(r.txt, /Seu plano de hoje/);
     assert.strictEqual(r.dataMin, '34px');
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('menu em etapas: recolhidas, abrem no toque, a etapa da tela atual abre sozinha e o contador de Respostas aparece na etapa', async () => {
+  const a = await abrirApp({ largura: 1280 });
+  try {
+    const r = await a.pagina.evaluate(() => {
+      const abertas = () => [...document.querySelectorAll('.nav-grupo')].filter(g => !g.hidden).map(g => g.id);
+      const inicio = abertas();
+      trocarAba('pipeline', document.querySelector(`.nav-item[onclick*="'pipeline'"]`));
+      const depoisPipeline = abertas();
+      navGrupo(3);   // fecha de novo
+      _filaSugestoesCache = [{ id: 1, phone: '11999990000', classificacao: 'quente' }]; _filaFollowupsCache = [{ id: 2 }];
+      atualizarBadgeRespostas();
+      const b = document.getElementById('nt-respostas-badge');
+      return { inicio, depoisPipeline, fechada: abertas(), badge: b.hidden ? null : b.textContent, lembra: JSON.parse(localStorage.getItem('nav_abertos')) };
+    });
+    assert.deepStrictEqual(r.inicio, []);
+    assert.deepStrictEqual(r.depoisPipeline, ['ng-3'], 'abriu Converta porque o Pipeline está lá');
+    assert.deepStrictEqual(r.fechada, []);
+    assert.strictEqual(r.badge, '2', 'o número de Respostas aparece em Converta mesmo recolhida');
+    assert.deepStrictEqual(r.lembra, []);
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
