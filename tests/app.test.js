@@ -314,6 +314,21 @@ test('redes pelo Google e quem decide: completa o que faltou, sugere o dono no L
     assert.strictEqual(r1.pet.linkedin, 'https://www.linkedin.com/company/pet-feliz/');
     assert.strictEqual(r1.pet.googleOk, true);
 
+    // 1b) a API vence o Serper: o que ela já tinha nunca é trocado; o que o Serper pôs, a API corrige depois
+    const r1b = await a.pagina.evaluate(() => {
+      const alfa = { ..._leadsBase[1] }, pet = _leadsBase[0];
+      const n1 = juntarDaApi(alfa, { instagram: 'https://www.instagram.com/outro/', decisores: [{ nome: 'Fulano Tal', cargo: 'CEO', fonte: 'site' }] });
+      const n2 = juntarDaApi(pet, { instagram: 'https://www.instagram.com/petfelizoficial/', linkedin: 'https://www.linkedin.com/company/pet-feliz/' });
+      const n3 = juntarDaApi(pet, { instagram: 'https://www.instagram.com/petfelizoficial/' });
+      return { n1, alfaIg: alfa.instagram, alfaDec: alfa.decisores[0].nome, n2, petIg: pet.instagram, petGoogle: pet.doGoogle || null, n3 };
+    });
+    assert.strictEqual(r1b.n1, 0, 'nada da API muda o que a API já tinha');
+    assert.strictEqual(r1b.alfaIg, 'https://www.instagram.com/alfa/'); assert.strictEqual(r1b.alfaDec, 'João Silva');
+    assert.strictEqual(r1b.n2, 1, 'Instagram do Serper trocado pelo da API; LinkedIn igual não conta');
+    assert.strictEqual(r1b.petIg, 'https://www.instagram.com/petfelizoficial/');
+    assert.deepStrictEqual(r1b.petGoogle, { linkedin: true }, 'só o LinkedIn segue marcado como do Serper');
+    assert.strictEqual(r1b.n3, 0, 'repetir não muda nada');
+
     // 2) decisor do site já vem preenchido na janela do LinkedIn e a IA usa o nome
     await a.pagina.evaluate(() => liAbordar([_leadsBase[1]]));
     await a.pagina.waitForSelector('.li-modal textarea:not([disabled])');

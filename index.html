@@ -6448,8 +6448,7 @@ async function buscarRedesEmFundo(buscaId, leads) {
         for (const x of d.leads || []) {
             const l = porChave.get(x.place_id || chave(x.nome, x.endereco));
             if (!l) continue;
-            for (const k of ['instagram', 'facebook', 'linkedin']) if (x[k] && !l[k]) { l[k] = x[k]; novos++; }
-            for (const k of ['emails', 'decisores']) if (Array.isArray(x[k]) && x[k].length && !(l[k] && l[k].length)) { l[k] = x[k].slice(0, k === 'emails' ? 5 : 4); novos++; }
+            novos += juntarDaApi(l, x);
         }
         if (novos) _redesMostrar(leads);
         if (d.enriquecimento !== 'andamento') {
@@ -6462,6 +6461,23 @@ async function buscarRedesEmFundo(buscaId, leads) {
     }
 }
 
+// A sua API (Google Maps + site da empresa) sempre vence o Serper: o Serper só preenche o que ficou vazio
+// e, se a API achar depois, o dado dela substitui o do Serper (l.doGoogle marca o que veio do Serper).
+function juntarDaApi(l, x) {
+    let n = 0;
+    const g = l.doGoogle || {};
+    for (const k of ['instagram', 'facebook', 'linkedin']) {
+        if (x[k] && (!l[k] || (g[k] && l[k] !== x[k]))) { l[k] = x[k]; delete g[k]; n++; }
+    }
+    if (Array.isArray(x.emails) && x.emails.length && !(l.emails && l.emails.length)) { l.emails = x.emails.slice(0, 5); n++; }
+    const dSite = Array.isArray(x.decisores) ? x.decisores.filter(p => p && p.nome) : [];
+    const atuais = Array.isArray(l.decisores) ? l.decisores : [];
+    if (dSite.length && (!atuais.length || atuais.every(p => p.fonte === 'google')) && JSON.stringify(atuais) !== JSON.stringify(dSite.slice(0, 4))) {
+        l.decisores = dSite.slice(0, 4); n++;
+    }
+    if (Object.keys(g).length) l.doGoogle = g; else delete l.doGoogle;
+    return n;
+}
 function _redesMostrar(leads) {
     if (!leads || !_leadsBase.includes(leads[0])) return;   // a pessoa já está em outra busca
     const u = userGet('ultimosLeads', null);
@@ -6496,8 +6512,7 @@ async function completarRedesPeloGoogle(leads) {
             const r = (d.resultados || {})[String(n)];
             if (!r || r.erro) return;
             l.googleOk = true;
-            if (r.instagram && !l.instagram) { l.instagram = r.instagram; novos++; }
-            if (r.linkedin && !l.linkedin) { l.linkedin = r.linkedin; novos++; }
+            for (const k of ['instagram', 'linkedin']) if (r[k] && !l[k]) { l[k] = r[k]; l.doGoogle = { ...(l.doGoogle || {}), [k]: true }; novos++; }
         });
         _redesMostrar(leads);
         if (novos) showToast(`🔎 Achei mais ${novos} Instagram/LinkedIn no Google`, 'ok');
@@ -6515,7 +6530,8 @@ async function buscarDecisores(l) {
     const r = (d.resultados || {})['0'] || {};
     if (r.erro) throw new Error(r.erro);
     l.decisoresBuscados = true;
-    if (r.linkedin && !l.linkedin) l.linkedin = r.linkedin;
+    if (r.linkedin && !l.linkedin) { l.linkedin = r.linkedin; l.doGoogle = { ...(l.doGoogle || {}), linkedin: true }; }
+    if (Array.isArray(l.decisores) && l.decisores.length) return l.decisores;   // a API achou no site enquanto o Google procurava
     l.decisores = Array.isArray(r.decisores) ? r.decisores.slice(0, 4) : [];
     if (_leadsBase.includes(l)) { const u = userGet('ultimosLeads', null); if (u) userSet('ultimosLeads', { ...u, leads: _leadsBase }); }
     return l.decisores;
