@@ -990,3 +990,43 @@ test('Painel: hoje nos 3 canais (enviados, limite, responderam e progresso), igu
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('Métricas de Envio nos 3 canais: cartões somam WhatsApp, Instagram e LinkedIn, com filtro de canal, tabela e ranking', async () => {
+  const agora = new Date(), br = d => d.toLocaleDateString('pt-BR') + ', ' + d.toLocaleTimeString('pt-BR');
+  const rows = []; for (let i = 0; i < 8; i++) rows.push({ campanhaId: 'c1', status: i < 7 ? 'enviado' : 'erro', data: br(new Date(agora - i * 3600000)), lead: 'Wa ' + i });
+  const leads = rows.filter(r => r.status === 'enviado').map((r, i) => ({ id: 'l' + i, user_id: 'u1', campanha_id: 'c1', phone: '55119000000' + i, enviado_em: new Date(agora - i * 3600000).toISOString(), respondeu: i < 2, resposta_suspeita_bot: false, respondido_em: new Date(agora).toISOString() }));
+  const ig = []; for (let i = 0; i < 4; i++) ig.push({ id: i + 1, user_id: 'u1', chave: 'ig' + i, nome: 'Insta ' + i, criado_em: new Date(agora - i * 60000).toISOString(), resultado: i === 0 ? 'respondeu' : null });
+  const li = [{ id: 1, user_id: 'u1', chave: 'li0', nome: 'Linked 0', criado_em: new Date(agora).toISOString(), resultado: null }];
+  const db = { leads, abordagens_instagram: ig, abordagens_linkedin: li,
+    campanhas_canal: [{ id: 'k1', user_id: 'u1', canal: 'instagram', nome: 'Facilities SP', status: 'ativa', etapas: [0, 3, 7] }],
+    campanhas_canal_leads: [{ id: 1, user_id: 'u1', campanha_id: 'k1', chave: 'ig0', etapa: 1, status: 'respondeu' }, { id: 2, user_id: 'u1', campanha_id: 'k1', chave: 'ig1', etapa: 1, status: 'pendente' }] };
+  const a = await abrirApp({ largura: 1280, db, rotas: [[/status-campanha/, () => ({ rows })]] });
+  try {
+    const ler = () => a.pagina.evaluate(() => ({ env: document.getElementById('mc-val-enviados').textContent, envSub: document.getElementById('mc-sub-enviados').textContent,
+      err: document.getElementById('mc-val-erros').textContent, resp: document.getElementById('mc-val-respostas').textContent, respSub: document.getElementById('mc-sub-respostas').textContent,
+      linhas: document.querySelectorAll('#mc-tabela-body tr').length, canais: [...document.querySelectorAll('#mc-tabela-body .mc-chip-canal')].map(x => x.textContent),
+      rank: document.getElementById('mc-ranking-campanhas').innerText.replace(/\s+/g, ' '), hora: document.getElementById('mc-horario-conteudo').innerText }));
+    await a.pagina.evaluate(async () => { await carregarMetricas(); }); await a.pagina.waitForTimeout(800);
+    let r = await ler();
+    assert.strictEqual(r.env, '12', 'WhatsApp 7 + Instagram 4 + LinkedIn 1');
+    assert.match(r.envSub, /WhatsApp 7 · Instagram 4 · LinkedIn 1/);
+    assert.strictEqual(r.err, '1');
+    assert.strictEqual(r.resp, '3');
+    assert.match(r.respSub, /WhatsApp 2 · Instagram 1 · LinkedIn 0 · 25% de quem recebeu/);
+    assert.strictEqual(r.linhas, 13);
+    assert.deepStrictEqual([...new Set(r.canais)].sort(), ['Instagram', 'LinkedIn', 'WhatsApp']);
+    assert.match(r.rank, /Instagram Facilities SP/);
+    assert.match(r.hora, /Instagram.*poucos dados.*LinkedIn/s);
+    // só Instagram
+    await a.pagina.selectOption('#mc-filtro-canal', 'instagram'); await a.pagina.waitForTimeout(800);
+    r = await ler();
+    assert.strictEqual(r.env, '4'); assert.strictEqual(r.err, '—'); assert.strictEqual(r.resp, '1');
+    assert.strictEqual(r.linhas, 4); assert.deepStrictEqual([...new Set(r.canais)], ['Instagram']);
+    assert.match(r.rank, /Instagram Facilities SP 2 empresas · 2 já abordadas · ativa 50% responderam/); assert.ok(!/c1/.test(r.rank), "só Instagram no ranking");
+    // só WhatsApp: volta a lógica original
+    await a.pagina.selectOption('#mc-filtro-canal', 'whatsapp'); await a.pagina.waitForTimeout(800);
+    r = await ler();
+    assert.strictEqual(r.env, '7'); assert.strictEqual(r.resp, '2');
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});

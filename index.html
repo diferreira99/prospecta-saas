@@ -216,6 +216,11 @@
         .pc-barra { height: 8px; border-radius: 99px; background: #E0E6EF; overflow: hidden; }
         .pc-barra i { display: block; height: 100%; width: 0; border-radius: 99px; background: var(--pc-cor); transition: width 0.5s; }
         .pc-total { margin-top: 12px; background: #f5f7ff; border-radius: 10px; padding: 10px 12px; font-size: 0.78rem; color: #0D1330; }
+        .mc-canal-box { background: var(--surface2); border: 1.5px solid var(--border); border-radius: 10px; padding: 4px 8px; }
+        .mc-canal-box select { font-family: 'Inter', sans-serif; font-size: 0.62rem; font-weight: 600; background: transparent; border: none; color: var(--text); outline: none; cursor: pointer; }
+        .mc-canais-extra { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 0.72rem; color: var(--text); line-height: 1.6; }
+        .mc-canais-extra b { font-weight: 700; }
+        .mc-chip-canal { display: inline-block; font-size: 0.56rem; font-weight: 700; padding: 1px 7px; border-radius: 99px; margin-right: 4px; color: #fff; }
         .ig-espera { font-size: 0.7rem; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 7px 10px; margin: 8px 0 0; line-height: 1.4; }
         /* ── MANUAL DO CLIENTE ── */
         .manual { max-width: 860px; margin: 0 auto; font-family: 'Inter', sans-serif; color: #0D1330; }
@@ -6138,6 +6143,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <input type="date" id="mc-filtro-data-fim" onchange="filtrarMetricasPorCampanha()" title="Até" aria-label="Período: até" style="font-family:'Inter',sans-serif;font-size:0.8rem;background:transparent;border:none;color:var(--text);outline:none;cursor:pointer;padding:6px 2px;min-height:34px;min-width:118px;">
                     </div>
                     <!-- Filtro por campanha -->
+                    <div class="mc-filtro-box mc-canal-box"><select id="mc-filtro-canal" onchange="mcCanalTrocar(this.value)" aria-label="Canal"><option value="todos">Todos os canais</option><option value="whatsapp">WhatsApp</option><option value="instagram">Instagram</option><option value="linkedin">LinkedIn</option></select></div>
                     <div class="mc-filtro-box" style="display:flex;align-items:center;gap:5px;background:var(--surface2);border:1.5px solid var(--border);border-radius:8px;padding:3px 8px;">
                         <span class="mc-filtro-lbl" style="display:flex;align-items:center;font-family:'Inter',sans-serif;font-size:0.52rem;color:var(--muted);white-space:nowrap;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></span>
                         <select id="mc-filtro-campanha" onchange="filtrarMetricasPorCampanha()" style="font-family:'Inter',sans-serif;font-size:0.6rem;background:transparent;border:none;color:var(--text);outline:none;cursor:pointer;max-width:140px;padding:2px 0;">
@@ -16745,6 +16751,162 @@ async function painelCanaisCarregar() {
     } catch (e) { console.warn('[3 canais]', e && e.message); }
     finally { _pcRodando = false; }
 }
+// ===================== MÉTRICAS DE ENVIO NOS 3 CANAIS =====================
+// O bloco de métricas nasceu só para o WhatsApp. Aqui ele passa a tratar WhatsApp, Instagram e LinkedIn por igual:
+// cartões (enviados, erros, respostas), horário ideal, últimos envios e ranking de campanhas, com o filtro "Canal".
+// A lógica do WhatsApp continua a mesma; os números dele são lidos depois que ela termina e somados aos outros canais.
+// No Instagram e no LinkedIn não existe erro de entrega (você envia pelo app do canal) e resposta é o que você marcou.
+var MC_CANAL = {
+    whatsapp: { nome: 'WhatsApp', cor: '#16a34a', unid: 'mensagens' },
+    instagram: { nome: 'Instagram', cor: '#c13584', unid: 'DMs', tabela: 'abordagens_instagram', verbo: 'DM enviada' },
+    linkedin: { nome: 'LinkedIn', cor: '#0a66c2', unid: 'convites', tabela: 'abordagens_linkedin', verbo: 'convite enviado' },
+};
+var _mcWa = { env: 0, err: 0, resp: 0 };
+var _mcAb = null;   // { instagram: [...], linkedin: [...], em }
+function mcCanal() {
+    const camp = (document.getElementById('mc-filtro-campanha') || {}).value || 'all';
+    if (camp !== 'all') return 'whatsapp';        // campanha do WhatsApp escolhida: só ele
+    const v = userGet('mc_canal', 'todos'); return MC_CANAL[v] || v === 'todos' ? v : 'todos';
+}
+function mcCanalTrocar(v) { userSet('mc_canal', v); filtrarMetricasPorCampanha(); }
+async function mcCarregarAbordagens(forcar) {
+    if (_mcAb && !forcar && Date.now() - _mcAb.em < 60000) return _mcAb;
+    const uid = currentUser.id, out = { em: Date.now() };
+    for (const k of ['instagram', 'linkedin']) {
+        out[k] = await prBuscarTudo(() => supabaseClient.from(MC_CANAL[k].tabela).select('id,nome,chave,criado_em,resultado,resultado_em,produto_id').eq('user_id', uid).order('id')).then(r => prodPipe(r)).catch(() => []);
+    }
+    _mcAb = out; return out;
+}
+function _mcNoPeriodo(t) {
+    const { inicio, fim } = _periodoSelecionado(); if (!inicio && !fim) return true;
+    const d = new Date(t); if (isNaN(d)) return false;
+    const k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    return (!inicio || k >= inicio) && (!fim || k <= fim);
+}
+function _mcSet(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
+function _mcNum(id) { const n = Number(String((document.getElementById(id) || {}).textContent || '').replace(/\D/g, '')); return isNaN(n) ? 0 : n; }
+async function mcCanaisAplicar() {
+    const canal = mcCanal();
+    const sel = document.getElementById('mc-filtro-canal'); if (sel) { sel.value = canal; sel.disabled = ((document.getElementById('mc-filtro-campanha') || {}).value || 'all') !== 'all'; }
+    if (canal === 'whatsapp' || typeof currentUser === 'undefined' || !currentUser) return;
+    const ab = await mcCarregarAbordagens();
+    const per = k => (ab[k] || []).filter(r => _mcNoPeriodo(r.criado_em));
+    const c = { instagram: per('instagram'), linkedin: per('linkedin') };
+    const resp = k => c[k].filter(r => r.resultado === 'respondeu').length;
+    const n = v => Number(v || 0).toLocaleString('pt-BR');
+    const bench = document.getElementById('pr-bench');
+    if (canal === 'todos') {
+        const env = _mcWa.env + c.instagram.length + c.linkedin.length, rs = _mcWa.resp + resp('instagram') + resp('linkedin');
+        _mcSet('mc-val-enviados', n(env));
+        _mcSet('mc-sub-enviados', `WhatsApp ${n(_mcWa.env)} · Instagram ${n(c.instagram.length)} · LinkedIn ${n(c.linkedin.length)}`);
+        _mcSet('mc-val-erros', n(_mcWa.err));
+        _mcSet('mc-sub-erros', _mcWa.err ? 'Só no WhatsApp (DM e convite você envia)' : 'Nenhum erro');
+        _mcSet('mc-val-respostas', n(rs));
+        _mcSet('mc-sub-respostas', `WhatsApp ${n(_mcWa.resp)} · Instagram ${n(resp('instagram'))} · LinkedIn ${n(resp('linkedin'))}` + (env ? ` · ${prPctTxt(rs, env)} de quem recebeu` : ''));
+        if (bench && !bench.hidden && !/^No WhatsApp/.test(bench.textContent)) bench.textContent = 'No WhatsApp: ' + bench.textContent;
+    } else {
+        const lst = c[canal], r = resp(canal), m = MC_CANAL[canal];
+        _mcSet('mc-val-enviados', n(lst.length)); _mcSet('mc-sub-enviados', `${m.unid} registrados no ${m.nome}`);
+        _mcSet('mc-val-erros', '—'); _mcSet('mc-sub-erros', 'Não se aplica: você envia pelo app do ' + m.nome);
+        _mcSet('mc-val-respostas', n(r)); _mcSet('mc-sub-respostas', lst.length ? `${prPctTxt(r, lst.length)} marcados como "respondeu"` : 'Nenhum envio no período');
+        if (bench) bench.hidden = true;
+    }
+}
+// Horário ideal por canal (mesma conta do WhatsApp: faixa do dia do envio × quem respondeu)
+function mcHorarioTexto(itens) {
+    const janelas = [['🌅 Manhã cedo (6h-9h)', 6, 9], ['☀️ Manhã (9h-12h)', 9, 12], ['🌤️ Tarde (12h-15h)', 12, 15], ['🌇 Fim de tarde (15h-18h)', 15, 18], ['🌙 Noite (18h-21h)', 18, 21]]
+        .map(([label, ini, fim]) => ({ label, ini, fim, env: 0, resp: 0 }));
+    itens.forEach(x => { const h = new Date(x.t).getHours(); const j = janelas.find(j => h >= j.ini && h < j.fim); if (j) { j.env++; if (x.resp) j.resp++; } });
+    if (itens.length < 20) return `ainda poucos dados (${itens.length} de 20)`;
+    const ok = janelas.filter(j => j.env >= 5); if (!ok.length) return 'sem volume suficiente por faixa';
+    const m = ok.sort((a, b) => b.resp / b.env - a.resp / a.env)[0];
+    return `<b>${m.label}</b>: ${prPctTxt(m.resp, m.env)} responderam (${m.env} envios)`;
+}
+async function mcHorarioAplicar() {
+    const canal = mcCanal(), el = document.getElementById('mc-horario-conteudo');
+    if (!el || canal === 'whatsapp') return;
+    const ab = await mcCarregarAbordagens();
+    const itens = k => (ab[k] || []).map(r => ({ t: r.criado_em, resp: r.resultado === 'respondeu' }));
+    const linha = k => `<span class="mc-chip-canal" style="background:${MC_CANAL[k].cor}">${MC_CANAL[k].nome}</span> ${mcHorarioTexto(itens(k))}`;
+    if (canal === 'todos') {
+        el.querySelectorAll('.mc-canais-extra').forEach(x => x.remove());
+        const d = document.createElement('div'); d.className = 'mc-canais-extra';
+        d.innerHTML = 'Nos outros canais (pelo horário em que a DM ou o convite foi registrado):<br>' + linha('instagram') + '<br>' + linha('linkedin');
+        el.appendChild(d);
+    } else el.innerHTML = linha(canal) + '<div class="ph-linha" style="margin-top:6px">No ' + MC_CANAL[canal].nome + ' conta o horário em que você registrou a abordagem e quem você marcou como "respondeu".</div>';
+}
+// Últimos envios e ranking com os 3 canais
+async function mcTabelaRankingAplicar(rows, campanhaId) {
+    const canal = mcCanal();
+    if (canal === 'whatsapp') return;
+    const ab = await mcCarregarAbordagens();
+    const tbody = document.getElementById('mc-tabela-body');
+    const lin = [];
+    if (canal === 'todos') (_filtrarPorPeriodo(prodFiltrar(rows || [], 'campanhaId'))).forEach(r => { const d = phDataSP(r.data); lin.push({ t: d ? d.getTime() : 0, canal: 'whatsapp', camp: _rotuloCampanhaCurto(r.campanhaId), nome: r.lead || '—', st: String(r.status || '').toLowerCase(), data: (r.data || '').slice(0, 16) }); });
+    ['instagram', 'linkedin'].filter(k => canal === 'todos' || canal === k).forEach(k => (ab[k] || []).filter(r => _mcNoPeriodo(r.criado_em)).forEach(r => {
+        const d = new Date(r.criado_em);
+        lin.push({ t: d.getTime(), canal: k, camp: MC_CANAL[k].nome, nome: r.nome || '@' + r.chave, st: r.resultado === 'respondeu' ? 'respondeu' : r.resultado === 'sem_interesse' ? 'sem interesse' : MC_CANAL[k].verbo, data: d.toLocaleString('pt-BR').slice(0, 17) });
+    }));
+    lin.sort((a, b) => b.t - a.t);
+    _mcSet('mc-total-rows', lin.length + ' registros' + (canal === 'todos' ? ' nos 3 canais' : ' no ' + MC_CANAL[canal].nome));
+    if (tbody) {
+        const cores = { enviado: '#16a34a', erro: '#dc2626', pulado: '#d97706', respondeu: '#165DFF', 'sem interesse': '#64748b' };
+        tbody.innerHTML = lin.length ? lin.slice(0, 50).map(x => {
+            const cor = cores[x.st] || MC_CANAL[x.canal].cor;
+            return `<tr style="border-bottom:1px solid var(--border);">
+                <td style="padding:8px 10px;font-family:'Inter',sans-serif;font-size:0.65rem;color:var(--muted);"><span class="mc-chip-canal" style="background:${MC_CANAL[x.canal].cor}">${MC_CANAL[x.canal].nome}</span> ${x.canal === 'whatsapp' ? escapeHtml(String(x.camp || '').replace(/<[^>]*>/g, '')) : ''}</td>
+                <td style="padding:8px 10px;font-size:0.8rem;color:var(--text);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(x.nome)}</td>
+                <td style="padding:8px 10px;text-align:center;"><span style="font-family:'Inter',sans-serif;font-size:0.6rem;font-weight:700;padding:2px 8px;border-radius:99px;background:${cor}22;color:${cor};">${escapeHtml(x.st)}</span></td>
+                <td style="padding:8px 10px;text-align:right;font-family:'Inter',sans-serif;font-size:0.65rem;color:var(--muted);">${escapeHtml(x.data)}</td></tr>`;
+        }).join('') : '<tr><td colspan="4" style="padding:20px;text-align:center;color:var(--muted);">Nenhum dado encontrado</td></tr>';
+    }
+    // ranking: campanhas do Instagram e do LinkedIn (cadência) ao lado das do WhatsApp
+    const ranking = document.getElementById('mc-ranking-campanhas'); if (!ranking) return;
+    let cc = null; try { cc = await ccCarregar(); } catch (e) {}
+    const camps = ((cc && cc.camps) || []).filter(k => (canal === 'todos' || k.canal === canal) && prodNaVisao(k.produto_id)).map(k => {
+        const ls = cc.leads.filter(r => r.campanha_id === k.id);
+        const abord = ls.filter(r => r.etapa > 0 || r.status !== 'pendente').length, rsp = ls.filter(r => r.status === 'respondeu').length;
+        return { k, total: ls.length, abord, rsp, taxa: abord >= 5 ? rsp / abord : -1 };
+    }).sort((a, b) => (b.taxa - a.taxa) || (b.abord - a.abord));
+    if (canal !== 'todos') ranking.innerHTML = '';
+    ranking.querySelectorAll('.mc-rank-canais').forEach(x => x.remove());
+    const box = prEl('div', 'mc-rank-canais');
+    if (canal === 'todos' && camps.length) box.appendChild(prEl('div', 'ph-linha', 'Campanhas no Instagram e no LinkedIn')).style.cssText = 'padding:12px 10px 4px;font-weight:700;';
+    if (!camps.length && canal !== 'todos') box.appendChild(prEl('div', 'ph-mudo', 'Nenhuma campanha no ' + MC_CANAL[canal].nome + ' ainda. Crie em Campanhas → ' + MC_CANAL[canal].nome + '.'));
+    camps.slice(0, 10).forEach((x, i) => {
+        const row = prEl('div'); row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px;border-bottom:1px solid var(--border);';
+        const meio = prEl('div'); meio.style.cssText = 'flex:1;min-width:0;';
+        const tit = prEl('div'); tit.innerHTML = `<span class="mc-chip-canal" style="background:${MC_CANAL[x.k.canal].cor}">${MC_CANAL[x.k.canal].nome}</span>`; tit.append(' ' + (x.k.nome || 'Campanha'));
+        tit.style.cssText = "font-size:0.75rem;font-weight:600;font-family:'Inter',sans-serif;";
+        meio.append(tit, prEl('div', 'ph-linha', `${x.total} empresas · ${x.abord} já abordadas · ${x.k.status}`));
+        const dir = prEl('div', '', x.abord ? prPctTxt(x.rsp, x.abord) + ' responderam' : 'ainda não abordou'); dir.style.cssText = "font-family:'Inter',sans-serif;font-size:0.75rem;font-weight:700;color:#165DFF;text-align:right;";
+        row.append(prEl('span', '', '#' + (i + 1)), meio, dir); box.appendChild(row);
+    });
+    ranking.appendChild(box);
+}
+// Liga os 3 canais nas funções do WhatsApp sem mudar o que elas fazem
+(function () {
+    const rm = _renderizarMetricas;
+    _renderizarMetricas = function (rows, porCampanha, campanhaId) {
+        const r = rm.apply(this, arguments);
+        _mcWa.env = _mcNum('mc-val-enviados'); _mcWa.err = _mcNum('mc-val-erros');
+        mcTabelaRankingAplicar(rows, campanhaId).catch(e => console.warn('[métricas 3 canais]', e && e.message));
+        return r;
+    };
+    const acr = atualizarCardRespostas;
+    atualizarCardRespostas = async function () {
+        const r = await acr.apply(this, arguments);
+        _mcWa.resp = _mcNum('mc-val-respostas');
+        try { await mcCanaisAplicar(); } catch (e) { console.warn('[métricas 3 canais]', e && e.message); }
+        return r;
+    };
+    const hi = atualizarHorarioIdeal;
+    atualizarHorarioIdeal = async function () {
+        const r = await hi.apply(this, arguments);
+        try { await mcHorarioAplicar(); } catch (e) {}
+        return r;
+    };
+})();
 // roda sempre que o Painel carrega as métricas (sem alterar a função original)
 (function () {
     const original = carregarMetricas;
