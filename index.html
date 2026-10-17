@@ -12615,7 +12615,7 @@ async function igAbordar(fila, inicio, opcoes) {
             const u = _igUltimo; _igUltimo = null;
             const av = prEl('div', 'ig-feito', '✓ ' + u.nome + (u.sozinho ? ' registrado ao voltar' : ' registrado') + ' · ');
             const dz = prEl('button', 'ig-link', 'desfazer');
-            dz.onclick = async () => { dz.disabled = true; await u.desfazer(); feitas = Math.max(0, feitas - 1); i = Math.max(0, i - 1); mostrar(); };
+            dz.onclick = async () => { dz.disabled = true; await u.desfazer(); userSet('ig_ultima_dm', u.dmAntes || 0); feitas = Math.max(0, feitas - 1); i = Math.max(0, i - 1); mostrar(); };
             av.appendChild(dz); m.appendChild(av);
         }
         const topo = prEl('div', 'ig-topo');
@@ -12692,9 +12692,10 @@ async function igAbordar(fila, inicio, opcoes) {
                 sim.disabled = true; sim.textContent = 'Registrando…';
                 try {
                     const desfazer = await igRegistrar(l); feitas++; i++;
+                    const dmAntes = userGet('ig_ultima_dm', 0);
                     userSet('ig_ultima_dm', saiuEm);   // o intervalo conta a partir de quando a conversa foi aberta
                     if (opcoes.aoRegistrar) await opcoes.aoRegistrar();
-                    _igUltimo = { nome: l.title || l.name || '@' + h, desfazer, sozinho };
+                    _igUltimo = { nome: l.title || l.name || '@' + h, desfazer, sozinho, dmAntes };
                     if (fila.length > 1) mostrar(); else fechar();
                 } catch (e) { feito = false; showToast('Não consegui registrar: ' + e.message, 'err'); sim.disabled = false; sim.textContent = 'Mandei'; }
             };
