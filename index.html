@@ -193,9 +193,12 @@
         .page-title { font-size: 1.05rem; font-weight: 600; color: #0D1330; font-family: 'Inter', sans-serif; }        
         .page-subtitle { font-family: 'Inter', sans-serif; font-size: 0.62rem; color: var(--muted); margin-top: 2px; }
         .topbar-actions { display: flex; align-items: center; gap: 8px; }
-        .prod-topo { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border-radius: 999px; border: 1.5px solid var(--accent); background: var(--accent-light); cursor: pointer; max-width: 230px; }
-        .prod-topo select { border: none; background: transparent; font-family: 'Inter', sans-serif; font-size: 0.74rem; font-weight: 700; color: #0D1330; padding: 4px 2px; cursor: pointer; max-width: 190px; text-overflow: ellipsis; outline: none; }
-        .prod-topo:focus-within { box-shadow: 0 0 0 3px rgba(255,106,0,0.18); }
+        .titulo-linha { display: flex; align-items: center; gap: 8px; min-width: 0; }
+        .prod-topo { display: inline-flex; align-items: center; flex-shrink: 1; min-width: 0; max-width: 170px; border-radius: 999px; background: #f1f3f8; border: 1px solid #e4e7ef; }
+        .prod-topo select { appearance: none; -webkit-appearance: none; border: none; background: transparent; font-family: 'Inter', sans-serif; font-size: 0.62rem; font-weight: 600; color: #475069; padding: 3px 18px 3px 9px; cursor: pointer; width: 100%; min-width: 0; text-overflow: ellipsis; white-space: nowrap; overflow: hidden; outline: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 24 24' fill='none' stroke='%23475069' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 7px center; }
+        .prod-topo:hover { border-color: #cfd4e0; }
+        .prod-topo:focus-within { border-color: var(--accent); }
         .prod-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: 0.56rem; font-weight: 700; vertical-align: middle; white-space: nowrap; }
         .topbar-btn { font-family: 'Inter', sans-serif; font-size: 0.68rem; padding: 7px 13px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--surface2); color: var(--muted); cursor: pointer; transition: all 0.15s; }
         .topbar-btn:hover { border-color: var(--accent); color: var(--accent); }
@@ -733,8 +736,10 @@
         @media (max-width: 400px) {
             .topbar-actions { gap: 4px !important; }
             .topbar-btn { padding: 6px 8px; font-size: 0.58rem; }
-            .prod-topo { max-width: 150px; padding-left: 7px; }
-            .prod-topo select { font-size: 16px; max-width: 118px; }
+            .titulo-linha { flex-direction: column; align-items: flex-start; gap: 2px; }
+            .prod-topo { max-width: 150px; }
+            .prod-topo select { font-size: 0.66rem !important; padding: 2px 18px 2px 8px !important; height: auto !important; min-height: 0 !important; }
+            .titulo-linha:has(.prod-topo:not([hidden])) + .page-subtitle { display: none; }
             #export-mobile, #campanha-mobile { font-size: 0.54rem; padding: 5px 6px; gap: 4px !important; }
             #export-mobile svg, #campanha-mobile svg { width: 13px; height: 13px; }
         }
@@ -2081,16 +2086,17 @@ function iniciarAppPosLogin() {
         <div class="topbar-left">
             <button class="menu-toggle" id="menu-toggle" onclick="toggleSidebar()" aria-label="Menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
             <div>
+            <div class="titulo-linha">
             <div class="page-title" id="page-title" style="font-family:'Inter', sans-serif; color:#0D1330; font-weight:600;">Prospecção</div>
+            <label class="prod-topo" id="prod-topo-box" hidden title="Produto que você está vendendo: o app mostra só ele">
+                <select id="prod-topo" onchange="prodTopoTrocar(this.value)" aria-label="Produto que você está vendendo agora"></select>
+            </label>
+            </div>
                 
             <div class="page-subtitle" id="page-subtitle">Extracão  de leads</div>
             </div>
         </div>
         <div class="topbar-actions">
-            <label class="prod-topo" id="prod-topo-box" hidden title="Produto do dia: o app inteiro mostra só ele (métricas, Pipeline, campanhas e consultor)">
-                <span class="prod-topo-ic" aria-hidden="true">🎯</span>
-                <select id="prod-topo" onchange="prodTopoTrocar(this.value)" aria-label="Produto que você está vendendo agora"></select>
-            </label>
             <button class="topbar-btn" id="btn-relatorio-topo" onclick="abrirModalOpcoesRelatorio(event)" title="Gerar relatório em PDF" aria-label="Gerar relatório em PDF" style="display:none;align-items:center;gap:6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="rel-txt">Relatório PDF</span></button>
             <button class="topbar-btn hide-mobile" onclick="exportarCSV()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar CSV</button>
             <button class="topbar-btn hide-mobile" onclick="gerarCampanha()" id="btn-campanha" style="background:transparent;color:#0D1330;border-color:#0D1330;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg> Gerar Campanha</button>
@@ -13725,7 +13731,8 @@ async function prodExcluir() {
 // Painel, Resultados, Pipeline, Campanhas e o consultor mostram só o que foi feito para ele.
 // "Todos" junta tudo e mostra a etiqueta do produto. O que já existia antes conta como do produto ⭐ padrão.
 var _prodCampanhas = {};   // campanha_id -> produto_id
-function prodVisao() { return userGet('produto_visao', '') === 'todos' ? 'todos' : ((prodAtual() || {}).id || 'todos'); }
+// Com um produto só não existe "outro": nada é filtrado
+function prodVisao() { if (_produtos.length < 2 || userGet('produto_visao', '') === 'todos') return 'todos'; return (prodAtual() || {}).id || 'todos'; }
 function prodTodos() { return prodVisao() === 'todos'; }
 function prodNome(id) { const p = _produtos.find(x => x.id === id); return p ? p.nome : ''; }
 function prodDaCampanha(campId) {
@@ -13765,7 +13772,7 @@ function prodTopoPintar() {
     sel.innerHTML = '';
     _produtos.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.textContent = p.nome; sel.appendChild(o); });
     if (_produtos.length > 1) { const o = document.createElement('option'); o.value = 'todos'; o.textContent = 'Todos os produtos'; sel.appendChild(o); }
-    sel.value = prodVisao();
+    sel.value = _produtos.length < 2 ? ((prodAtual() || {}).id || '') : prodVisao();
     document.body.classList.toggle('prod-visao-todos', prodTodos());
 }
 async function prodTopoTrocar(v) {
