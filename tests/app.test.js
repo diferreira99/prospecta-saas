@@ -718,9 +718,11 @@ test('campanha no Instagram com cadência: nasce de quem não respondeu no Whats
     const opcoes = await a.pagina.$$eval('.cc-modal select option', os => os.map(o => o.textContent));
     assert.match(opcoes[0], /Quem não respondeu no WhatsApp · todas as campanhas \(3\)/);
     assert.match(await a.pagina.textContent('.cc-modal'), /2 empresas entram na campanha\. 1 ainda sem Instagram/);
+    assert.strictEqual(await a.pagina.isChecked('.cc-modal .cc-opcao input'), false, 'citar o WhatsApp vem desligado');
+    await a.pagina.check('.cc-modal .cc-opcao input');
     await a.pagina.click('.cc-modal button:has-text("Criar campanha")');
     await a.pagina.waitForTimeout(600);
-    const r1 = await a.pagina.evaluate(() => ({ camp: _db.campanhas_canal[0], leads: _db.campanhas_canal_leads.map(x => [x.chave, x.etapa, x.status, x.lead.waSemResposta]), card: document.querySelector('#cc-box .cc-card').innerText }));
+    const r1 = await a.pagina.evaluate(() => ({ camp: _db.campanhas_canal[0], leads: _db.campanhas_canal_leads.map(x => [x.chave, x.etapa, x.status, x.lead.mencionarWa]), card: document.querySelector('#cc-box .cc-card').innerText }));
     assert.deepStrictEqual(r1.camp.etapas, [0, 3, 7]);
     assert.deepStrictEqual(r1.leads, [['petum', 0, 'pendente', true], ['petdois', 0, 'pendente', true]]);
     assert.match(r1.card, /2\s*empresas/);
@@ -760,6 +762,9 @@ test('campanha no Instagram com cadência: nasce de quem não respondeu no Whats
     await a.pagina.waitForTimeout(500);
     lp = await a.pagina.evaluate(() => _db.campanhas_canal_leads.find(x => x.chave === 'petum'));
     assert.strictEqual(lp.status, 'concluido');
+    // com a opção desligada, a DM não liga ao WhatsApp
+    const p0 = await a.pagina.evaluate(() => igPrompt({ title: 'X', waSemResposta: true, mencionarWa: false }, null));
+    assert.ok(!/WhatsApp/.test(p0));
     // resultado marcado na aba tira da cadência
     await a.pagina.evaluate(async () => { await ccMarcarResultado('instagram', 'petdois', 'respondeu'); });
     const pd = await a.pagina.evaluate(() => _db.campanhas_canal_leads.find(x => x.chave === 'petdois').status);

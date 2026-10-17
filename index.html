@@ -423,6 +423,9 @@
         .cc-dias label { display: flex; flex-direction: column; gap: 4px; font-size: 0.7rem; color: var(--muted); }
         .cc-dias input { font: inherit; font-size: 16px; padding: 8px; border-radius: 8px; border: 1.5px solid var(--border, #e2e8f0); width: 100%; }
         .cc-modal select.ig-texto { font-size: 16px; }
+        .cc-opcao { display: flex; gap: 8px; align-items: flex-start; margin: 10px 0 2px; font-size: 0.72rem; color: var(--muted); cursor: pointer; line-height: 1.4; }
+        .cc-opcao[hidden] { display: none; }
+        .cc-opcao input { width: 18px !important; height: 18px; flex: 0 0 auto; margin: 0; }
         @media (max-width: 900px) { .cc-nums { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
         .canal-retomar { margin-bottom: 14px; border-color: #FFD6B0; background: linear-gradient(135deg, #FFF8F2, #fff); }
         .canal-lista .cl-res { font: inherit; font-size: 0.66rem; font-weight: 700; border-radius: 999px; padding: 3px 9px; cursor: pointer; border: 1px solid; background: #fff; white-space: nowrap; }
@@ -12446,7 +12449,7 @@ function igPrompt(l, prod) {
         'EMPRESA:\n- Nome: ' + (l.title || l.name || 'não informado') + '\n- Categoria: ' + (l.category || l.cat || 'não informada') +
         '\n- Cidade/endereço: ' + (l.address || 'não informado') + (l.rating ? '\n- Nota no Google: ' + l.rating + (l.reviews ? ' (' + l.reviews + ' avaliações)' : '') : '') +
         (l.instagramBio ? '\n- Bio do Instagram deles: "' + String(l.instagramBio).slice(0, 220) + '"' : '') +
-        (l.waSemResposta ? '\n- Você já mandou um WhatsApp há alguns dias e não teve resposta: pode citar de leve ("te chamei no WhatsApp também"), sem cobrar.' : '') +
+        (l.mencionarWa ? '\n- Você já mandou um WhatsApp há alguns dias e não teve resposta: pode citar de leve ("te chamei no WhatsApp também"), sem cobrar.' : '') +
         '\n\nREGRAS: no máximo 300 caracteres; tom leve e próximo, como alguém escrevendo do celular; 1 cumprimento com o nome da empresa, ' +
         (l.instagramBio ? '1 frase mostrando que você viu o perfil, usando um detalhe real da BIO (o que fazem, para quem, onde), ' : '1 frase com um detalhe real dela (nota no Google, categoria ou cidade), ') +
         '1 frase com o benefício principal e termine com UMA pergunta simples. ' +
@@ -13377,7 +13380,7 @@ function ccFazer(aba, item, aoTerminar) {
     if (tipo === 'primeira') {
         let fez = false;
         c.abrir([l], { aoRegistrar: async () => { fez = true; await ccAvancar(r, camp); },
-            contexto: l.waSemResposta ? 'Esta empresa já recebeu uma mensagem sua no WhatsApp há alguns dias e não respondeu.' : '',
+            contexto: l.mencionarWa ? 'Esta empresa já recebeu uma mensagem sua no WhatsApp há alguns dias e não respondeu: pode citar de leve, sem cobrar.' : '',
             aoFechar: fim });
         return;
     }
@@ -13506,6 +13509,10 @@ async function ccNova(canal) {
     const lin = prEl('div', 'cc-dias');
     const dias = [0, 3, 7].map((d, i) => { const w = prEl('label'); const inp = document.createElement('input'); inp.type = 'number'; inp.min = '0'; inp.max = '60'; inp.value = String(d); inp.disabled = i === 0; w.append(prEl('span', '', ['Primeira mensagem', 'Retomar', 'Último toque'][i]), inp); lin.appendChild(w); return inp; });
     m.appendChild(lin);
+    const mWrap = prEl('label', 'cc-opcao');
+    const mWa = document.createElement('input'); mWa.type = 'checkbox'; mWa.checked = false;
+    mWrap.append(mWa, prEl('span', '', 'Mencionar que já chamamos no WhatsApp (ex.: "te chamei no WhatsApp também"). Desligado, a mensagem sai como um primeiro contato, sem ligar ao WhatsApp.'));
+    m.appendChild(mWrap);
     m.appendChild(rot('3. Nome'));
     const nome = document.createElement('input'); nome.className = 'ig-texto'; nome.maxLength = 80; m.appendChild(nome);
     const prev = prEl('div', 'ph-linha'); m.appendChild(prev);
@@ -13522,6 +13529,7 @@ async function ccNova(canal) {
             lista.push(l);
         });
         if (!nome.dataset.mexeu) nome.value = ((o && o.nome) || 'Campanha') + ' · ' + nomeCanal;
+        mWrap.hidden = !(o && o.v.startsWith('wa:'));
         prev.textContent = `${lista.length} empresas entram na campanha.` + (semRede ? ` ${semRede} ainda sem ${nomeCanal}: use "Completar redes do histórico" na aba do canal e crie de novo depois.` : '') + (ja ? ` ${ja} já foram abordadas por lá ou estão em outra campanha.` : '');
         criar.disabled = !lista.length;
     };
@@ -13542,7 +13550,7 @@ async function ccNova(canal) {
             const agoraIso = new Date().toISOString();
             const linhas = lista.map(l => ({ campanha_id: id, user_id: currentUser.id, chave: c.chave(l), nome: (l.title || l.name || '').slice(0, 200), etapa: 0, status: 'pendente', proxima_em: agoraIso, atualizado_em: agoraIso,
                 link: canal === 'instagram' ? igUrl(l) : liUrl(l),
-                lead: { title: l.title || l.name || '', phone: l.phone || '', address: l.address || '', category: l.category || l.cat || '', instagram: l.instagram || '', linkedin: l.linkedin || '', instagramBio: l.instagramBio || '', decisores: Array.isArray(l.decisores) ? l.decisores.slice(0, 3) : [], waSemResposta: !!l.waSemResposta, website: l.website || '' } }));
+                lead: { title: l.title || l.name || '', phone: l.phone || '', address: l.address || '', category: l.category || l.cat || '', instagram: l.instagram || '', linkedin: l.linkedin || '', instagramBio: l.instagramBio || '', decisores: Array.isArray(l.decisores) ? l.decisores.slice(0, 3) : [], waSemResposta: !!l.waSemResposta, mencionarWa: !!(l.waSemResposta && mWa.checked), website: l.website || '' } }));
             for (let i = 0; i < linhas.length; i += 200) { const r = await supabaseClient.from('campanhas_canal_leads').insert(linhas.slice(i, i + 200)); if (r.error) throw r.error; }
             fechar();
             showToast(`✓ Campanha criada com ${linhas.length} empresas. As de hoje estão na aba Prospecção ${nomeCanal}.`, 'ok');
