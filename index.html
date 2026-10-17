@@ -202,6 +202,22 @@
         .prod-topo:focus-within { border-color: var(--accent); }
         .cc-avulsas { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: space-between; }
         .cc-avulsas .ph-linha { flex: 1 1 260px; margin: 0; }
+        .pc-grade { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+        @media (max-width: 760px) { .pc-grade { grid-template-columns: 1fr; } }
+        .pc-canal { border: 1px solid #E8EAEF; border-radius: 12px; padding: 12px 14px; border-top: 3px solid var(--pc-cor); }
+        .pc-cab { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 0.86rem; margin-bottom: 8px; }
+        .pc-ic { width: 26px; height: 26px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: var(--pc-cor); color: #fff; }
+        .pc-ic svg { width: 15px; height: 15px; }
+        .pc-hoje { font-size: 0.72rem; color: #475069; display: flex; justify-content: space-between; gap: 6px; }
+        .pc-barra { height: 6px; border-radius: 99px; background: #EEF0F5; margin: 4px 0 10px; overflow: hidden; }
+        .pc-barra i { display: block; height: 100%; background: var(--pc-cor); border-radius: 99px; }
+        .pc-num { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; font-size: 0.7rem; color: #64748B; }
+        .pc-num b { display: block; font-size: 1.05rem; color: #0D1330; font-weight: 800; }
+        .pc-proj { margin-top: 10px; padding-top: 9px; border-top: 1px dashed #E4E7EF; font-size: 0.72rem; color: #334155; line-height: 1.5; }
+        .pc-proj b { color: #0D1330; }
+        .pc-total { margin-top: 12px; background: linear-gradient(135deg, #0D1330, #1e2a6b); color: #fff; border-radius: 12px; padding: 12px 14px; font-size: 0.78rem; line-height: 1.55; }
+        .pc-total b { font-size: 0.95rem; }
+        .pc-total small { display: block; color: #cdd5f3; font-size: 0.68rem; margin-top: 4px; }
         .ig-espera { font-size: 0.7rem; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 7px 10px; margin: 8px 0 0; line-height: 1.4; }
         /* ── MANUAL DO CLIENTE ── */
         .manual { max-width: 860px; margin: 0 auto; font-family: 'Inter', sans-serif; color: #0D1330; }
@@ -6069,6 +6085,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div id="ph-saude"><div class="ph-mudo">Carregando…</div></div>
                 </section>
             </div>
+            <!-- PAINEL: os 3 canais de prospecção lado a lado, com projeção -->
+            <section id="pc-canais" class="ph-card pr-bloco" aria-labelledby="pc-t">
+                <h3 id="pc-t">Seus 3 canais <span class="ph-tag">projeção de 30 dias</span></h3>
+                <div id="pc-corpo"><div class="ph-mudo">Carregando…</div></div>
+            </section>
             <!-- PAINEL: funil do envio até a venda -->
             <section id="pr-funil" class="ph-card pr-bloco" aria-labelledby="pr-t-funil">
                 <h3 id="pr-t-funil">Do envio à venda <span class="ph-tag">desde o início</span></h3>
@@ -14205,7 +14226,7 @@ function prodRecarregarTelas() {
     chama('painelHojeCarregar');
     if (id === 'tab-pipeline') chama('pkRender');
     if (id === 'tab-plano') { chama('carregarPlanoProspeccao'); chama('consAbrir'); }
-    if (id === 'tab-metricas') { chama('carregarMetricas'); chama('prCarregar'); }
+    if (id === 'tab-metricas') { chama('carregarMetricas'); chama('prCarregar'); chama('painelCanaisCarregar'); }
     if (id === 'tab-campanhas') { chama('cpCarregar', true); if (typeof _ccCanalAba !== 'undefined' && _ccCanalAba !== 'whatsapp') chama('ccRender', _ccCanalAba); }
     if (id === 'tab-prospeccao') chama('carregarInteligenciaProspeccao', true);
     if (id === 'tab-ia') { chama('renderLeadsIA'); chama('renderLeadsIADashboard'); }
@@ -16687,6 +16708,89 @@ async function prProdutosCarregar() {
         sec.hidden = false;
     } catch (e) { sec.hidden = true; }
 }
+// ── Painel: os 3 canais (WhatsApp, Instagram, LinkedIn) lado a lado, com projeção de 30 dias ──
+// Envio = 1º contato (WhatsApp enviado, DM ou convite registrado). Resposta: no WhatsApp só de pessoa (robô não conta);
+// no Instagram e no LinkedIn, o que você marcou como "respondeu". Projeção: ritmo dos últimos 14 dias × 22 dias úteis.
+const PC_DIAS_UTEIS_MES = 22;
+function _pcDiasUteis(desde) {   // dias úteis de `desde` até hoje (inclui hoje)
+    let n = 0; const d = new Date(desde); d.setHours(0, 0, 0, 0); const fim = new Date(); fim.setHours(0, 0, 0, 0);
+    for (; d <= fim; d.setDate(d.getDate() + 1)) { const w = d.getDay(); if (w && w !== 6) n++; }
+    return Math.max(1, n);
+}
+function pcResumo(itens, limite) {
+    // itens: [{ t: ms, resp: bool }]
+    const agora = Date.now(), ini = new Date(); ini.setHours(0, 0, 0, 0);
+    const d7 = agora - 7 * 86400000, d14 = agora - 14 * 86400000;
+    const hoje = itens.filter(x => x.t >= ini.getTime()).length;
+    const s7 = itens.filter(x => x.t >= d7), s14 = itens.filter(x => x.t >= d14);
+    const total = itens.length, resp = itens.filter(x => x.resp).length;
+    // taxa só com 10 envios e 3 dias desde o primeiro (antes disso ninguém teve tempo de responder)
+    const primeiro = itens.length ? Math.min(...itens.map(x => x.t)) : agora;
+    const maduro = agora - primeiro >= 3 * 86400000;
+    const taxa = total >= 10 && maduro ? resp / total : null;
+    const porDia = s14.length / _pcDiasUteis(d14);
+    const proj = Math.round(porDia * PC_DIAS_UTEIS_MES);
+    const cap = (limite || 0) * PC_DIAS_UTEIS_MES;
+    return { maduro, hoje, limite, env7: s7.length, resp7: s7.filter(x => x.resp).length, total, resp, taxa, porDia, proj,
+        projResp: taxa != null ? Math.round(proj * taxa) : null, cap, capResp: taxa != null ? Math.round(cap * taxa) : null };
+}
+let _pcRodando = false;
+async function painelCanaisCarregar() {
+    const box = document.getElementById('pc-corpo');
+    if (!box || _pcRodando || typeof currentUser === 'undefined' || !currentUser) return;
+    _pcRodando = true;
+    try {
+        const uid = currentUser.id;
+        const [wa, ig, li] = await Promise.all([
+            prBuscarTudo(() => prodQ(supabaseClient.from('leads').select('enviado_em,respondeu,resposta_suspeita_bot,campanha_id').eq('user_id', uid).not('enviado_em', 'is', null).order('id'))).then(r => prodFiltrar(r)),
+            prBuscarTudo(() => supabaseClient.from('abordagens_instagram').select('id,criado_em,resultado,produto_id').eq('user_id', uid).order('id')).then(r => prodPipe(r)).catch(() => []),
+            prBuscarTudo(() => supabaseClient.from('abordagens_linkedin').select('id,criado_em,resultado,produto_id').eq('user_id', uid).order('id')).then(r => prodPipe(r)).catch(() => []),
+        ]);
+        let limWa = 30; try { limWa = _iaLimiteDiario(); } catch (e) {}
+        const canais = [
+            { k: 'wa', nome: 'WhatsApp', cor: '#16a34a', ic: _LOGO_REDE.whatsapp, verbo: 'mensagens', aba: 'ia',
+              r: pcResumo(wa.map(l => ({ t: new Date(l.enviado_em).getTime(), resp: !!l.respondeu && !l.resposta_suspeita_bot })), limWa) },
+            { k: 'ig', nome: 'Instagram', cor: '#c13584', ic: _IG_GLIFO, verbo: 'DMs', aba: 'insta',
+              r: pcResumo(ig.map(a => ({ t: new Date(a.criado_em).getTime(), resp: a.resultado === 'respondeu' })), igLimite()) },
+            { k: 'li', nome: 'LinkedIn', cor: '#0a66c2', ic: _LI_GLIFO, verbo: 'convites', aba: 'linkedin',
+              r: pcResumo(li.map(a => ({ t: new Date(a.criado_em).getTime(), resp: a.resultado === 'respondeu' })), liLimite()) },
+        ];
+        const n = v => Number(v || 0).toLocaleString('pt-BR');
+        box.replaceChildren();
+        const grade = prEl('div', 'pc-grade');
+        canais.forEach(c => {
+            const r = c.r, el = prEl('div', 'pc-canal'); el.style.setProperty('--pc-cor', c.cor);
+            const cab = prEl('div', 'pc-cab'); const ic = prEl('span', 'pc-ic'); ic.innerHTML = c.ic; cab.append(ic, c.nome); el.appendChild(cab);
+            const hj = prEl('div', 'pc-hoje'); hj.append(prEl('span', '', `Hoje: ${r.hoje} de ${r.limite} ${c.verbo}`), prEl('span', '', r.limite ? Math.min(100, Math.round(r.hoje / r.limite * 100)) + '%' : ''));
+            el.appendChild(hj);
+            const bar = prEl('div', 'pc-barra'); const fill = document.createElement('i'); fill.style.width = (r.limite ? Math.min(100, r.hoje / r.limite * 100) : 0) + '%'; bar.appendChild(fill); el.appendChild(bar);
+            const num = prEl('div', 'pc-num');
+            const cel = (v, t) => { const d = prEl('div'); d.append(prEl('b', '', v), t); return d; };
+            num.append(cel(n(r.env7), 'últimos 7 dias'), cel(n(r.resp7), 'responderam (7 dias)'), cel(n(r.total), 'desde o início'),
+                cel(r.taxa != null ? prPctTxt(r.resp, r.total) : '—', r.taxa != null ? 'taxa de resposta' : (r.total >= 10 ? 'taxa (aguardando respostas)' : 'taxa (com 10 envios)')));
+            el.appendChild(num);
+            const pj = prEl('div', 'pc-proj');
+            if (r.proj) pj.innerHTML = `No ritmo atual: <b>~${n(r.proj)} ${c.verbo}</b> em 30 dias` + (r.projResp != null ? `, <b>~${n(r.projResp)} respostas</b>.` : '.');
+            else pj.innerHTML = `Sem envios nos últimos 14 dias.`;
+            if (r.cap) pj.innerHTML += `<br>Usando o limite todo: até <b>${n(r.cap)}</b>` + (r.capResp != null ? ` → <b>~${n(r.capResp)} respostas</b>.` : '.');
+            const ir = prEl('button', 'ig-link', 'Abrir ' + c.nome + ' →'); ir.type = 'button';
+            ir.onclick = () => trocarAba(c.aba, document.querySelector(`.nav-item[onclick*="'${c.aba}'"]`));
+            pj.appendChild(document.createElement('br')); pj.appendChild(ir);
+            el.appendChild(pj);
+            grade.appendChild(el);
+        });
+        box.appendChild(grade);
+        // somando os 3
+        const tot = canais.reduce((a, c) => ({ proj: a.proj + c.r.proj, resp: a.resp + (c.r.projResp || 0), cap: a.cap + c.r.cap, capResp: a.capResp + (c.r.capResp || 0), hoje: a.hoje + c.r.hoje }), { proj: 0, resp: 0, cap: 0, capResp: 0, hoje: 0 });
+        const t = prEl('div', 'pc-total');
+        t.innerHTML = `Somando os 3 canais: hoje <b>${n(tot.hoje)}</b> contatos. Nos próximos 30 dias, no ritmo atual, <b>~${n(tot.proj)} contatos</b> e <b>~${n(tot.resp)} respostas</b>. ` +
+            `Usando o limite todo dos 3: <b>~${n(tot.cap)} contatos</b> e <b>~${n(tot.capResp)} respostas</b>.` +
+            `<small>Projeção = média por dia útil dos últimos 14 dias × ${PC_DIAS_UTEIS_MES} dias úteis, com a taxa de resposta de cada canal (só entra canal com 10 envios ou mais e 3 dias desde o primeiro contato). No Instagram e no LinkedIn conta o que você marcou como "respondeu".</small>`;
+        box.appendChild(t);
+    } catch (e) {
+        box.replaceChildren(prEl('div', 'ph-mudo', 'Não consegui montar os canais agora: ' + (e && e.message)));
+    } finally { _pcRodando = false; }
+}
 // roda sempre que o Painel carrega as métricas (sem alterar a função original)
 (function () {
     const original = carregarMetricas;
@@ -16694,6 +16798,7 @@ async function prProdutosCarregar() {
         const r = await original.apply(this, arguments);
         try { painelHojeCarregar(); } catch (e) { /* o Painel original não pode quebrar */ }
         try { prProdutosCarregar(); } catch (e) {}
+        try { painelCanaisCarregar(); } catch (e) {}
         return r;
     };
 })();
