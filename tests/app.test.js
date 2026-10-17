@@ -799,3 +799,59 @@ test('cadência multicanal: etapa de Instagram vira tarefa em Respostas e conta 
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('produto do dia: o seletor do topo troca o app inteiro, Pipeline separado e 30 dias entre produtos', async () => {
+  const dias = d => new Date(Date.now() - d * 86400000).toISOString();
+  const a = await abrirApp({ largura: 1280, db: {
+    produtos: [{ id: 'pk', user_id: 'u1', nome: 'Kaizen', instrucoes: 'k', padrao: true, criado_em: '2026-01-01' },
+               { id: 'ps', user_id: 'u1', nome: 'Stone', instrucoes: 's', padrao: false, criado_em: '2026-02-01' }],
+    campanhas_produto: [{ campanha_id: 'c1', user_id: 'u1', produto_id: 'pk' }, { campanha_id: 'c2', user_id: 'u1', produto_id: 'ps' }],
+    leads: [{ id: 'l1', user_id: 'u1', campanha_id: 'c1', phone: '5511911110001', status_envio: 'enviado', enviado_em: dias(10) },
+            { id: 'l2', user_id: 'u1', campanha_id: 'c1', phone: '5511911110002', status_envio: 'enviado', enviado_em: dias(40) },
+            { id: 'l3', user_id: 'u1', campanha_id: 'c2', phone: '5511911110003', status_envio: 'enviado', enviado_em: dias(5) }],
+    pipeline_leads: [{ id: 'a', user_id: 'u1', name: 'Padaria K', phone: '11911110001', col: 'novo', produto_id: 'pk' },
+                     { id: 'b', user_id: 'u1', name: 'Oficina S', phone: '11911110003', col: 'novo', produto_id: 'ps' }],
+  } });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      const espera = ms => new Promise(r => setTimeout(r, ms));
+      userSet('produto_atual', 'pk'); userSet('produto_visao', 'pk');
+      await prodCarregar(); await carregarLeadsEnviadosDaNuvem(); await pkSincronizarDaNuvem();
+      const out = { opcoes: [...document.querySelectorAll('#prod-topo option')].map(o => o.textContent), topoVisivel: !document.getElementById('prod-topo-box').hidden };
+      const env = () => ['11911110001', '11911110002', '11911110003'].map(t => leadJaFoiEnviado(t));
+      out.kaizen = env(); out.liberaC = envioOutroProdutoDias('11911110003'); out.pipeK = pkVisiveis().map(l => l.name);
+      await prodTopoTrocar('ps'); await espera(50);
+      out.stone = env(); out.pipeS = pkVisiveis().map(l => l.name); out.atual = prodAtual().nome;
+      pkLeads.push({ id: 'n1', name: 'Novo S', phone: '11900000000', col: 'novo' }); pkSave();
+      out.novoProd = pkLeads.find(l => l.id === 'n1').produtoId;
+      window.confirm = () => true; await pkLimparColuna('novo');
+      out.depoisLimpar = pkLeads.map(l => l.name);
+      await prodTopoTrocar('todos'); await espera(50);
+      out.todos = pkVisiveis().map(l => l.name); out.visao = prodVisao();
+      trocarAba('pipeline', document.querySelector(".nav-item[onclick*=\"'pipeline'\"]")); await espera(300);
+      out.etiquetas = [...document.querySelectorAll('#pk-board-wrap .prod-tag')].map(e => e.textContent);
+      out.filtroLeads = prodFiltrar([{ campanha_id: 'c1' }, { campanha_id: 'c2' }]).length;
+      await prodTopoTrocar('pk'); await espera(50);
+      out.filtroK = prodFiltrar([{ campanha_id: 'c1' }, { campanha_id: 'c2' }, { campanha_id: null }]).map(x => x.campanha_id);
+      return out;
+    });
+    assert.ok(r.topoVisivel);
+    assert.deepStrictEqual(r.opcoes, ['Kaizen', 'Stone', 'Todos os produtos']);
+    // Kaizen: os dois que ele mesmo mandou ficam bloqueados para sempre; o da Stone (5 dias) espera os 30 dias
+    assert.deepStrictEqual(r.kaizen, [true, true, true]);
+    assert.ok(r.liberaC >= 24 && r.liberaC <= 26, 'libera em ~25 dias: ' + r.liberaC);
+    // Stone: o de 10 dias do Kaizen ainda espera; o de 40 dias está liberado; o dela mesma, nunca
+    assert.deepStrictEqual(r.stone, [true, false, true]);
+    assert.deepStrictEqual(r.pipeK, ['Padaria K']);
+    assert.deepStrictEqual(r.pipeS, ['Oficina S']);
+    assert.strictEqual(r.atual, 'Stone');
+    assert.strictEqual(r.novoProd, 'ps');
+    assert.deepStrictEqual(r.depoisLimpar, ['Padaria K'], 'limpar a coluna na Stone não apaga o Kaizen');
+    assert.strictEqual(r.visao, 'todos');
+    assert.deepStrictEqual(r.todos, ['Padaria K']);
+    assert.deepStrictEqual(r.etiquetas, ['Kaizen']);
+    assert.strictEqual(r.filtroLeads, 2);
+    assert.deepStrictEqual(r.filtroK, ['c1', null]);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});

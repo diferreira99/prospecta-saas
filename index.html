@@ -193,6 +193,10 @@
         .page-title { font-size: 1.05rem; font-weight: 600; color: #0D1330; font-family: 'Inter', sans-serif; }        
         .page-subtitle { font-family: 'Inter', sans-serif; font-size: 0.62rem; color: var(--muted); margin-top: 2px; }
         .topbar-actions { display: flex; align-items: center; gap: 8px; }
+        .prod-topo { display: inline-flex; align-items: center; gap: 4px; padding: 3px 4px 3px 10px; border-radius: 999px; border: 1.5px solid var(--accent); background: var(--accent-light); cursor: pointer; max-width: 230px; }
+        .prod-topo select { border: none; background: transparent; font-family: 'Inter', sans-serif; font-size: 0.74rem; font-weight: 700; color: #0D1330; padding: 4px 2px; cursor: pointer; max-width: 190px; text-overflow: ellipsis; outline: none; }
+        .prod-topo:focus-within { box-shadow: 0 0 0 3px rgba(255,106,0,0.18); }
+        .prod-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: 0.56rem; font-weight: 700; vertical-align: middle; white-space: nowrap; }
         .topbar-btn { font-family: 'Inter', sans-serif; font-size: 0.68rem; padding: 7px 13px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--surface2); color: var(--muted); cursor: pointer; transition: all 0.15s; }
         .topbar-btn:hover { border-color: var(--accent); color: var(--accent); }
 
@@ -729,6 +733,8 @@
         @media (max-width: 400px) {
             .topbar-actions { gap: 4px !important; }
             .topbar-btn { padding: 6px 8px; font-size: 0.58rem; }
+            .prod-topo { max-width: 150px; padding-left: 7px; }
+            .prod-topo select { font-size: 16px; max-width: 118px; }
             #export-mobile, #campanha-mobile { font-size: 0.54rem; padding: 5px 6px; gap: 4px !important; }
             #export-mobile svg, #campanha-mobile svg { width: 13px; height: 13px; }
         }
@@ -2081,6 +2087,10 @@ function iniciarAppPosLogin() {
             </div>
         </div>
         <div class="topbar-actions">
+            <label class="prod-topo" id="prod-topo-box" hidden title="Produto do dia: o app inteiro mostra só ele (métricas, Pipeline, campanhas e consultor)">
+                <span class="prod-topo-ic" aria-hidden="true">🎯</span>
+                <select id="prod-topo" onchange="prodTopoTrocar(this.value)" aria-label="Produto que você está vendendo agora"></select>
+            </label>
             <button class="topbar-btn" id="btn-relatorio-topo" onclick="abrirModalOpcoesRelatorio(event)" title="Gerar relatório em PDF" aria-label="Gerar relatório em PDF" style="display:none;align-items:center;gap:6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg><span class="rel-txt">Relatório PDF</span></button>
             <button class="topbar-btn hide-mobile" onclick="exportarCSV()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Exportar CSV</button>
             <button class="topbar-btn hide-mobile" onclick="gerarCampanha()" id="btn-campanha" style="background:transparent;color:#0D1330;border-color:#0D1330;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg> Gerar Campanha</button>
@@ -2886,7 +2896,15 @@ function faseDoFunilPorTelefone(phone) {
 }
 
 function pkLoad() { pkLeads = userGet('pk_leads', []); }
-function pkSave() { userSet('pk_leads', pkLeads); pkSincronizarParaNuvem(); }
+function pkSave() {
+    // Card novo nasce no funil do produto atual (o que a IA está vendendo)
+    const p = typeof prodAtual === 'function' ? prodAtual() : null;
+    if (p) pkLeads.forEach(l => { if (!l.produtoId) l.produtoId = p.id; });
+    userSet('pk_leads', pkLeads); pkSincronizarParaNuvem();
+}
+// Pipeline separado por produto: cada produto tem o seu funil; "Todos" mostra tudo com a etiqueta
+function pkNaVisao(l) { return typeof prodNaVisao !== 'function' || prodNaVisao(l.produtoId); }
+function pkVisiveis() { return pkLeads.filter(pkNaVisao); }
 
 // Espelha o Pipeline/CRM no Supabase (tabela pipeline_leads), pra não depender só do
 // navegador. Full-mirror simples: sobe tudo que existe localmente, e apaga na nuvem
@@ -2911,7 +2929,8 @@ async function pkSincronizarParaNuvem() {
             reuniao_em: l.reuniaoEm ? new Date(l.reuniaoEm).toISOString() : null,
             motivo_perda: l.col === 'descartado' ? (l.motivoPerda || null) : null,
             canal: l.canal || null, instagram: l.instagram || null, linkedin: l.linkedin || null,
-            li_mensagem: l.liMensagem || null, li_perfil: l.liPerfil || null
+            li_mensagem: l.liMensagem || null, li_perfil: l.liPerfil || null,
+            produto_id: l.produtoId || null   // vazio: a nuvem mantém o que já tinha (ou herda da campanha)
         }));
         const idsAtuais = rows.map(r => r.id);
 
@@ -2955,7 +2974,8 @@ async function pkSincronizarDaNuvem() {
                 reuniaoEm: r.reuniao_em ? new Date(r.reuniao_em).getTime() : null,
                 motivoPerda: r.motivo_perda || null,
                 canal: r.canal || null, instagram: r.instagram || null, linkedin: r.linkedin || null,
-                liMensagem: r.li_mensagem || null, liPerfil: r.li_perfil || null
+                liMensagem: r.li_mensagem || null, liPerfil: r.li_perfil || null,
+                produtoId: r.produto_id || null
             }));
             userSet('pk_leads', pkLeads); // mantém o cache local coerente com a nuvem
             if (document.getElementById('tab-pipeline')?.classList.contains('active') && typeof pkRender === 'function') pkRender();
@@ -3372,10 +3392,13 @@ async function rsPipeline(g, mudar, aviso) {
     try {
         await pkSincronizarDaNuvem();
         pkLoad();
-        let l = pkLeads.find(x => pkTel(x.phone) === g.k);
+        // O card vai para o funil do produto da campanha que falou com ele
+        const info = (_rsCtx && _rsCtx.leads && _rsCtx.leads[g.k]) || {};
+        const camp = (g.ultimo && g.ultimo.campanha_id) || info.campanha_id;
+        const pid = camp ? prodDaCampanha(camp) : ((prodAtual() || {}).id || null);
+        let l = pkLeads.find(x => pkTel(x.phone) === g.k && (!pid || prodOuPadrao(x.produtoId) === pid)) || (pid ? null : pkVisiveis().find(x => pkTel(x.phone) === g.k));
         if (!l) {
-            const info = _rsCtx.leads[g.k] || {};
-            l = { id: Date.now() + Math.random(), name: g.nome, cat: '', phone: formatPhoneBR(g.ultimo.phone), website: '', rating: 0, reviews: 0, col: 'respondeu', dias: 0, movedAt: Date.now(), nota: '' };
+            l = { id: Date.now() + Math.random(), name: g.nome, cat: '', phone: formatPhoneBR(g.ultimo.phone), website: '', rating: 0, reviews: 0, col: 'respondeu', dias: 0, movedAt: Date.now(), nota: '', produtoId: pid };
             if (info.title && !l.name) l.name = info.title;
             pkLeads.push(l);
         }
@@ -3905,7 +3928,7 @@ function pkRender() {
                             <button class="pk-edit-btn" type="button" aria-label="Abrir detalhes">✏️</button>
                         </div>
                     </div>
-                    <div class="pk-card-name">${escapeHtml(lead.name||lead.title||'—')}</div>
+                    <div class="pk-card-name">${escapeHtml(lead.name||lead.title||'—')}${prodEtiqueta(lead.produtoId)}</div>
                     <div class="pk-card-sub">${escapeHtml(lead.cat||lead.category||'')}</div>
                     ${pkChipsCard(lead, acao)}
                     ${pkTrechoConversa(lead)}
@@ -4105,7 +4128,7 @@ function pkScoreCor(score) {
 const PK_DIAS_ESFRIANDO = 5;
 function pkLeadsEsfriando() {
     const agora = Date.now();
-    return pkLeads.filter(l => {
+    return pkVisiveis().filter(l => {
         if (l.col === 'fechado' || l.col === 'descartado') return false;
         const dias = Math.floor((agora - (l.movedAt || agora)) / 86400000);
         return dias >= PK_DIAS_ESFRIANDO;
@@ -4173,7 +4196,7 @@ function renderizarFunilConversao() {
     if (!painel) return;
     pkLoad();
 
-    const total = pkLeads.length;
+    const total = pkVisiveis().length;
     if (!total) {
         painel.innerHTML = `<div style="text-align:center;padding:20px;color:var(--muted);font-family:'Inter',sans-serif;font-size:0.78rem;">Nenhum lead no Pipeline ainda.</div>`;
         return;
@@ -4181,7 +4204,7 @@ function renderizarFunilConversao() {
 
     const contagem = {};
     PK_COLS.forEach(c => contagem[c.id] = 0);
-    pkLeads.forEach(l => { if (contagem.hasOwnProperty(l.col)) contagem[l.col]++; });
+    pkVisiveis().forEach(l => { if (contagem.hasOwnProperty(l.col)) contagem[l.col]++; });
 
     const fechados = contagem['fechado'] || 0;
     const taxaFechamento = Math.round((fechados / total) * 100);
@@ -4264,11 +4287,11 @@ function pkSalvarNota(id) { pkLoad(); const l=pkLeads.find(x=>String(x.id)===Str
 async function pkLimparColuna(colId) {
     pkLoad();
     const col = PK_COLS.find(c => c.id === colId);
-    const quantidade = pkLeads.filter(l => l.col === colId).length;
+    const quantidade = pkVisiveis().filter(l => l.col === colId).length;
     if (!quantidade) return;
     if (!confirm(`Remover os ${quantidade} leads da coluna "${col?.label || colId}"?\n\nSó essa coluna é afetada — o resto do Pipeline (Contatado, Negociando, etc.) fica intacto.`)) return;
 
-    pkLeads = pkLeads.filter(l => l.col !== colId);
+    pkLeads = pkLeads.filter(l => l.col !== colId || !pkNaVisao(l));   // só os do produto que está na tela
     pkSave();
     pkRender();
     showToast(`🗑️ ${quantidade} leads removidos de "${col?.label || colId}"`, 'ok');
@@ -4361,6 +4384,7 @@ function pkChipsCard(l, acao) {
 
 // Filtro e ordem do quadro
 function pkPassaFiltro(l) {
+    if (!pkNaVisao(l)) return false;
     const f = _pkFiltro;
     if (f.q) { const q = _normNicho(f.q); if (!_normNicho(l.name || l.title).includes(q) && !pkTel(l.phone).includes(q.replace(/\D/g, '') || '§')) return false; }
     if (f.nicho && _normNicho(l.cat || l.category) !== f.nicho) return false;
@@ -4377,12 +4401,12 @@ function pkPintarFiltros() {
     const sn = document.getElementById('pk-f-nicho'), sc = document.getElementById('pk-f-camp');
     if (sn) {
         const nichos = {};
-        pkLeads.forEach(l => { const n = String(l.cat || l.category || '').trim(); if (n) nichos[_normNicho(n)] = n; });
+        pkVisiveis().forEach(l => { const n = String(l.cat || l.category || '').trim(); if (n) nichos[_normNicho(n)] = n; });
         const atual = _pkFiltro.nicho;
         sn.innerHTML = '<option value="">Todos os nichos</option>' + Object.entries(nichos).sort((a, b) => a[1].localeCompare(b[1])).map(([k, v]) => `<option value="${escapeHtml(k)}"${k === atual ? ' selected' : ''}>${escapeHtml(v)}</option>`).join('');
     }
     if (sc) {
-        const ids = Array.from(new Set(pkLeads.map(l => _pkCampanhaDoTel[pkTel(l.phone)]).filter(Boolean)));
+        const ids = Array.from(new Set(pkVisiveis().map(l => _pkCampanhaDoTel[pkTel(l.phone)]).filter(Boolean)));
         const atual = _pkFiltro.camp;
         sc.innerHTML = '<option value="">Todas as campanhas</option>' + ids.map(id => `<option value="${escapeHtml(id)}"${id === atual ? ' selected' : ''}>${escapeHtml(typeof _rotuloCampanhaCurto === 'function' ? _rotuloCampanhaCurto(id) : id)}</option>`).join('');
     }
@@ -4391,13 +4415,13 @@ function pkPintarFiltros() {
 function pkPintarResumo() {
     const el = document.getElementById('pk-resumo');
     if (!el) return;
-    const neg = pkLeads.filter(l => l.col === 'negociando');
+    const neg = pkVisiveis().filter(l => l.col === 'negociando');
     const emNeg = neg.reduce((a, l) => a + (Number(l.valor) || 0), 0), semValor = neg.filter(l => !(l.valor > 0)).length;
     const ini = new Date(); ini.setDate(1); ini.setHours(0, 0, 0, 0);
-    const ganhoMes = pkLeads.filter(l => l.col === 'fechado' && l.fechadoEm && l.fechadoEm >= ini.getTime()).reduce((a, l) => a + (Number(l.valor) || 0), 0);
-    const acoes = pkLeads.filter(l => { const a = pkAcaoStatus(l); return a && a.tipo !== 'futura'; }).length;
+    const ganhoMes = pkVisiveis().filter(l => l.col === 'fechado' && l.fechadoEm && l.fechadoEm >= ini.getTime()).reduce((a, l) => a + (Number(l.valor) || 0), 0);
+    const acoes = pkVisiveis().filter(l => { const a = pkAcaoStatus(l); return a && a.tipo !== 'futura'; }).length;
     const hojeIni = new Date(); hojeIni.setHours(0, 0, 0, 0);
-    const reunioes = pkLeads.filter(l => l.reuniaoEm && l.reuniaoEm >= hojeIni.getTime() && l.reuniaoEm <= _pkFimDoDia(Date.now())).length;
+    const reunioes = pkVisiveis().filter(l => l.reuniaoEm && l.reuniaoEm >= hojeIni.getTime() && l.reuniaoEm <= _pkFimDoDia(Date.now())).length;
     const partes = [
         `<b>${_brl(emNeg)}</b> em negociação${semValor ? ` <span class="pk-res-dica">(${semValor} sem valor)</span>` : ''}`,
         `<b>${_brl(ganhoMes)}</b> ganho no mês`,
@@ -7221,7 +7245,7 @@ function renderPagina(pagina) {
         const clsBg      = { hot:'#fee2e2', warm:'#fef3c7', cold:'#EBF0FF' };
         const clsLabel   = { hot:'🔥 HOT', warm:'⚡ WARM', cold:'❄️ COLD' };
 
-        const jaNoKanban    = (typeof pkLeads !== 'undefined') && pkLeads.some(k => (k.name || k.title || '').toLowerCase().trim() === (l.title || '').toLowerCase().trim());
+        const jaNoKanban    = (typeof pkLeads !== 'undefined') && pkVisiveis().some(k => (k.name || k.title || '').toLowerCase().trim() === (l.title || '').toLowerCase().trim());
         const jaEmCampanha  = leadJaEmCampanha(l);
 
         const row = document.createElement('tr');
@@ -7499,7 +7523,7 @@ function adicionarLeadKanbanDireto(realIdx) {
     if (typeof pkLoad === 'function') pkLoad();
 
     const chave = (lead.title || '').toLowerCase().trim();
-    const jaNoPipeline = (typeof pkLeads !== 'undefined') && pkLeads.some(k => (k.name || k.title || '').toLowerCase().trim() === chave);
+    const jaNoPipeline = (typeof pkLeads !== 'undefined') && pkVisiveis().some(k => (k.name || k.title || '').toLowerCase().trim() === chave);
     if (jaNoPipeline) {
         showToast(`⚠️ ${lead.title} já está no Pipeline`, 'err');
         return;
@@ -8351,7 +8375,8 @@ function renderCampanhas() {
     const vazia = document.getElementById('campanhas-vazia');
     if (!lista) return;
     // O que já foi disparado aparece em "Campanhas disparadas" (números reais da nuvem); aqui ficam só as listas salvas
-    const _disparada = c => typeof _cpIdsComEnvio !== 'undefined' && (_cpIdsComEnvio.has(String(c.id)) || _cpIdsComEnvio.has('camp_' + c.id));
+    // (_prodCampanhas tem todas as já disparadas, de qualquer produto: o Painel filtra o _cpIdsComEnvio pelo produto da visão)
+    const _disparada = c => (typeof _cpIdsComEnvio !== 'undefined' && (_cpIdsComEnvio.has(String(c.id)) || _cpIdsComEnvio.has('camp_' + c.id))) || !!(_prodCampanhas[c.id] || _prodCampanhas['camp_' + c.id]);
     const salvas = campanhas.filter(c => !_disparada(c));
     const titSalvas = document.getElementById('cp-salvas-tit');
     if (titSalvas) titSalvas.hidden = !salvas.length;
@@ -9263,7 +9288,7 @@ function renderLeadsIADashboard() {
                 <div class="ia-lead-name-dash">${escapeHtml(lead.title || 'Sem nome')}</div>
                 <div class="ia-lead-phone-dash">${ehCelularBR(lead.phone) ? 'Celular' : 'Fixo'} · ${escapeHtml(lead.phone || '—')}${lead.rating ? ' · ⭐ ' + escapeHtml(String(lead.rating)) : ''}</div>
             </div>
-            ${bloq ? '<span class="ia-lead-badge-bloq">Não contatar</span>' : jaEnviado ? '<span class="ia-lead-badge-enviado">✅ Enviado</span>' : (gerado ? '<span style="font-size:0.55rem;background:#dcfce7;color:#16a34a;padding:2px 6px;border-radius:4px;border:1px solid #bbf7d0;">✅</span>' : '')}
+            ${bloq ? '<span class="ia-lead-badge-bloq">Não contatar</span>' : jaEnviado ? (envioOutroProdutoDias(lead.phone) ? `<span class="ia-lead-badge-enviado" title="Recebeu outro produto há pouco tempo">⏳ Outro produto · libera em ${envioOutroProdutoDias(lead.phone)}d</span>` : '<span class="ia-lead-badge-enviado">✅ Enviado</span>') : (gerado ? '<span style="font-size:0.55rem;background:#dcfce7;color:#16a34a;padding:2px 6px;border-radius:4px;border:1px solid #bbf7d0;">✅</span>' : '')}
             <button onclick="event.stopPropagation();removerLeadFilaIA(${realIdx})" title="Remover da fila"
                 style="background:none;border:none;cursor:pointer;color:#dc2626;font-size:0.85rem;padding:2px 4px;line-height:1;flex-shrink:0;">✕</button>
         `;
@@ -9454,7 +9479,7 @@ function renderLeadsIA() {
                 <div class="ia-lead-meta" style="font-size:0.6rem;">
                     ${lead.category ? `<span>📂 ${escapeHtml(lead.category)}</span>` : ''}
                     ${lead.rating ? `<span>⭐ ${lead.rating}</span>` : ''}
-                    ${jaEnviado ? `<span style="background:#fee2e2;color:#dc2626;padding:1px 5px;border-radius:4px;font-weight:700;">🚫 Já enviado</span>` : ''}
+                    ${jaEnviado ? (envioOutroProdutoDias(lead.phone) ? `<span style="background:#fef3c7;color:#b45309;padding:1px 5px;border-radius:4px;font-weight:700;" title="Recebeu outro produto há pouco tempo">⏳ Outro produto · libera em ${envioOutroProdutoDias(lead.phone)}d</span>` : `<span style="background:#fee2e2;color:#dc2626;padding:1px 5px;border-radius:4px;font-weight:700;">🚫 Já enviado</span>`) : ''}
                 </div>
             </div>
             <div style="display:flex;gap:6px;align-items:center;">
@@ -10523,6 +10548,7 @@ async function iniciarEnvioNoServidor({ min, max, typing, batchSize, batchPause 
         });
 
         addLog(`✅ Campanha iniciada! ID: ${_campanhaIdAtiva}`);
+        if (prodAtual()) _prodCampanhas[_campanhaIdAtiva] = prodAtual().id;
         addLog(`📊 Total de leads: ${total}`);
         addLog(`💡 Pode fechar o app — servidor está enviando!`);
         setStatus(`✅ Rodando no servidor — pode fechar o app!`, '#16a34a');
@@ -11118,6 +11144,19 @@ function abrirWhatsAppAtual() {
 // durante a sessão atual, sempre alimentado a partir do Supabase.
 let _telefonesEnviadosCache = new Set();
 let _telefonesEnviadosCarregado = false;
+// Cada número com os envios que já recebeu (campanha e quando). A mesma empresa pode receber
+// outro produto, mas só depois de PROD_INTERVALO_DIAS do último contato; o mesmo produto, nunca.
+let _enviosPorTel = new Map();
+const PROD_INTERVALO_DIAS = 30;
+function _enviadosRecalcular() {
+    const p = typeof prodAtual === 'function' ? prodAtual() : null;
+    const lim = Date.now() - PROD_INTERVALO_DIAS * 86400000;
+    const s = new Set();
+    _enviosPorTel.forEach((lst, tel) => {
+        if (!p || lst.some(e => e.t >= lim || prodDaCampanha(e.camp) === p.id)) s.add(tel);
+    });
+    _telefonesEnviadosCache = s;
+}
 
 // Busca no Supabase (tabela `leads`, filtrado pelo usuário logado) todos os
 // telefones já marcados como enviados. Chame isso sempre que precisar ter
@@ -11126,13 +11165,20 @@ let _telefonesEnviadosCarregado = false;
 async function carregarLeadsEnviadosDaNuvem() {
     if (!currentUser) { _telefonesEnviadosCache = new Set(); _telefonesEnviadosCarregado = true; return; }
     try {
-        const { data, error } = await supabaseClient
+        const data = await prBuscarTudo(() => supabaseClient
             .from('leads')
-            .select('phone')
+            .select('phone,campanha_id,enviado_em')
             .eq('user_id', currentUser.id)
-            .eq('status_envio', 'enviado');
-        if (error) throw error;
-        _telefonesEnviadosCache = new Set((data || []).map(l => formatPhoneBR(l.phone)).filter(Boolean));
+            .eq('status_envio', 'enviado')
+            .order('id'));
+        const m = new Map();
+        (data || []).forEach(l => {
+            const tel = formatPhoneBR(l.phone); if (!tel) return;
+            const t = l.enviado_em ? new Date(l.enviado_em).getTime() : Date.now();
+            (m.get(tel) || m.set(tel, []).get(tel)).push({ camp: l.campanha_id || null, t });
+        });
+        _enviosPorTel = m;
+        _enviadosRecalcular();
         _telefonesEnviadosCarregado = true;
     } catch (e) {
         console.warn('[CARREGAR ENVIADOS NUVEM]', e);
@@ -11145,6 +11191,7 @@ function marcarLeadComoEnviado(phone, leadTitle, variant, gatilho, campanhaId) {
     // Atualiza o cache em memória na hora (pra não reenviar pro mesmo número
     // ainda dentro da mesma campanha, antes do Supabase confirmar)
     _telefonesEnviadosCache.add(cleanPhone);
+    (_enviosPorTel.get(cleanPhone) || _enviosPorTel.set(cleanPhone, []).get(cleanPhone)).push({ camp: campanhaId || null, t: Date.now() });
     // Grava no Supabase — essa é a ÚNICA fonte de verdade agora, vale pra
     // qualquer aparelho/navegador em que o usuário logar
     sincronizarEnvioNaNuvem(cleanPhone, leadTitle, variant, gatilho, campanhaId);
@@ -11417,7 +11464,7 @@ async function mlPorNoPipeline(lista) {
         await pkSincronizarDaNuvem(); pkLoad();
         let n = 0;
         lista.forEach(l => {
-            if (pkLeads.some(x => pkTel(x.phone) === l.k)) return;
+            if (pkVisiveis().some(x => pkTel(x.phone) === l.k)) return;
             const nota = l.respondeu && l.resposta_texto ? 'Respondeu: "' + String(l.resposta_texto).slice(0, 200) + '"' : (l.campNome ? 'Veio da campanha ' + l.campNome : '');
             pkLeads.push({ id: Date.now() + Math.random(), name: l.title || l.tel, cat: l.nicho || '', phone: l.tel, website: l.website || '', rating: Number(l.rating) || 0, reviews: 0,
                 col: l.humano ? 'respondeu' : 'contatado', dias: 0, movedAt: Date.now(), nota });
@@ -11500,6 +11547,14 @@ async function avisarJaContatados(leads) {
     } catch (e) { console.warn('[já contatados]', e); }
 }
 
+// Bloqueado só porque outro produto falou com ele há menos de PROD_INTERVALO_DIAS: devolve em quantos dias libera
+function envioOutroProdutoDias(phone) {
+    const tel = formatPhoneBR(phone), p = typeof prodAtual === 'function' ? prodAtual() : null;
+    const lst = tel && p && _enviosPorTel.get(tel);
+    if (!lst || lst.some(e => prodDaCampanha(e.camp) === p.id)) return 0;
+    const ult = Math.max(...lst.map(e => e.t));
+    return Math.max(0, Math.ceil((ult + PROD_INTERVALO_DIAS * 86400000 - Date.now()) / 86400000));
+}
 function leadJaFoiEnviado(phone) {
     const cleanPhone = formatPhoneBR(phone);
     if (!cleanPhone) return false;
@@ -12475,7 +12530,7 @@ async function igRegistrar(l) {
     // Pipeline: entra (ou avança) em Contatado, marcado como Instagram, com lembrete em 3 dias
     if (typeof pkLoad === 'function') pkLoad();
     const nome = (l.title || l.name || '').toLowerCase().trim();
-    let card = pkLeads.find(k => (k.instagram && igHandle(k.instagram) === h) || (nome && (k.name || k.title || '').toLowerCase().trim() === nome));
+    let card = pkVisiveis().find(k => (k.instagram && igHandle(k.instagram) === h) || (nome && (k.name || k.title || '').toLowerCase().trim() === nome));
     const antes = card ? { col: card.col, movedAt: card.movedAt, canal: card.canal, instagram: card.instagram, proximaAcaoEm: card.proximaAcaoEm, proximaAcaoTxt: card.proximaAcaoTxt } : null;
     const lembrete = new Date(); lembrete.setDate(lembrete.getDate() + 3); lembrete.setHours(9, 0, 0, 0);
     if (!card) {
@@ -12692,7 +12747,7 @@ async function liRegistrar(l, pessoa, mensagem, perfil) {
     _liHoje++;
     if (typeof pkLoad === 'function') pkLoad();
     const nome = (l.title || l.name || '').toLowerCase().trim();
-    let card = pkLeads.find(c => nome && (c.name || c.title || '').toLowerCase().trim() === nome);
+    let card = pkVisiveis().find(c => nome && (c.name || c.title || '').toLowerCase().trim() === nome);
     const antes = card ? { col: card.col, movedAt: card.movedAt, canal: card.canal, linkedin: card.linkedin, liMensagem: card.liMensagem, liPerfil: card.liPerfil, liPessoa: card.liPessoa, proximaAcaoEm: card.proximaAcaoEm, proximaAcaoTxt: card.proximaAcaoTxt } : null;
     const lembrete = new Date(); lembrete.setDate(lembrete.getDate() + 3); lembrete.setHours(9, 0, 0, 0);
     if (!card) {
@@ -12875,7 +12930,7 @@ async function canalResultado(aba, r, resultado) {
     try {
         if (typeof pkLoad === 'function') pkLoad();
         const nome = String(r.nome || '').toLowerCase().trim();
-        const card = pkLeads.find(k => (k.name || '').toLowerCase().trim() === nome && (!k.canal || k.canal === c.canal)) || pkLeads.find(k => (k.name || '').toLowerCase().trim() === nome);
+        const card = pkVisiveis().find(k => (k.name || '').toLowerCase().trim() === nome && (!k.canal || k.canal === c.canal)) || pkVisiveis().find(k => (k.name || '').toLowerCase().trim() === nome);
         if (card && card.col !== 'fechado') {
             if (resultado === 'respondeu') { if (card.col !== 'negociando') { card.col = 'respondeu'; card.movedAt = Date.now(); } card.proximaAcaoEm = null; card.proximaAcaoTxt = ''; }
             else { card.col = 'descartado'; card.motivoPerda = 'sem_interesse'; card.movedAt = Date.now(); card.proximaAcaoEm = null; card.proximaAcaoTxt = ''; }
@@ -12922,7 +12977,7 @@ async function canalRetomar(aba, r, op) {
     const ta = document.createElement('textarea'); ta.className = 'ig-texto'; ta.rows = 4; ta.maxLength = aba === 'insta' ? 300 : 1500;
     m.appendChild(ta);
     let card = null;
-    try { if (typeof pkLoad === 'function') pkLoad(); const n = String(r.nome || '').toLowerCase().trim(); card = pkLeads.find(k => (k.name || '').toLowerCase().trim() === n) || null; } catch (e) {}
+    try { if (typeof pkLoad === 'function') pkLoad(); const n = String(r.nome || '').toLowerCase().trim(); card = pkVisiveis().find(k => (k.name || '').toLowerCase().trim() === n) || null; } catch (e) {}
     const link = aba === 'insta' ? (igHandle(r.instagram) ? 'https://ig.me/m/' + igHandle(r.instagram) : '') : ((card && card.liPerfil) || r.linkedin || '');
     const gerar = async () => {
         ta.disabled = true; ta.value = ''; ta.placeholder = 'A IA está escrevendo…';
@@ -12969,7 +13024,7 @@ async function canalVoltar(aba, r) {
         if (typeof pkLoad === 'function') pkLoad();
         const m = userGet('abord_antes', {}) || {}, chaveM = c.canal + ':' + r.chave, g = m[chaveM];
         let card = g ? pkLeads.find(k => String(k.id) === String(g.cardId)) : null;
-        if (!card) card = pkLeads.find(k => k.canal === c.canal && (k.name || '').toLowerCase().trim() === String(r.nome || '').toLowerCase().trim());
+        if (!card) card = pkVisiveis().find(k => k.canal === c.canal && (k.name || '').toLowerCase().trim() === String(r.nome || '').toLowerCase().trim());
         if (card) {
             if (g && g.antes) Object.assign(card, g.antes);
             // card criado só por esta abordagem e que não andou: sai do Pipeline
@@ -13340,7 +13395,7 @@ const CC_NOME_ETAPA = { primeira: 'Primeira mensagem', retomar: 'Retomar', ultim
 // Pendentes de hoje de um canal (só campanhas ativas)
 function ccHoje(canal) {
     if (!_cc) return [];
-    const ativas = new Map(_cc.camps.filter(c => c.canal === canal && c.status === 'ativa').map(c => [c.id, c]));
+    const ativas = new Map(_cc.camps.filter(c => c.canal === canal && c.status === 'ativa' && prodNaVisao(c.produto_id)).map(c => [c.id, c]));
     const agora = Date.now();
     return _cc.leads.filter(r => r.status === 'pendente' && ativas.has(r.campanha_id) && new Date(r.proxima_em).getTime() <= agora)
         .map(r => ({ r, camp: ativas.get(r.campanha_id) }));
@@ -13373,8 +13428,13 @@ async function ccMarcarResultado(canal, chave, resultado) {
     } catch (e) {}
 }
 // Faz a tarefa de hoje de um lead da campanha (abre a janela certa da etapa)
-function ccFazer(aba, item, aoTerminar) {
+async function ccFazer(aba, item, aoTerminar) {
     const { r, camp } = item, c = CANAIS[aba], tipo = ccTipoEtapa(camp, r.etapa);
+    // Na visão "Todos": a mensagem precisa falar do produto desta campanha, então a IA passa a vender ele
+    if (camp.produto_id && prodAtual() && camp.produto_id !== prodAtual().id && _produtos.some(p => p.id === camp.produto_id)) {
+        userSet('produto_atual', camp.produto_id); prodPintar();
+        showToast('🎯 Esta campanha é de ' + prodNome(camp.produto_id) + ': a IA vai falar dele', 'ok');
+    }
     const l = Object.assign({}, r.lead || {}, { title: (r.lead && r.lead.title) || r.nome });
     const fim = () => { if (aoTerminar) aoTerminar(); else canalAbrir(aba, true); };
     if (tipo === 'primeira') {
@@ -13437,7 +13497,7 @@ async function ccRender(canal) {
     const t = prEl('div'); t.append(prEl('h2', 'cp-titulo', 'Campanhas no ' + nome), prEl('div', 'ph-linha', 'Cada campanha tem a própria cadência. As tarefas de cada dia aparecem na aba Prospecção ' + nome + '.'));
     const nova = prEl('button', 'ps-acao principal', '+ Nova campanha no ' + nome); nova.type = 'button'; nova.onclick = () => ccNova(canal);
     topo.append(t, nova); box.appendChild(topo);
-    const camps = _cc.camps.filter(c => c.canal === canal);
+    const camps = _cc.camps.filter(c => c.canal === canal && prodNaVisao(c.produto_id));
     if (!camps.length) { box.appendChild(prEl('div', 'canal-vazio', 'Nenhuma campanha no ' + nome + ' ainda. Crie uma a partir de uma busca ou de quem não respondeu no WhatsApp.')); return; }
     const agora = Date.now();
     camps.forEach(camp => {
@@ -13447,7 +13507,8 @@ async function ccRender(canal) {
         const hoje = ls.filter(r => r.status === 'pendente' && new Date(r.proxima_em).getTime() <= agora).length;
         const card = prEl('section', 'ph-card cc-card');
         const cab = prEl('div', 'cc-cab');
-        cab.append(prEl('b', '', camp.nome), prEl('span', 'cl-selo' + (camp.status === 'ativa' ? ' ok' : ''), camp.status === 'ativa' ? 'ativa' : camp.status === 'pausada' ? 'pausada' : 'concluída'));
+        const nm = prEl('b', '', camp.nome); if (prodEtiqueta(camp.produto_id)) nm.insertAdjacentHTML('beforeend', prodEtiqueta(camp.produto_id));
+        cab.append(nm, prEl('span', 'cl-selo' + (camp.status === 'ativa' ? ' ok' : ''), camp.status === 'ativa' ? 'ativa' : camp.status === 'pausada' ? 'pausada' : 'concluída'));
         card.appendChild(cab);
         card.appendChild(prEl('div', 'ph-linha', `Cadência: ${ccEtapas(camp).map(d => 'Dia ' + d).join(' · ')} · ${camp.origem || ''}`));
         const nums = prEl('div', 'cc-nums');
@@ -13544,7 +13605,7 @@ async function ccNova(canal) {
         criar.disabled = true; criar.textContent = 'Criando…';
         try {
             const o = origens.find(x => x.v === sel.value);
-            const { data, error } = await supabaseClient.from('campanhas_canal').insert({ user_id: currentUser.id, canal, nome: nome.value.trim().slice(0, 80) || 'Campanha ' + nomeCanal, origem: o ? o.origem : '', etapas: et, status: 'ativa' }).select('id');
+            const { data, error } = await supabaseClient.from('campanhas_canal').insert({ user_id: currentUser.id, canal, nome: nome.value.trim().slice(0, 80) || 'Campanha ' + nomeCanal, origem: o ? o.origem : '', etapas: et, status: 'ativa', produto_id: (prodAtual() || {}).id || null }).select('id');
             if (error) throw error;
             const id = data && data[0] && data[0].id;
             const agoraIso = new Date().toISOString();
@@ -13573,6 +13634,7 @@ function prodPintar() {
     _produtos.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.textContent = (p.padrao ? '⭐ ' : '') + p.nome; sel.appendChild(o); });
     if (atual) sel.value = atual.id;
     const bp = document.getElementById('prod-btn-padrao'); if (bp) bp.classList.toggle('ativo', !!(atual && atual.padrao));
+    prodTopoPintar();
 }
 async function prodCarregar() {
     if (!currentUser) return;
@@ -13590,6 +13652,8 @@ async function prodCarregar() {
     const atual = prodAtual();
     if (atual) { userSet('produto_atual', atual.id); const ta = document.getElementById('ia-prompt-livre'); if (ta) ta.value = atual.instrucoes || ''; }
     prodPintar();
+    await prodCarregarCampanhas();
+    if (_produtos.length > 1 || userGet('produto_visao', '') === 'todos') prodRecarregarTelas(); else { try { _enviadosRecalcular(); } catch (e) {} }
 }
 function prodTextoMudou(texto) {
     const p = prodAtual(); if (!p) return;
@@ -13609,10 +13673,12 @@ async function prodTrocar(id) {
     if (_prodTimer) await prodSalvarTexto();
     const p = _produtos.find(x => x.id === id); if (!p) return;
     userSet('produto_atual', p.id);
+    userSet('produto_visao', p.id);
     const ta = document.getElementById('ia-prompt-livre'); if (ta) ta.value = p.instrucoes || '';
     const st = document.getElementById('prod-salvo'); if (st) st.textContent = '';
     prodPintar();
-    showToast('🎯 Agora a IA vende: ' + p.nome, 'ok');
+    showToast('🎯 Produto do dia: ' + p.nome + ' (métricas, Pipeline e campanhas mostram só ele)', 'ok');
+    prodRecarregarTelas();
 }
 async function prodNovo() {
     if (!currentUser) return;
@@ -13655,6 +13721,80 @@ async function prodExcluir() {
     if (p.padrao && _produtos[0]) { _produtos[0].padrao = true; await supabaseClient.from('produtos').update({ padrao: true }).eq('id', _produtos[0].id).eq('user_id', currentUser.id); }
     await prodTrocar(prodPadrao().id);
 }
+// ── Visão por produto: o produto escolhido no topo vale para o app inteiro ──
+// Painel, Resultados, Pipeline, Campanhas e o consultor mostram só o que foi feito para ele.
+// "Todos" junta tudo e mostra a etiqueta do produto. O que já existia antes conta como do produto ⭐ padrão.
+var _prodCampanhas = {};   // campanha_id -> produto_id
+function prodVisao() { return userGet('produto_visao', '') === 'todos' ? 'todos' : ((prodAtual() || {}).id || 'todos'); }
+function prodTodos() { return prodVisao() === 'todos'; }
+function prodNome(id) { const p = _produtos.find(x => x.id === id); return p ? p.nome : ''; }
+function prodDaCampanha(campId) {
+    return prodOuPadrao(campId && _prodCampanhas[campId]);
+}
+// Produto que não existe mais (foi excluído) conta como o ⭐ padrão, para nada sumir
+function prodOuPadrao(id) { return id && _produtos.some(p => p.id === id) ? id : ((prodPadrao() || {}).id || id || null); }
+function prodNaVisao(produtoId) { const v = prodVisao(); return v === 'todos' || prodOuPadrao(produtoId) === v; }
+function prodCampNaVisao(campId) { return prodNaVisao(prodDaCampanha(campId)); }
+function prodPipe(rows) { return prodTodos() ? (rows || []) : (rows || []).filter(r => prodNaVisao(r.produto_id)); }
+// Consulta direta na tabela leads: só as campanhas do produto da visão
+function prodQ(q, campo) {
+    if (prodTodos()) return q;
+    const v = prodVisao(), ids = Object.keys(_prodCampanhas).filter(k => prodOuPadrao(_prodCampanhas[k]) === v);
+    return q.in(campo || 'campanha_id', ids.length ? ids : ['-']);
+}
+// Linhas que têm campanha_id (tabela leads, campanhas do WhatsApp): fica só o que é do produto da visão
+function prodFiltrar(rows, campo) { if (prodTodos()) return rows || []; const k = campo || 'campanha_id'; return (rows || []).filter(r => prodCampNaVisao(r[k])); }
+function prodEtiqueta(produtoId) {
+    if (!prodTodos() || _produtos.length < 2) return '';
+    const n = prodNome(prodOuPadrao(produtoId));
+    return n ? `<span class="prod-tag" title="Produto">${escapeHtml(n)}</span>` : '';
+}
+async function prodCarregarCampanhas() {
+    if (!currentUser) return;
+    try {
+        const rows = await prBuscarTudo(() => supabaseClient.from('campanhas_produto').select('campanha_id,produto_id').eq('user_id', currentUser.id).order('campanha_id'));
+        const m = {}; rows.forEach(r => { if (r.produto_id) m[r.campanha_id] = r.produto_id; });
+        _prodCampanhas = Object.assign(m, Object.fromEntries(Object.entries(_prodCampanhas).filter(([k]) => !m[k])));
+    } catch (e) { console.warn('Produtos das campanhas:', e && e.message); }
+}
+// Seletor do topo: trocou, o app inteiro passa a mostrar aquele produto
+function prodTopoPintar() {
+    const sel = document.getElementById('prod-topo'); if (!sel) return;
+    const box = document.getElementById('prod-topo-box');
+    if (box) box.hidden = !_produtos.length;
+    sel.innerHTML = '';
+    _produtos.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.textContent = p.nome; sel.appendChild(o); });
+    if (_produtos.length > 1) { const o = document.createElement('option'); o.value = 'todos'; o.textContent = 'Todos os produtos'; sel.appendChild(o); }
+    sel.value = prodVisao();
+    document.body.classList.toggle('prod-visao-todos', prodTodos());
+}
+async function prodTopoTrocar(v) {
+    if (v === 'todos') {
+        userSet('produto_visao', 'todos');
+        prodTopoPintar();
+        showToast('👀 Vendo todos os produtos juntos (a IA continua vendendo ' + ((prodAtual() || {}).nome || 'o produto atual') + ')', 'ok');
+        prodRecarregarTelas();
+        return;
+    }
+    await prodTrocar(v);
+}
+// Recarrega o que está na tela com o produto novo
+function prodRecarregarTelas() {
+    try { _enviadosRecalcular(); } catch (e) {}
+    try { _prDados = null; _cpCarregadoEm = 0; } catch (e) {}
+    const ativa = document.querySelector('.tab-content.active');
+    const id = ativa ? ativa.id : '';
+    const chama = (nome, ...a) => { try { if (typeof window[nome] === 'function') return window[nome](...a); } catch (e) { console.warn(nome, e && e.message); } };
+    chama('painelHojeCarregar');
+    if (id === 'tab-pipeline') chama('pkRender');
+    if (id === 'tab-plano') { chama('carregarPlanoProspeccao'); chama('consAbrir'); }
+    if (id === 'tab-metricas') { chama('carregarMetricas'); chama('prCarregar'); }
+    if (id === 'tab-campanhas') { chama('cpCarregar', true); if (typeof _ccCanalAba !== 'undefined' && _ccCanalAba !== 'whatsapp') chama('ccRender', _ccCanalAba); }
+    if (id === 'tab-prospeccao') chama('carregarInteligenciaProspeccao', true);
+    if (id === 'tab-ia') { chama('renderLeadsIA'); chama('renderLeadsIADashboard'); }
+    if (id === 'tab-insta' || id === 'tab-linkedin') chama('canalAbrir', id === 'tab-insta' ? 'insta' : 'linkedin');
+}
+
 // Produto da campanha que falou com esse número (para o Inbox sugerir sobre o produto certo)
 async function prodDoTelefone(phone) {
     if (!currentUser || !_produtos.length) return null;
@@ -16041,12 +16181,13 @@ async function painelHojeCarregar() {
         const iso24 = new Date(Date.now() - 24 * 3600000).toISOString();
         const iniHoje = new Date(); iniHoje.setHours(0, 0, 0, 0);
         const fimHoje = new Date(); fimHoje.setHours(23, 59, 59, 999);
+        const pf = prodTodos() ? [] : [['eq', 'produto_id', prodVisao()]];   // funil do produto da visão
         const [sugestoes, followups, quentesParados, retomar, reunioes] = await Promise.all([
             phContar('fila_sugestoes', [['eq', 'status', 'pendente']]),
             phContar('fila_followups', [['eq', 'status', 'pendente']]),
-            phContar('pipeline_leads', [['eq', 'col', 'negociando'], ['lt', 'moved_at', iso24]]),
-            phContar('pipeline_leads', [['lte', 'proxima_acao_em', fimHoje.toISOString()]]),
-            phContar('pipeline_leads', [['gte', 'reuniao_em', iniHoje.toISOString()], ['lte', 'reuniao_em', fimHoje.toISOString()]]),
+            phContar('pipeline_leads', [['eq', 'col', 'negociando'], ['lt', 'moved_at', iso24], ...pf]),
+            phContar('pipeline_leads', [['lte', 'proxima_acao_em', fimHoje.toISOString()], ...pf]),
+            phContar('pipeline_leads', [['gte', 'reuniao_em', iniHoje.toISOString()], ['lte', 'reuniao_em', fimHoje.toISOString()], ...pf]),
         ]);
 
         // --- WhatsApp conectado de verdade (o selo "Conectado" das Integrações só confere se há endereço e token) ---
@@ -16192,12 +16333,12 @@ async function prCarregar() {
         const [leads, campanhas, interesses, pipeline, followups] = await Promise.all([
             prBuscarTudo(() => supabaseClient.from('leads')
                 .select('campanha_id,phone,enviado_em,respondeu,resposta_suspeita_bot,opt_out,variante_ab,gatilho_cta')
-                .eq('user_id', uid).not('enviado_em', 'is', null).order('id')),
+                .eq('user_id', uid).not('enviado_em', 'is', null).order('id')).then(r => prodFiltrar(r)),
             prBuscarTudo(() => supabaseClient.from('campanhas').select('id,nome,nicho,local,sequencia').eq('user_id', uid).order('id')),
             prBuscarTudo(() => supabaseClient.from('fila_sugestoes')
                 .select('id,phone,lead_nome,campanha_id,classificacao,mensagem_recebida,status,criado_em')
                 .eq('user_id', uid).in('classificacao', ['quente', 'duvida']).order('id')),
-            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('id,name,phone,col,valor,fechado_em,moved_at,motivo_perda,canal,ultima_classificacao').eq('user_id', uid).order('id')),
+            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('id,name,phone,col,valor,fechado_em,moved_at,motivo_perda,canal,ultima_classificacao,produto_id').eq('user_id', uid).order('id')).then(r => prodPipe(r)),
             prBuscarTudo(() => supabaseClient.from('fila_followups').select('phone,status').eq('user_id', uid).eq('status', 'pendente').order('id')),
         ]);
         // Instagram e LinkedIn para o Consultor: fila, retomar e quem respondeu
@@ -16205,8 +16346,8 @@ async function prCarregar() {
         try {
             const [buscas, , , abIg, abLi] = await Promise.all([
                 canalBuscasSalvas(), igCarregarFeitos(true), liCarregarFeitos(true),
-                supabaseClient.from('abordagens_instagram').select('chave,criado_em,resultado,retomado_em,adiado_ate').eq('user_id', uid).limit(5000),
-                supabaseClient.from('abordagens_linkedin').select('chave,criado_em,resultado,retomado_em,adiado_ate').eq('user_id', uid).limit(5000),
+                supabaseClient.from('abordagens_instagram').select('chave,criado_em,resultado,retomado_em,adiado_ate,produto_id').eq('user_id', uid).limit(5000).then(r => ({ data: prodPipe(r.data) })),
+                supabaseClient.from('abordagens_linkedin').select('chave,criado_em,resultado,retomado_em,adiado_ate,produto_id').eq('user_id', uid).limit(5000).then(r => ({ data: prodPipe(r.data) })),
             ]);
             const fIg = canalFila('insta', buscas), fLi = canalFila('linkedin', buscas);
             canais = {
@@ -16873,10 +17014,10 @@ async function carregarInteligenciaProspeccao(forcar) {
     try {
         const uid = currentUser.id;
         const [leads, campanhasNuvem, perfis, pipeline, interesses] = await Promise.all([
-            prBuscarTudo(() => supabaseClient.from('leads').select('campanha_id,phone,respondeu,resposta_suspeita_bot,opt_out').eq('user_id', uid).not('enviado_em', 'is', null).order('id')),
+            prBuscarTudo(() => supabaseClient.from('leads').select('campanha_id,phone,respondeu,resposta_suspeita_bot,opt_out').eq('user_id', uid).not('enviado_em', 'is', null).order('id')).then(r => prodFiltrar(r)),
             prBuscarTudo(() => supabaseClient.from('campanhas').select('id,nicho,local').eq('user_id', uid).order('id')),
             prBuscarTudo(() => supabaseClient.from('lead_perfil').select('campanha_id,phone,perfil').eq('user_id', uid).order('campanha_id')).catch(() => []),
-            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('phone,col,ultima_classificacao').eq('user_id', uid).order('id')).catch(() => []),
+            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('phone,col,ultima_classificacao,produto_id').eq('user_id', uid).order('id')).then(r => prodPipe(r)).catch(() => []),
             prBuscarTudo(() => supabaseClient.from('fila_sugestoes').select('phone,classificacao').eq('user_id', uid).in('classificacao', ['quente', 'duvida']).order('id')).catch(() => []),
         ]);
         // nichos que mais geram interessados: a mesma conta do Consultor do dia (morno/quente, descontando quem pede para parar)
@@ -17390,10 +17531,10 @@ async function carregarPlacarPlano() {
     try {
         const uid = currentUser.id;
         const [leads, camps, interesses, pipeline] = await Promise.all([
-            prBuscarTudo(() => supabaseClient.from('leads').select('campanha_id,phone,respondeu,resposta_suspeita_bot').eq('user_id', uid).not('enviado_em', 'is', null).order('id')),
+            prBuscarTudo(() => supabaseClient.from('leads').select('campanha_id,phone,respondeu,resposta_suspeita_bot').eq('user_id', uid).not('enviado_em', 'is', null).order('id')).then(r => prodFiltrar(r)),
             prBuscarTudo(() => supabaseClient.from('campanhas').select('id,nicho,local').eq('user_id', uid).order('id')),
             prBuscarTudo(() => supabaseClient.from('fila_sugestoes').select('phone,campanha_id').eq('user_id', uid).in('classificacao', ['quente', 'duvida']).order('id')),
-            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('phone,col,valor').eq('user_id', uid).order('id')),
+            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('phone,col,valor,produto_id').eq('user_id', uid).order('id')).then(r => prodPipe(r)),
         ]);
         const campInfo = {}, cidadeCont = {};
         camps.forEach(c => {
@@ -17709,10 +17850,10 @@ async function cpCarregar(forcar) {
     try {
         const uid = currentUser.id;
         const [leads, camps, interesses, pipeline, fila, fuEnv] = await Promise.all([
-            prBuscarTudo(() => supabaseClient.from('leads').select('campanha_id,phone,title,enviado_em,respondeu,resposta_suspeita_bot,opt_out').eq('user_id', uid).not('enviado_em', 'is', null).order('id')),
+            prBuscarTudo(() => supabaseClient.from('leads').select('campanha_id,phone,title,enviado_em,respondeu,resposta_suspeita_bot,opt_out').eq('user_id', uid).not('enviado_em', 'is', null).order('id')).then(r => prodFiltrar(r)),
             prBuscarTudo(() => supabaseClient.from('campanhas').select('id,nome,nicho,local,criada_em,sequencia,seq_config').eq('user_id', uid).order('id')),
             prBuscarTudo(() => supabaseClient.from('fila_sugestoes').select('phone,campanha_id').eq('user_id', uid).in('classificacao', ['quente', 'duvida']).order('id')),
-            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('phone,col,valor').eq('user_id', uid).order('id')),
+            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('phone,col,valor,produto_id').eq('user_id', uid).order('id')).then(r => prodPipe(r)),
             prBuscarTudo(() => supabaseClient.from('fila_followups').select('phone,campanha_id,status').eq('user_id', uid).order('id')),
             prBuscarTudo(() => supabaseClient.from('followups_enviados').select('phone,campanha_id').eq('user_id', uid).order('id')),
         ]);
@@ -17904,7 +18045,7 @@ function cpAbaLeads(g, corpo) {
 function cpAddCrm(l, g, s) {
     pkLoad();
     const tel = formatPhoneBR(l.phone);
-    if (pkLeads.some(k => formatPhoneBR(k.phone) === tel)) return;
+    if (pkVisiveis().some(k => formatPhoneBR(k.phone) === tel)) return;
     pkLeads.push({ id: Date.now() + Math.random(), name: l.title || tel, cat: g.nicho || '', phone: tel, website: '', rating: 0, reviews: 0,
         col: s.int ? 'negociando' : s.hum ? 'respondeu' : 'contatado', dias: 0, movedAt: Date.now(), nota: '' });
     pkSave();
@@ -18245,7 +18386,7 @@ async function carregarMetricas() {
 
         // Monta porCampanha com todas as linhas
         const porCampanha = {};
-        rows.forEach(row => {
+        prodFiltrar(rows, 'campanhaId').forEach(row => {
             const cid = row.campanhaId || 'sem-campanha';
             const status = (row.status || '').toLowerCase();
             const datRow = row.data || '';
@@ -18338,7 +18479,7 @@ function filtrarMetricasPorCampanha() {
 
     // Filtra linhas pela campanha selecionada e depois pelo período (mês/total)
     const rowsPorCampanha = campanhaId === 'all'
-        ? _mcTodasLinhas
+        ? prodFiltrar(_mcTodasLinhas, 'campanhaId')
         : _mcTodasLinhas.filter(r => r.campanhaId === campanhaId);
     const rowsFiltradas = _filtrarPorPeriodo(rowsPorCampanha);
 
@@ -18369,11 +18510,11 @@ async function atualizarHorarioIdeal() {
     if (!el || !currentUser) return;
 
     try {
-        const { data, error } = await supabaseClient
+        const { data, error } = await prodQ(supabaseClient
             .from('leads')
             .select('enviado_em, respondeu, resposta_suspeita_bot')
             .eq('user_id', currentUser.id)
-            .not('enviado_em', 'is', null);
+            .not('enviado_em', 'is', null));
         if (error) throw error;
 
         const MINIMO_ENVIOS = 20;
@@ -18447,7 +18588,7 @@ async function atualizarCardRespostas() {
             .select('respondeu, resposta_suspeita_bot')
             .eq('user_id', currentUser.id)
             .eq('respondeu', true);
-        if (campanhaId !== 'all') query = query.eq('campanha_id', campanhaId);
+        if (campanhaId !== 'all') query = query.eq('campanha_id', campanhaId); else query = prodQ(query);
         const intervalo = _intervaloPeriodoISO();
         if (intervalo) {
             if (intervalo.start) query = query.gte('respondido_em', intervalo.start);
@@ -18469,7 +18610,7 @@ async function atualizarCardRespostas() {
             const enviadosNoFiltro = await prBuscarTudo(() => {
                 let q = supabaseClient.from('leads').select('respondeu,resposta_suspeita_bot')
                     .eq('user_id', currentUser.id).not('enviado_em', 'is', null).order('id');
-                if (campanhaId !== 'all') q = q.eq('campanha_id', campanhaId);
+                if (campanhaId !== 'all') q = q.eq('campanha_id', campanhaId); else q = prodQ(q);
                 if (intervalo && intervalo.start) q = q.gte('enviado_em', intervalo.start);
                 if (intervalo && intervalo.end) q = q.lt('enviado_em', intervalo.end);
                 return q;
@@ -19806,7 +19947,7 @@ async function prFunilRelatorio(campanhaId) {
             }),
             prBuscarTudo(() => supabaseClient.from('campanhas').select('id,nicho').eq('user_id', uid).order('id')),
             prBuscarTudo(() => supabaseClient.from('fila_sugestoes').select('id,phone,classificacao').eq('user_id', uid).in('classificacao', ['quente', 'duvida']).order('id')),
-            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('id,phone,col,valor').eq('user_id', uid).order('id')),
+            prBuscarTudo(() => supabaseClient.from('pipeline_leads').select('id,phone,col,valor,produto_id').eq('user_id', uid).order('id')).then(r => prodPipe(r)),
         ]);
         const tels = new Set(leads.map(l => prTel(l.phone)));
         const humanas = leads.filter(prHumana).length;
