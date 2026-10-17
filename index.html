@@ -107,6 +107,7 @@
         .nav-trilha .nt-dot { box-shadow: 0 0 0 3px rgba(0,0,0,.04); }
         .nav-trilha .nt-badge { margin-left: auto; font-size: 0.6rem; font-weight: 800; letter-spacing: 0; color: #fff; background: #7C3AED; border-radius: 20px; padding: 1px 7px; }
         .nav-trilha .nt-badge.quente { background: #dc2626; }
+        .nav-trilha[aria-expanded="true"] .nt-badge { display: none; }
         .nav-trilha .nt-badge:not([hidden]) + .nt-seta { margin-left: 6px; }
         .nav-grupo { display: flex; flex-direction: column; gap: 3px; padding-bottom: 4px; }
         .nav-grupo[hidden] { display: none; }
@@ -2029,7 +2030,7 @@ function iniciarAppPosLogin() {
         </div>
         <button type="button" class="nav-section nav-trilha nt-3" aria-expanded="false" aria-controls="ng-3" onclick="navGrupo(3)"><span class="nt-dot" aria-hidden="true"></span>Converta<small>até a venda</small><span class="nt-badge" id="nt-respostas-badge" hidden>0</span><span class="nt-seta" aria-hidden="true"></span></button>
         <div class="nav-grupo" id="ng-3" hidden>
-        <button class="nav-item" onclick="trocarAba('respostas', this)" style="position:relative;"><span class="nav-canal nc-ambar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span> Respostas <span id="nav-respostas-badge" style="display:none;margin-left:6px;background:#dc2626;color:#fff;font-family:'Inter',sans-serif;font-size:0.6rem;font-weight:800;border-radius:20px;padding:1px 7px;">0</span></button>
+        <button class="nav-item" onclick="trocarAba('respostas', this)" style="position:relative;"><span class="nav-canal nc-ambar"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span> Respostas <span id="nav-respostas-badge" style="display:none;margin-left:auto;background:#dc2626;color:#fff;font-family:'Inter',sans-serif;font-size:0.6rem;font-weight:800;border-radius:20px;padding:1px 7px;">0</span></button>
         <button class="nav-item" onclick="trocarAba('inbox', this)"><span class="nav-canal nc-verde"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span> Inbox</button>
         <button class="nav-item" onclick="trocarAba('pipeline', this)"><span class="nav-canal nc-teal"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="5" height="18" rx="1"/><rect x="10" y="3" width="5" height="13" rx="1"/><rect x="17" y="3" width="5" height="16" rx="1"/></svg></span> Pipeline</button>
         </div>
@@ -2333,6 +2334,8 @@ function iniciarAppPosLogin() {
   body:has(#tab-historico.active) #export-mobile, body:has(#tab-historico.active) #campanha-mobile,
   body:has(#tab-meusleads.active) #export-mobile, body:has(#tab-meusleads.active) #campanha-mobile,
   body:has(#tab-integracoes.active) #export-mobile, body:has(#tab-integracoes.active) #campanha-mobile { display:none!important; }
+  /* No celular, Exportar CSV e Gerar Campanha só aparecem na Prospecção (os dois agem sobre a busca); nas outras telas o topo fica só com o título */
+  body:not(:has(#tab-prospeccao.active)) #export-mobile, body:not(:has(#tab-prospeccao.active)) #campanha-mobile { display:none!important; }
   #tab-inbox .inbox-wrap { box-shadow:none; }
   #tab-inbox .inbox-list { padding-bottom:env(safe-area-inset-bottom); }
 }
@@ -3063,10 +3066,10 @@ function atualizarBadgeRespostas() {
     if (badge) {
         badge.style.display = n > 0 ? 'inline-block' : 'none';
         badge.textContent = n > 99 ? '99+' : String(n);
-        badge.style.background = quentes ? '#dc2626' : '';   // vermelho: tem interessado esperando
+        badge.style.background = quentes ? '#dc2626' : '#7C3AED';   // vermelho: tem interessado esperando
         badge.title = quentes ? `${quentes} interessado(s) esperando resposta` : '';
     }
-    // o mesmo número na etapa "Converta" do menu (aparece mesmo com ela recolhida)
+    // o mesmo número na etapa "Converta" do menu: só aparece com ela recolhida (aberta, ele fica no próprio Respostas)
     const nb = document.getElementById('nt-respostas-badge');
     if (nb) { nb.hidden = !(n > 0); nb.textContent = n > 99 ? '99+' : String(n); nb.classList.toggle('quente', !!quentes); nb.title = quentes ? `${quentes} interessado(s) esperando resposta` : `${n} esperando você em Respostas`; }
     const badgeMobile = document.getElementById('bn-respostas-badge');
