@@ -208,8 +208,6 @@
         .manual-hero { background: linear-gradient(135deg, #0D1330, #1e2a6b); color: #fff; border-radius: 16px; padding: 22px 22px 18px; margin-bottom: 14px; }
         .manual-hero h2 { margin: 0 0 6px; font-size: 1.25rem; font-weight: 800; }
         .manual-hero p { margin: 0; font-size: 0.8rem; line-height: 1.55; color: #cdd5f3; }
-        .manual-trilha { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-        .manual-trilha span { font-size: 0.66rem; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.12); }
         .manual-busca { width: 100%; box-sizing: border-box; border: 1.5px solid #E4E7EF; border-radius: 10px; padding: 10px 12px; font: inherit; font-size: 0.82rem; margin-bottom: 10px; background: #fff; }
         .manual-busca:focus { outline: none; border-color: #4F46E5; }
         .manual-indice { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
@@ -13760,9 +13758,7 @@ function manualAbrir() {
     box.innerHTML = '';
     const hero = prEl('div', 'manual-hero');
     hero.innerHTML = '<h2>Manual do Cliente</h2><p>' + _manTxt(MANUAL.intro) + '</p>';
-    const tr = prEl('div', 'manual-trilha');
-    MANUAL.secoes.forEach(sc => tr.appendChild(prEl('span', '', sc.titulo)));
-    hero.appendChild(tr); box.appendChild(hero);
+    box.appendChild(hero);
     const busca = document.createElement('input'); busca.type = 'search'; busca.className = 'manual-busca';
     busca.placeholder = 'Procurar no manual (ex.: limite, follow-up, Instagram, reunião)'; busca.setAttribute('aria-label', 'Procurar no manual');
     box.appendChild(busca);
@@ -13806,7 +13802,235 @@ function manualAbrir() {
         indice.hidden = !!q; vazio.hidden = !!n;
     });
 }
-__MANUAL_CONTEUDO__
+const MANUAL = {
+    versao: '17/10/2026',
+    intro: 'O Prospecta+ encontra empresas para você vender, faz o primeiro contato pelo WhatsApp, Instagram ou LinkedIn com texto escrito por IA e organiza quem respondeu até o fechamento. Você aprova o que importa; o resto roda sozinho, dentro de limites que protegem o seu número. O menu segue a trilha do cliente: **Encontre → Conecte → Converta → Cresça**.',
+    secoes: [
+        {
+            titulo: 'Comece por aqui', cor: '#4F46E5',
+            sub: 'Em uns 20 minutos você sai do zero para a primeira campanha. Faça nesta ordem.',
+            itens: [
+                {
+                    titulo: 'Primeiros passos', resumo: 'Do login à primeira campanha',
+                    passos: [
+                        '**Entre no app** com o e-mail e a senha que o suporte mandou pelo WhatsApp. O app lembra o acesso. Esqueceu a senha? Toque em "Esqueci minha senha".',
+                        '**Instale como aplicativo.** Android ou computador: toque em "Instalar" no aviso. iPhone: abra no Safari → Compartilhar → "Adicionar à Tela de Início".',
+                        '**Conecte o WhatsApp** em Integrações → "Integração WhatsApp" → "Gerar QR Code". No celular: WhatsApp → Dispositivos vinculados → Vincular dispositivo. O QR vale 2 minutos. Usando o WhatsApp no mesmo celular? Escolha "Código de 8 dígitos".',
+                        '**Cadastre o número de alerta** (Integrações → "Alertas e notificações"), diferente do conectado, e toque em "Enviar teste".',
+                        '**Ative as notificações** no mesmo cartão, para o celular tocar quando um lead responder com interesse.',
+                        '**Conte para a IA o que você vende**: crie o seu produto e escreva as instruções em Prospecção WhatsApp (veja "Produtos e Produto do dia").',
+                        '**Mande um teste para você** em "Teste de Envio" (Prospecção WhatsApp).',
+                        '**Faça a primeira busca** em Prospecção e toque em "Criar campanha com os N melhores".'
+                    ],
+                    dicas: ['A chave de IA e o servidor já vêm configurados pelo suporte (aparecem com cadeado: "gerenciada pelo administrador").', 'O horário de envio já vem de segunda a sexta, das 7h às 12h, quando mais gente responde.']
+                },
+                {
+                    titulo: 'Mapa do menu', resumo: 'Onde fica cada coisa',
+                    texto: 'As etapas do menu abrem e fecham com um toque (a etapa da tela atual abre sozinha). Um lead passa por elas nesta ordem:',
+                    blocos: [
+                        { t: 'Painel', l: ['O que precisa de você hoje, saúde do número e resultados.'] },
+                        { t: 'Encontre · quem prospectar', l: ['**Plano de Prospecção**: o consultor do dia e o calendário de nicho + cidade.', '**Prospecção**: buscar empresas no Google Maps.', '**Meus Leads**: todos que já entraram em campanha e o que aconteceu.'] },
+                        { t: 'Conecte · primeiro contato', l: ['**Prospecção WhatsApp**: produto, mensagem da IA e disparo.', '**Prospecção Instagram**: a IA escreve a DM, você envia.', '**Prospecção LinkedIn**: acha quem decide, a IA escreve o convite.', '**Campanhas**: resultado das campanhas e as cadências de WhatsApp, Instagram e LinkedIn.'] },
+                        { t: 'Converta · até a venda', l: ['**Respostas**: aprovar o que a IA sugere e os follow-ups (o número roxo ao lado mostra quantos esperam; vermelho quando tem interessado).', '**Inbox**: o seu WhatsApp dentro do app.', '**Pipeline**: o funil de vendas até Ganho.'] },
+                        { t: 'Cresça · o que já fez', l: ['**Histórico**: o que cada busca virou e continuar de onde parou.'] },
+                        { t: 'Configuração', l: ['**Integrações**: WhatsApp, horário, limites, proteção e alertas.', '**Manual do Cliente**: este manual.'] }
+                    ],
+                    dicas: ['No rodapé do menu ficam "Peça ajuda", "Baixar meus dados", "Sair da conta" e os sinais de WhatsApp e IA (verde quando estão funcionando).', 'No celular, "Exportar CSV" e "Gerar Campanha" aparecem no topo só na tela Prospecção. No Painel, o ícone de documento gera o Relatório PDF.']
+                },
+                {
+                    titulo: 'Produtos e Produto do dia', resumo: 'Vender mais de uma coisa, cada uma com os seus números', aba: 'ia',
+                    texto: 'Cada **produto** guarda as instruções que a IA usa para escrever (o que é, para quem, o benefício e o que você quer que o lead faça). A etiqueta embaixo do título, no topo de todas as telas, mostra o **produto do dia**.',
+                    blocos: [
+                        { t: 'Criar e editar', l: ['Em Prospecção WhatsApp: ＋ cria um produto, o lápis renomeia, a ⭐ torna padrão e a lixeira exclui.', 'As instruções salvam sozinhas enquanto você digita (até 4.000 caracteres).', 'Nome, categoria, endereço e avaliação de cada lead entram sozinhos. Não escreva isso.'] },
+                        { t: 'Com 2 produtos ou mais', l: ['Escolher um produto na etiqueta do topo muda o app inteiro: Painel, Resultados, consultor, Campanhas e Pipeline mostram só ele, e a IA passa a vender ele.', '**Cada produto tem o seu funil no Pipeline.** "Todos os produtos" junta tudo com uma etiqueta do produto em cada card.', 'Quem respondeu vai para o funil do produto da campanha que falou com ele.', 'A mesma empresa pode receber **outro** produto pelo WhatsApp só 30 dias depois do último contato. O mesmo produto, nunca. Na lista aparece "⏳ Outro produto · libera em X dias".', 'No Instagram e no LinkedIn cada empresa é abordada uma vez só, de qualquer produto.'] }
+                    ],
+                    dicas: ['Exemplo de instruções: "Vendo sites para clínicas odontológicas, prontos em 7 dias, com agendamento pelo WhatsApp. Para donos de clínica pequena sem site. Benefício: mais pacientes particulares vindos do Google. A partir de R$ 1.200. Quero que a pessoa aceite uma conversa de 10 minutos. Tom próximo, sem parecer propaganda."', 'Com um produto só, nada é separado: o app mostra tudo.']
+                }
+            ]
+        },
+        {
+            titulo: 'Painel', cor: '#165DFF',
+            itens: [
+                {
+                    titulo: 'Painel', resumo: 'A primeira tela do dia', aba: 'metricas',
+                    blocos: [
+                        { t: 'De cima para baixo', l: [
+                            '**Ao vivo**: a campanha que está enviando agora (quantas foram, a última empresa, se espera o horário). "Cancelar campanha" para tudo.',
+                            '**Precisa de você agora**: respostas e follow-ups para aprovar, reuniões de hoje, lembretes, leads quentes parados há mais de 24 h e WhatsApp desconectado. Cada item tem o botão que leva à tela certa.',
+                            '**Saúde do número**: nota de 0 a 100 (veja "Proteção do número").',
+                            '**Do envio à venda**: enviados → responderam → interessados → negociando → ganhos, com valor em R$ e o motivo de perda mais comum.',
+                            '**Por produto**: enviadas, responderam, negociando e ganhos de cada produto.',
+                            '**Métricas de envio**: enviados, erros e respostas de pessoas, com filtro por período e campanha.',
+                            '**Horário ideal**, **Onde prospectar** (nichos, celular × fixo, dias), **Teste A/B**, **Pipeline parado**, **Hoje** (enviados e limite) e **Últimas campanhas / Ranking**.'
+                        ] }
+                    ],
+                    dicas: ['Taxa de resposta conta só pessoas; robô de atendimento não entra. Em prospecção fria, 5% a 10% é o normal; acima de 10% é ótimo; abaixo de 3%, revise a mensagem e a lista.', '**Relatório PDF** (ícone de documento no topo): Completo, Apenas Resumo ou Personalizado. Dá para mandar por WhatsApp na hora, com o número com DDI (ex.: 5511999998888).']
+                }
+            ]
+        },
+        {
+            titulo: 'Encontre', cor: '#FF6A00', sub: 'Quem prospectar.',
+            itens: [
+                {
+                    titulo: 'Plano de Prospecção e consultor do dia', resumo: 'O que fazer hoje, pelos seus números', aba: 'plano',
+                    texto: 'No topo, **🧭 Seu plano de hoje** diz o que fazer primeiro, baseado nos seus envios: (1) quem já respondeu, (2) a campanha nova do nicho e cidade que mais geram interessados, (3) uma segunda opção se sobrar janela, (4) as DMs e retomadas do Instagram e do LinkedIn, e o que **evitar**. Cada passo tem o botão que já faz a ação (ex.: "Buscar Contabilidade em Campinas").',
+                    blocos: [
+                        { t: 'Calendário', l: ['O card de hoje mostra a combinação do dia ("academia em Jundiaí"). "Buscar e montar campanha" já separa os melhores; "Só buscar" faz só a busca. "Esgotada": você já mandou para quase todas daquela busca — troque a cidade.', '**Montar plano das próximas semanas**: confira as cidades, ligue ou desligue nichos (cada um mostra quanto responde), escolha 10, 20, 30 ou 40 dias úteis → "Ver prévia" → "Salvar plano".', 'Regras: só dias úteis, nunca o mesmo nicho dois dias seguidos, não repete o que já buscou e nichos que respondem mais aparecem até 3 vezes mais.', 'Cada dia usado mostra o resultado (enviadas, responderam, interessados, R$). Atrasados pulam para os próximos dias úteis.', '**Colar plano**: uma linha por dia, "Nicho, Local". **Modelos**: salve o plano e gere outro trocando um termo.'] }
+                    ]
+                },
+                {
+                    titulo: 'Prospecção (busca no Google Maps)', resumo: 'Achar empresas, com nota de 0 a 100', aba: 'prospeccao',
+                    passos: ['Em **Nicho**, até 5 termos separados por vírgula: "contabilidade, contador, escritório contábil".', 'Em **Localidade**, a cidade ou o bairro: "Moema, São Paulo".', 'Escolha 20, 40, 60, 80 ou 100 leads. Quer bem mais empresas? Ligue **Buscar em 9 regiões** (divide a cidade, 20 a 40 minutos). Toque em **Buscar Leads**.', 'Espere de 3 a 6 minutos. Pode sair da aba: a busca continua no servidor e o celular avisa quando terminar.'],
+                    blocos: [
+                        { t: 'Enquanto você digita', l: ['"Somar à busca": sinônimos que trazem mais empresas.', '"Mais respondem": os 3 nichos que mais responderam para você.', 'Aviso de nicho fraco, quando responde bem menos que o seu melhor.'] },
+                        { t: 'Sozinho, depois da busca', l: ['Quem já recebeu mensagem sua é marcado e fica fora da próxima campanha. Novas empresas ganham "Novidade".', 'O app procura Instagram, Facebook e LinkedIn de cada empresa (1 a 2 minutos).', 'Confere quais números têm WhatsApp, devagar, até 400 por dia.', 'A busca vai para o Histórico e, se estava no Plano, fica marcada como feita.'] },
+                        { t: 'Score', l: ['**HOT** (70+), **WARM** (40 a 69), **COLD** (abaixo de 40). Somam: WhatsApp confirmado, celular, site, e-mail, redes, avaliações, nota, aberta agora, empresa nova e avaliação negativa (dor que você resolve). Depois de 200 envios o score aprende com quem respondeu para você.'] },
+                        { t: 'Filtros e botões', l: ['Filtros: HOT/WARM/COLD, com/sem site, Nunca contatados, Abertas há pouco, Novidades, Só celular, WhatsApp confirmado, Só Instagram (sem WhatsApp), Avaliação negativa, Bairros e "Verificar WhatsApp (N)".', '**Criar campanha com os N melhores**: separa quem tem WhatsApp, é HOT/WARM, nunca foi contatado (celular primeiro) e leva para a Prospecção WhatsApp.', '**Mesma busca em outra cidade**. **Buscar mais nesta cidade** aparece quando a busca trouxe 100: refaz em 9 regiões e traz até 1.000 empresas (20 a 40 minutos).', '**Não contatar**: quem nunca recebe campanha. Quem pede para sair entra sozinho.', '**Leads de grupos**: importa os números visíveis dos seus grupos de WhatsApp.', '**Abordar no Instagram (N)** e **Abordar no LinkedIn (N)** levam direto à abordagem por esses canais.'] }
+                    ],
+                    alertas: ['Leads de grupo: mensagem para quem não te conhece é o que mais gera denúncia. Use com moderação.']
+                },
+                {
+                    titulo: 'Meus Leads', resumo: 'Todo mundo que já recebeu campanha', aba: 'meusleads',
+                    texto: 'Uma linha por número, com o que aconteceu: respondeu, só resposta automática, sem resposta há N dias, no Pipeline ou em Não contatar.',
+                    blocos: [
+                        { t: 'Filtros e ações', l: ['Filtros: Todos, Responderam, Responderam fora do Pipeline, Sem resposta há mais de 3 dias, Só resposta automática, No Pipeline e Não contatar. Busca por nome, telefone, campanha ou resposta.', '**Pôr os N no Pipeline** (com "Responderam fora do Pipeline").', '**Repescagem** (com "Sem resposta" ou "Só resposta automática"): segunda mensagem para quem recebeu há 3 dias ou mais, sempre com a sua aprovação.', 'Planilha da lista filtrada. Em cada linha: Inbox, Pipeline, WhatsApp ou Não contatar.'] }
+                    ],
+                    dicas: ['Toda segunda, filtre "Responderam fora do Pipeline" e toque em "Pôr no Pipeline". Nenhuma resposta fica esquecida.']
+                }
+            ]
+        },
+        {
+            titulo: 'Conecte', cor: '#E23A6B', sub: 'O primeiro contato, em três canais.',
+            itens: [
+                {
+                    titulo: 'Prospecção WhatsApp', resumo: 'A IA escreve, você confere e dispara', aba: 'ia',
+                    passos: ['**Escolha o produto** e confira as instruções (veja "Produtos e Produto do dia").', '**Escolha os leads** (coluna da esquerda): "Prospectados" é a última busca; "Campanha" é uma lista salva. "Selecionar Tudo" já deixa de fora quem foi contatado, não tem WhatsApp ou está em Não contatar.', '**Veja a mensagem**: toque num lead e a prévia mostra como ele vai receber. Cada lead recebe um texto único.', '**Teste de Envio**: o seu número com DDI e "Enviar Teste".', '**Enviar Selecionados**: o resumo mostra quantos vão receber, quem fica de fora e o plano dia a dia ("25 hoje, 15 amanhã a partir das 07:00"). Toque em **Enviar Agora**.'],
+                    blocos: [
+                        { t: 'O que acontece sozinho', l: ['O envio roda no servidor: pode fechar o app. Uma campanha por vez.', '**A/B que aprende**: a IA testa 3 tons (Direto, Leve e Curta, até 280 caracteres) com 3 gatilhos (urgência, escassez e curiosidade). Depois de 60 envios usa a melhor em 80% das mensagens e segue testando nas outras 20%.', 'Nunca cita avaliação negativa do Google.', 'O que passar da cota do dia sai nos próximos dias úteis.'] },
+                        { t: 'Outros botões', l: ['"Reenviar N que não saíram".', '"Permitir reenviar para um número": libera por 3 dias quem já recebeu.', '"Ver panorama Teste A/B".'] }
+                    ]
+                },
+                {
+                    titulo: 'Prospecção Instagram', resumo: 'A IA escreve a DM, você envia pelo seu Instagram', aba: 'insta',
+                    texto: 'Nada é enviado pelo app: ele prepara a mensagem, abre a conversa e registra. A sua conta do Instagram fica só com você.',
+                    passos: ['Toque em **▶ Começar a abordar (N)**. Na fila entram empresas com Instagram que ainda não receberam WhatsApp; quem não tem WhatsApp vem primeiro ("Só sem WhatsApp" filtra só elas).', 'A IA escreve a DM usando a bio do Instagram da empresa quando encontra. Edite se quiser ou toque em "Gerar outra".', 'Toque em **Copiar e abrir conversa**, cole, envie e toque em Seguir no topo do perfil.', 'Volte para o app: a abordagem é registrada sozinha (ou toque em "Mandei"). Errou? "desfazer".'],
+                    blocos: [
+                        { t: 'Proteções', l: ['**Intervalo de segurança**: a próxima DM só libera 90 segundos depois da anterior ("Próxima DM em 1:28"). A IA já escreve a próxima enquanto isso. Dá para mudar em "mudar intervalo".', '**Limite de 20 DMs por dia** (mudável em "mudar limite").', 'Cada empresa é abordada uma vez só.'] },
+                        { t: 'Depois da DM', l: ['O card entra em Contatado no Pipeline, marcado como Instagram, com lembrete em 3 dias.', '**Retomar hoje**: quem recebeu a DM há 3 dias ou mais e não respondeu aparece com uma segunda mensagem, de outro ângulo, pronta. Botões: "Daqui a 3 dias", "Já tinha respondido" e "Sem interesse". A última da sequência é o "Último toque" (curta, deixando a porta aberta).', '**Últimos abordados**: marque Respondeu ou Sem interesse; "↩ voltar" devolve a empresa para a fila e deixa o Pipeline como estava.', '**Completar redes do histórico**: procura o Instagram e o LinkedIn das empresas das buscas e campanhas antigas, primeiro pelo site e depois pelo Google.', 'Abordagens avulsas sem campanha aparecem num aviso com o botão **Colocar numa campanha**.'] }
+                    ],
+                    alertas: ['DM em sequência rápida faz o Instagram bloquear ações da conta. Respeite o intervalo e o limite do dia.']
+                },
+                {
+                    titulo: 'Prospecção LinkedIn', resumo: 'Ache quem decide e mande o convite', aba: 'linkedin',
+                    passos: ['Toque em **▶ Começar a abordar (N)**. Em "1. Ache quem decide", use "Ver sócios e donos no LinkedIn"; o **provável decisor** aparece sozinho quando o app acha no site ou no Google.', '"2. Convite com nota" (até 200 caracteres): a IA escreve. "3. Mensagem para quando ele aceitar" já fica pronta nas notas do Pipeline.', 'Toque em "Copiar convite", mande no LinkedIn e depois em "Mandei o convite".'],
+                    blocos: [{ t: 'Bom saber', l: ['Limite de 15 convites por dia. Conta grátis tem poucos convites com nota por mês.', 'Mande para a pessoa, não para a página da empresa.', 'Em 3 dias o Pipeline lembra de ver quem aceitou ("Ver se aceitou"); a mensagem já fica no card (botão do LinkedIn). Aceitou? "✓ Aceitou e mandei".'] }]
+                },
+                {
+                    titulo: 'Campanhas', resumo: 'Resultados e cadências de WhatsApp, Instagram e LinkedIn', aba: 'campanhas',
+                    texto: 'No topo da aba você escolhe o canal: **WhatsApp**, **Instagram** ou **LinkedIn**.',
+                    blocos: [
+                        { t: 'WhatsApp', l: ['Cada campanha (mesmo nicho e cidade ficam juntos) mostra Enviados, Pessoas (%), Robô, Quentes e Ganhos, e se está acima ou abaixo da sua média. "Ver leads e mensagens" mostra o que aconteceu com cada um.', '**Retomar quem não respondeu**: segunda mensagem na fila de Respostas para quem recebeu há 3 dias ou mais.', '**Cadência de follow-up**: padrão dia 3, 7 e 14, sempre passando pela sua aprovação em Respostas. Mude em "⏱ Cadência padrão" ou no botão Cadência da campanha: dia de 1 a 90, "A IA escreve" ou "Texto fixo" ([Nome] vira o nome da empresa) e o **canal da etapa** (WhatsApp, Instagram ou LinkedIn: etapas de Instagram e LinkedIn viram tarefa em Respostas).', '"Repetir em outra cidade" e "Repetir com outro nicho". Listas salvas pelo "Gerar Campanha" aparecem como "Não disparada".', 'Não existe pausar: só cancelar. O app pausa e retoma sozinho fora do horário, no limite do dia, com o número em risco ou desconectado.'] },
+                        { t: 'Instagram e LinkedIn', l: ['**+ Nova campanha**: escolha de onde vêm as empresas (quem não respondeu no WhatsApp, uma busca salva, ou os **abordados avulsos sem campanha**) e a cadência: Primeira mensagem (dia 0), Retomar (dia 3) e Último toque (dia 7), editável até 60 dias. As tarefas do dia ficam prontas às 8h.', '"Mencionar que já chamamos no WhatsApp" vem desligado: ligado, a DM cita de leve o WhatsApp sem resposta.', '"Incluir quem eu já abordei avulso" vem ligado: essas empresas entram direto no Retomar, no dia certo contado da primeira mensagem.', 'As tarefas de cada dia aparecem em "Campanhas · hoje" na aba Prospecção do canal. Quem responde ou não tem interesse sai da cadência.', 'Pausar, retomar e excluir em cada campanha.'] }
+                    ]
+                }
+            ]
+        },
+        {
+            titulo: 'Converta', cor: '#7C3AED', sub: 'Até a venda.',
+            itens: [
+                {
+                    titulo: 'Respostas', resumo: 'A IA sugere, você aprova', aba: 'respostas',
+                    texto: 'Quando um lead responde, a IA classifica e escreve uma sugestão. Nada sai sem o seu toque. A fila vem em três grupos: **Interessados** ("cada minuto conta"), **Outras pessoas** e **Robôs de atendimento**; acima de 30 minutos de espera o tempo fica vermelho.',
+                    blocos: [
+                        { t: 'Classificações', l: ['**Quente** e **Dúvida**: responda primeiro.', '**Pare de mandar**: toque em "Não contatar mais".', '**Morno**, **Frio** e **Robô de atendimento**.'] },
+                        { t: 'Botões', l: ['**Enviar resposta** (se tiver um [trecho entre colchetes], preencha antes: o botão fica travado).', '**Já respondi pelo WhatsApp**, **Não tem interesse** (pergunta o motivo e manda para Perdido), **Descartar** (desfaz em "Respondidas e descartadas"), **Abrir no WhatsApp**, **Retomar depois**, **Marcar reunião** e **Não contatar**.'] },
+                        { t: 'Follow-ups e tarefas', l: ['No topo, os follow-ups da cadência do dia ("Dia 3", "Dia 7"…): edite, "Enviar follow-up" ou "Pular esta etapa". **Enviar todos** manda um a cada 20 a 40 segundos (toque de novo para parar).', 'Etapas de Instagram e LinkedIn da cadência multicanal também aparecem aqui como tarefa.', '**Robôs de atendimento**: o app escolhe Comercial no menu da empresa sozinho, no máximo 2 vezes em 24 h. Sem pessoa em 48 h, entra uma retomada curta para você aprovar.', '**Reunião com Google Agenda** (contas com agenda ligada): mostra horários livres, propõe 3 opções na resposta e, ao escolher, cria o evento com Google Meet. Segunda a sexta, 8h às 18h, com 2 h de antecedência.'] }
+                    ]
+                },
+                {
+                    titulo: 'Inbox', resumo: 'O seu WhatsApp dentro do app', aba: 'inbox',
+                    blocos: [
+                        { t: 'Lista', l: ['Filtros: Esperando você (padrão), Interessados, Não lidas, Esfriaram (mais de 7 dias), Grupos, Todas e Arquivadas.', 'Busca por nome, número (3 dígitos) ou palavras nas mensagens.', 'Conversa nova: digite o número com DDD e toque em "Começar conversa com…".'] },
+                        { t: 'Na conversa', l: ['Topo: etapa no Pipeline, campanha e há quanto tempo o lead espera.', 'Ações: Pipeline, Retomar, Reunião, Não contatar, Arquivar e "Retomar com IA" em conversas frias.', '**Sugerir resposta** (IA, com o produto da campanha), **Melhorar meu texto** e **Respostas rápidas** (até 12).', 'Anexar foto, vídeo, documento ou áudio; microfone para gravar. Enter envia, Shift+Enter pula linha.'] },
+                        { t: 'Grupos', l: ['"Escolher grupos para ver aqui": só as mensagens desses grupos ficam guardadas, por 30 dias.', 'Toque no nome de quem escreveu para chamar no privado ou pôr no Pipeline.', 'Pedidos de indicação ("alguém conhece um contador?") geram aviso; "Chamar no privado" faz a IA escrever citando o grupo.'] }
+                    ]
+                },
+                {
+                    titulo: 'Pipeline', resumo: 'O funil de vendas, card por card', aba: 'pipeline',
+                    blocos: [
+                        { t: 'As 6 etapas', l: ['**Novo lead** (você separou) → **Contatado** (sozinho ao enviar ou abordar) → **Respondeu** (sozinho quando responde) → **Negociando** (reunião marcada ou você arrasta) → **Ganho** → **Perdido** (com o motivo).'] },
+                        { t: 'O card', l: ['Classificação da IA, lembrete, reunião, valor em R$, última mensagem e dias na etapa (verde até 3, amarelo 4 a 7, vermelho acima de 7). A bolinha com número é a prioridade.', 'Atalhos: WhatsApp, Instagram, LinkedIn e → para a próxima etapa. Ou arraste.', 'Detalhe: **Próxima ação** (Amanhã, 3 dias, 1 semana ou data), conversa, reunião, valor, notas e remover.'] },
+                        { t: 'Ao mover', l: ['Para Negociando sem valor: pede uma estimativa. Para Ganho: grava a data e o valor. Para Perdido: o motivo em um clique (Sem interesse, Já tem fornecedor, Preço, Não responde, Só robô, Não é o momento, Outro).'] },
+                        { t: 'Topo', l: ['Resumo: em negociação (previsão), ganho no mês, retomar hoje e reuniões. Busca, filtro por nicho e campanha, e ordem (Mais quentes, Parados há mais tempo, Mais recentes).', '"Funil de Conversão" (10% a 20% de fechamento é a média). Faixa "leads esfriando": parados há 5 dias ou mais. Perdido fica recolhido com o resumo "Por que perdeu".', 'Com 2 produtos ou mais, cada produto tem o seu funil (veja "Produtos e Produto do dia").'] }
+                    ]
+                }
+            ]
+        },
+        {
+            titulo: 'Cresça', cor: '#165DFF', sub: 'O que já fez.',
+            itens: [
+                {
+                    titulo: 'Histórico', resumo: 'O que cada busca virou', aba: 'historico',
+                    texto: 'Cada busca com empresas, WhatsApp, enviadas, respostas, Pipeline e ganhos. Buscas iguais ficam juntas. No topo, **Onde vale buscar**: as 5 que mais trouxeram resposta (15% ou mais é bom; abaixo de 8% é fraco).',
+                    blocos: [{ t: 'Botões', l: ['**Continuar de onde parou** (só quem ainda não recebeu), Carregar todas, **Buscar de novo (só novas)**, **Cidade vizinha**, Planilha e Lixeira (apaga só o registro).'] }]
+                }
+            ]
+        },
+        {
+            titulo: 'Configuração', cor: '#64748B',
+            itens: [
+                {
+                    titulo: 'Integrações', resumo: 'WhatsApp, horário, ritmo, proteção e alertas', aba: 'integracoes',
+                    blocos: [
+                        { t: 'Cartões', l: ['**Como está tudo agora**: WhatsApp, IA, Horário, Envios de hoje e Alertas; o que estiver com problema tem "Resolver".', '**Integração WhatsApp**: QR Code ou código de 8 dígitos, "Testar Conexão" e "Desconectar / trocar número". Se cair por mais de 1 minuto, aparece a faixa vermelha "Conectar agora" e as campanhas ficam pausadas.', '**Horário de Envio**: recomendado segunda a sexta, 7h às 12h. Fora dele, pausa e volta sozinho.', '**Simulação Humanizada**: Seguro (90–180 s, 20/dia), Normal (60–120 s, 30/dia, padrão) ou Rápido (40–80 s, 50/dia, mais risco). Limite de 1 a 100 novas por dia; o servidor tem teto de 150 mensagens por dia.', '**Alertas e notificações**: número de alerta (lead quente, campanha finalizada ou pausada, WhatsApp que voltou, freio acionado e resumo às 18h) e notificações do aparelho.', '**Seus dados**: backup automático toda madrugada por 30 dias e "Baixar meus dados (Excel)".'] }
+                    ]
+                },
+                {
+                    titulo: 'Proteção do número', resumo: 'As travas que agem sozinhas', aba: 'integracoes',
+                    texto: '**Saúde do número** (Painel): nota de 0 a 100 com os sinais dos últimos 7 dias. Cinza: menos de 20 envios. Verde (75+): normal. Amarelo (50 a 74): corta o limite do dia pela metade. Vermelho (abaixo de 50): pausa as campanhas, confere a cada 3 h e avisa. É uma estimativa do app, não uma métrica oficial do WhatsApp.',
+                    blocos: [
+                        { t: 'Travas (Integrações → Proteção da conta)', l: ['**Um balão só** (ligada): a mensagem sai inteira, não em 3 balões.', '**Frear pela saúde do número** (ligada).', '**Conferir WhatsApp depois da busca** (ligada): até 400 por dia.', '**Responder robôs sozinho** (ligada): até 2 vezes em 24 h.', '**Cancelar se o WhatsApp derrubar o aparelho** (ligada).', '**Freio de bloqueio** (ligada): se 4 das últimas 10 empresas não receberem em 15 minutos, cancela e avisa.', '**Modo pós-restrição** (liga sozinho se o número cair): recomeça com 10 por dia e sobe 5 por dia até o limite normal.'] },
+                        { t: 'Boas práticas', l: ['Um número só para prospecção.', 'Número novo: duas semanas no pronto Seguro (20 por dia).', 'Suba o limite de 10 em 10 por semana, com a saúde verde.', 'Mensagem curta e com pergunta.', 'Respeite quem pede para sair.', 'Se o número cair, espere algumas horas, reconecte e deixe o modo pós-restrição trabalhar.'] }
+                    ],
+                    alertas: ['Nenhuma trava zera o risco. Com elas ligadas e as boas práticas, ele cai muito.']
+                }
+            ]
+        },
+        {
+            titulo: 'Rotina e dúvidas', cor: '#0D9488',
+            itens: [
+                {
+                    titulo: 'Rotina recomendada', resumo: '20 minutos de manhã, respostas rápidas durante o dia',
+                    blocos: [
+                        { t: 'Todo dia útil, antes das 9h', l: ['Painel: resolver "Precisa de você agora" e conferir a saúde do número.', 'Plano: seguir o consultor do dia e mandar a campanha pela Prospecção WhatsApp.', 'Respostas: aprovar os follow-ups do dia.', 'Instagram e LinkedIn: as tarefas de "Campanhas · hoje" e as DMs novas, respeitando o intervalo.'] },
+                        { t: 'Durante o dia', l: ['Responder os interessados em até 30 minutos.', 'Mover no Pipeline quem avançou, com valor e próxima ação.'] },
+                        { t: 'Toda segunda', l: ['"Onde prospectar" (Painel) e Histórico: o que mais respondeu.', 'Ajustar o Plano.', 'Meus Leads: pôr no Pipeline quem respondeu e ficou fora.', 'Pipeline: tratar os "leads esfriando".'] }
+                    ],
+                    dicas: ['Meta para começar: 30 envios por dia e 5% a 10% de respostas de pessoas, ou seja, de 1 a 3 conversas novas por dia.']
+                },
+                {
+                    titulo: 'Dúvidas frequentes', resumo: 'As perguntas mais comuns',
+                    blocos: [
+                        { t: 'Cliquei em Enviar e não começou', l: ['Pode estar fora do horário (padrão 7h às 12h, dias úteis) ou a cota do dia acabou: começa sozinha na próxima janela. Confira também se o WhatsApp está conectado.'] },
+                        { t: 'Posso pausar uma campanha?', l: ['Não há pausa manual, só cancelar. O app pausa e retoma sozinho quando precisa.'] },
+                        { t: 'Por que alguns leads ficaram de fora?', l: ['Já receberam mensagem sua, não têm WhatsApp, estão em Não contatar, número inválido ou repetido. Com mais de um produto, quem recebeu outro produto há menos de 30 dias também fica de fora.'] },
+                        { t: 'Preciso mandar de novo para um número', l: ['"Permitir reenviar para um número" na Prospecção WhatsApp; vale por 3 dias.'] },
+                        { t: 'Resposta automática conta como resposta?', l: ['Não. Robôs ficam separados e não entram na taxa.'] },
+                        { t: 'O botão de enviar a resposta está travado', l: ['A sugestão tem um [trecho entre colchetes] para preencher.'] },
+                        { t: 'O botão da DM do Instagram mostra "Próxima DM em…"', l: ['É o intervalo de segurança entre DMs. A mensagem já pode ser revisada enquanto isso.'] },
+                        { t: '"Sua conta entrou em outro aparelho"', l: ['O plano permite um número limitado de aparelhos ao mesmo tempo; o login mais antigo sai sozinho.'] },
+                        { t: 'Não recebo notificações no iPhone', l: ['Instale pela tela de início (Safari → Compartilhar → Adicionar à Tela de Início), abra por ele e ative em Integrações.'] },
+                        { t: 'A busca está demorando', l: ['Normal: 3 a 6 minutos. "Buscar mais nesta cidade": 20 a 40. O celular avisa quando terminar.'] }
+                    ]
+                },
+                {
+                    titulo: 'Ajuda, dados e privacidade', resumo: 'Peça ajuda, backup e LGPD',
+                    blocos: [{ t: 'Como funciona', l: ['**Peça ajuda** (rodapé do menu): conte o que aconteceu e toque em "Abrir no WhatsApp". O suporte recebe junto a sua conta, a tela e os erros recentes. Suporte: (11) 91511-7743.', 'Seus leads, conversas e Pipeline são só seus. Backup diário por 30 dias e "Baixar meus dados" a qualquer momento.', 'Termos de uso e Política de privacidade no rodapé do menu e na tela de login. Ao prospectar, identifique-se, ofereça algo relevante e respeite quem pedir para sair.'] }]
+                }
+            ]
+        }
+    ]
+};
 
 // ===================== PRODUTOS (SDR com vários produtos) =====================
 // Cada produto tem as próprias instruções para a IA. Trocou o produto, a campanha, as respostas

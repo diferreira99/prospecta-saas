@@ -929,3 +929,31 @@ test('campanha adota as abordagens avulsas no Retomar (contando da 1ª DM) e a D
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('Manual do Cliente: aba depois de Configuração, com busca e botão que abre a tela', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      const itens = [...document.querySelectorAll('nav .nav-item, nav .nav-section')].map(x => x.textContent.trim().replace(/\s+/g, ' '));
+      trocarAba('manual', document.querySelector(".nav-item[onclick*=\"'manual'\"]"));
+      await new Promise(r => setTimeout(r, 200));
+      const box = document.getElementById('manual-box');
+      const total = box.querySelectorAll('details').length;
+      const busca = box.querySelector('.manual-busca'); busca.value = 'intervalo dm'; busca.dispatchEvent(new Event('input'));
+      const visiveis = [...box.querySelectorAll('details')].filter(d => !d.hidden).map(d => d.querySelector('summary').textContent);
+      busca.value = 'xyzabc'; busca.dispatchEvent(new Event('input'));
+      const vazio = !box.querySelector('.manual-vazio').hidden;
+      busca.value = ''; busca.dispatchEvent(new Event('input'));
+      const pipe = [...box.querySelectorAll('details')].find(d => /Pipeline/.test(d.querySelector('summary').textContent) && d.querySelector('.manual-ir'));
+      pipe.querySelector('.manual-ir').click();
+      return { ultimo: itens[itens.length - 1], penultimo: itens[itens.length - 2], titulo: document.getElementById('page-title').textContent, total, visiveis, vazio, abriu: document.getElementById('tab-pipeline').classList.contains('active') };
+    });
+    assert.match(r.ultimo, /Manual do Cliente/);
+    assert.match(r.penultimo, /Integrações/);
+    assert.ok(r.total >= 20, 'seções: ' + r.total);
+    assert.ok(r.visiveis.some(t => /Instagram/.test(t)), JSON.stringify(r.visiveis));
+    assert.strictEqual(r.vazio, true);
+    assert.strictEqual(r.abriu, true);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
