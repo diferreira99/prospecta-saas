@@ -6284,6 +6284,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 <script>
 // ── ESTADO ──
+// Produtos: declarados aqui no topo porque telas desenhadas na abertura do app (antes do fim deste script) já usam
+var _produtos = [];
+var _prodCampanhas = {};          // campanha_id -> produto_id
+var _enviosPorTel = new Map();    // telefone -> envios que já recebeu (campanha e quando)
+var PROD_INTERVALO_DIAS = 30;     // outro produto só fala com a mesma empresa depois disso
 let todosLeads   = [];
 let dadosEnriquecidos = {}; // índice global → dados enriquecidos
 // (sistema antigo de Kanban removido — o CRM de verdade hoje é o Pipeline, aba própria no menu, com dado na nuvem)
@@ -8382,7 +8387,7 @@ function renderCampanhas() {
     if (!lista) return;
     // O que já foi disparado aparece em "Campanhas disparadas" (números reais da nuvem); aqui ficam só as listas salvas
     // (_prodCampanhas tem todas as já disparadas, de qualquer produto: o Painel filtra o _cpIdsComEnvio pelo produto da visão)
-    const _disparada = c => (typeof _cpIdsComEnvio !== 'undefined' && (_cpIdsComEnvio.has(String(c.id)) || _cpIdsComEnvio.has('camp_' + c.id))) || !!(_prodCampanhas[c.id] || _prodCampanhas['camp_' + c.id]);
+    const _disparada = c => (typeof _cpIdsComEnvio !== 'undefined' && (_cpIdsComEnvio.has(String(c.id)) || _cpIdsComEnvio.has('camp_' + c.id))) || !!(_prodCampanhas && (_prodCampanhas[c.id] || _prodCampanhas['camp_' + c.id]));
     const salvas = campanhas.filter(c => !_disparada(c));
     const titSalvas = document.getElementById('cp-salvas-tit');
     if (titSalvas) titSalvas.hidden = !salvas.length;
@@ -11152,8 +11157,6 @@ let _telefonesEnviadosCache = new Set();
 let _telefonesEnviadosCarregado = false;
 // Cada número com os envios que já recebeu (campanha e quando). A mesma empresa pode receber
 // outro produto, mas só depois de PROD_INTERVALO_DIAS do último contato; o mesmo produto, nunca.
-let _enviosPorTel = new Map();
-const PROD_INTERVALO_DIAS = 30;
 function _enviadosRecalcular() {
     const p = typeof prodAtual === 'function' ? prodAtual() : null;
     const lim = Date.now() - PROD_INTERVALO_DIAS * 86400000;
@@ -13629,7 +13632,6 @@ async function ccNova(canal) {
 // ===================== PRODUTOS (SDR com vários produtos) =====================
 // Cada produto tem as próprias instruções para a IA. Trocou o produto, a campanha, as respostas
 // sugeridas e os follow-ups passam a falar dele. O ⭐ padrão vale para quem não veio de campanha.
-var _produtos = [];
 var _prodTimer = null;
 function prodAtual() { const id = userGet('produto_atual', ''); return _produtos.find(p => p.id === id) || prodPadrao(); }
 function prodPadrao() { return _produtos.find(p => p.padrao) || _produtos[0] || null; }
@@ -13730,7 +13732,6 @@ async function prodExcluir() {
 // ── Visão por produto: o produto escolhido no topo vale para o app inteiro ──
 // Painel, Resultados, Pipeline, Campanhas e o consultor mostram só o que foi feito para ele.
 // "Todos" junta tudo e mostra a etiqueta do produto. O que já existia antes conta como do produto ⭐ padrão.
-var _prodCampanhas = {};   // campanha_id -> produto_id
 // Com um produto só não existe "outro": nada é filtrado
 function prodVisao() { if (_produtos.length < 2 || userGet('produto_visao', '') === 'todos') return 'todos'; return (prodAtual() || {}).id || 'todos'; }
 function prodTodos() { return prodVisao() === 'todos'; }

@@ -855,3 +855,16 @@ test('produto do dia: o seletor do topo troca o app inteiro, Pipeline separado e
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('abrir o app com campanhas e leads salvos no aparelho não quebra a inicialização (Painel não fica zerado)', async () => {
+  const a = await abrirApp({ largura: 390, antes: () => {
+    localStorage.setItem('prospectaEmail', 'teste@x.com');
+    localStorage.setItem('teste@x.com__campanhas', JSON.stringify([{ id: 1792089928944, nome: 'Pet SP', leads: [{ title: 'Pet A', phone: '11911110001' }], criadaEm: Date.now() }, { id: 'camp_1792159244118', nome: 'Odonto', leads: [], criadaEm: Date.now() }]));
+    localStorage.setItem('teste@x.com__ultimosLeads', JSON.stringify({ leads: [{ title: 'Pet A', phone: '11911110001', rating: 4.5 }], nicho: 'pet', local: 'SP' }));
+  } });
+  try {
+    const r = await a.pagina.evaluate(() => ({ config: typeof config, cpMedia: typeof cpMedia, enviado: leadJaFoiEnviado('11911110001'), score: typeof calcScore({ title: 'x', rating: 4 }) }));
+    assert.deepStrictEqual(r, { config: 'object', cpMedia: 'function', enviado: false, score: 'number' });
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});

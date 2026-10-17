@@ -33,9 +33,10 @@ window.supabase = { createClient: () => {
 }
 
 // rotas: [[regex do caminho, (pedido) => resposta json]] para servidores falsos (n8n, WhatsApp, agenda)
-async function abrirApp({ db, rpcs, rotas = [], largura = 390 } = {}) {
+async function abrirApp({ db, rpcs, rotas = [], largura = 390, antes = null } = {}) {   // antes: roda no navegador antes do app (ex.: dados salvos no aparelho)
   const navegador = await chromium.launch();
   const ctx = await navegador.newContext({ viewport: { width: largura, height: 844 } });
+  if (antes) await ctx.addInitScript(antes);
   const pagina = await ctx.newPage();
   const erros = [];
   pagina.on('pageerror', e => erros.push(e.message));
