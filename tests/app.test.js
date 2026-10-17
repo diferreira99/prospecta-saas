@@ -1036,3 +1036,38 @@ test('Métricas de Envio nos 3 canais: cartões somam WhatsApp, Instagram e Link
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('Números do WhatsApp: lista em Integrações, etiqueta no topo e troca do número ligado', async () => {
+  let lista = [
+    { id: 'principal', apelido: 'Principal', numero: '5511911112222', ativo: true, conectado: true, temSessao: true, ultimaConexao: new Date().toISOString() },
+    { id: 'n1', apelido: 'Reserva', numero: '5511933334444', ativo: false, conectado: false, temSessao: true, ultimaConexao: new Date(Date.now() - 12 * 86400000).toISOString() },
+  ];
+  const a = await abrirApp({ largura: 1280, rotas: [
+    [/\/numeros\/usar$/, (j) => { lista = lista.map(n => ({ ...n, ativo: n.id === j.id, conectado: n.id === j.id })); return { ok: true }; }],
+    [/\/numeros$/, () => ({ ativo: lista.find(n => n.ativo).id, numeros: lista })],
+    [/\/status$/, () => ({ connected: true })],
+  ] });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      config.uazapi = { url: 'https://srv.test', token: 't' }; window.confirm = () => true;
+      trocarAba('integracoes', document.querySelector(".nav-item[onclick*=\"'integracoes'\"]"));
+      await numCarregar();
+      const card = document.getElementById('integ-card-numeros');
+      const out = { visivel: !card.hidden, itens: [...card.querySelectorAll('.num-item')].map(x => x.innerText.replace(/\s+/g, ' ')), topo: document.getElementById('num-topo').textContent, topoVis: !document.getElementById('num-topo').hidden };
+      await numUsar(_nums.numeros[1]); await new Promise(r => setTimeout(r, 300));
+      out.depois = document.getElementById('num-topo').textContent;
+      return out;
+    });
+    assert.strictEqual(r.visivel, true);
+    assert.match(r.itens[0], /Principal\s*Ligado agora/);
+    assert.match(r.itens[1], /Reserva\s*Guardado .*última conexão há 12 dias.*Parado há muito tempo.*Usar este/);
+    assert.ok(r.topoVis); assert.strictEqual(r.topo, '📱 Principal · 2222');
+    assert.strictEqual(r.depois, '📱 Reserva · 4444');
+    const pedido = a.pedidos.find(p => /\/numeros\/usar$/.test(p.caminho));
+    assert.deepStrictEqual(pedido.corpo, { id: 'n1' });
+    // servidor antigo (sem /numeros): nada aparece
+    const r2 = await a.pagina.evaluate(async () => { _nums = { semSuporte: true }; numPintar(); numTopoPintar(); return [document.getElementById('integ-card-numeros').hidden, document.getElementById('num-topo').hidden]; });
+    assert.deepStrictEqual(r2, [true, true]);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
