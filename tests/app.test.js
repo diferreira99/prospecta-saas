@@ -971,29 +971,22 @@ test('Manual do Cliente: aba depois de Configuração, com busca e botão que ab
   } finally { await a.fechar(); }
 });
 
-test('Painel: os 3 canais lado a lado, com hoje, 7 dias, taxa e projeção de 30 dias', async () => {
-  const agora = Date.now(), dia = 86400000;
+test('Painel: hoje nos 3 canais (enviados, limite, responderam e progresso), igual ao do WhatsApp', async () => {
+  const agora = Date.now(), dia = 86400000, hoje = new Date(agora).toISOString(), ontem = new Date(agora - dia).toISOString();
   const leads = [];
-  for (let i = 0; i < 20; i++) leads.push({ id: 'w' + i, user_id: 'u1', campanha_id: 'c1', phone: '55119000000' + String(i).padStart(2, '0'), enviado_em: new Date(agora - (i < 2 ? 0 : (i % 10 + 1)) * dia).toISOString(), respondeu: i < 5, resposta_suspeita_bot: i === 4 });
-  const ig = []; for (let i = 0; i < 11; i++) ig.push({ id: i + 1, user_id: 'u1', chave: 'ig' + i, criado_em: new Date(agora).toISOString(), resultado: i === 0 ? 'respondeu' : null });
+  for (let i = 0; i < 6; i++) leads.push({ id: 'w' + i, user_id: 'u1', campanha_id: 'c1', phone: '551190000000' + i, enviado_em: i < 3 ? hoje : ontem, respondeu: i < 2, resposta_suspeita_bot: i === 1, respondido_em: i < 2 ? hoje : null });
+  const ig = []; for (let i = 0; i < 11; i++) ig.push({ id: i + 1, user_id: 'u1', chave: 'ig' + i, criado_em: i < 10 ? hoje : ontem, resultado: i === 10 ? 'respondeu' : null, resultado_em: i === 10 ? hoje : null });
   const a = await abrirApp({ largura: 1280, db: { leads, abordagens_instagram: ig, abordagens_linkedin: [] } });
   try {
     const r = await a.pagina.evaluate(async () => {
       await painelCanaisCarregar();
-      const cs = [...document.querySelectorAll('#pc-corpo .pc-canal')].map(c => c.innerText.replace(/\s+/g, ' '));
-      return { cs, total: document.querySelector('#pc-corpo .pc-total').innerText.replace(/\s+/g, ' ') };
+      return { cols: [...document.querySelectorAll('#pc-canais .pc-canal')].map(c => c.innerText.replace(/\s+/g, ' ')), total: document.getElementById('pc-total').innerText, ic: document.querySelectorAll('#pc-canais .pc-ic svg').length };
     });
-    assert.strictEqual(r.cs.length, 3);
-    assert.match(r.cs[0], /WhatsApp Hoje: 2 de 30 mensagens/);
-    assert.match(r.cs[0], /20 desde o início/);
-    assert.match(r.cs[0], /20% taxa de resposta/, 'só pessoas: 4 de 20 (o robô não conta)');
-    assert.match(r.cs[0], /No ritmo atual: ~\d+ mensagens em 30 dias, ~\d+ respostas/);
-    assert.match(r.cs[0], /Usando o limite todo: até 660 → ~132 respostas/);
-    assert.match(r.cs[1], /Instagram Hoje: 11 de 20 DMs/);
-    assert.match(r.cs[1], /— taxa \(aguardando respostas\)/, 'DMs de hoje: ainda sem taxa');
-    assert.match(r.cs[2], /LinkedIn Hoje: 0 de 15 convites/);
-    assert.match(r.cs[2], /taxa \(com 10 envios\)/);
-    assert.match(r.total, /Somando os 3 canais: hoje 13 contatos/);
+    assert.strictEqual(r.cols.length, 3); assert.strictEqual(r.ic, 3);
+    assert.match(r.cols[0], /WhatsApp Enviados hoje 3 Limite diário 30 Responderam hoje 1 Progresso do dia 10%/, 'robô não conta');
+    assert.match(r.cols[1], /Instagram DMs hoje 10 Limite diário 20 Responderam hoje 1 Progresso do dia 50%/);
+    assert.match(r.cols[2], /LinkedIn Convites hoje 0 Limite diário 15 Responderam hoje 0 Progresso do dia 0%/);
+    assert.match(r.total, /Hoje, somando os 3 canais: 13 contatos e 2 respostas/);
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });

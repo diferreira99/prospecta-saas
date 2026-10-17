@@ -205,19 +205,17 @@
         .pc-grade { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
         @media (max-width: 760px) { .pc-grade { grid-template-columns: 1fr; } }
         .pc-canal { border: 1px solid #E8EAEF; border-radius: 12px; padding: 12px 14px; border-top: 3px solid var(--pc-cor); }
-        .pc-cab { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 0.86rem; margin-bottom: 8px; }
+        .pc-wa { --pc-cor: #16a34a; } .pc-ig { --pc-cor: #c13584; } .pc-li { --pc-cor: #0a66c2; }
+        .pc-cab { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 0.86rem; margin-bottom: 10px; }
         .pc-ic { width: 26px; height: 26px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; background: var(--pc-cor); color: #fff; }
         .pc-ic svg { width: 15px; height: 15px; }
-        .pc-hoje { font-size: 0.72rem; color: #475069; display: flex; justify-content: space-between; gap: 6px; }
-        .pc-barra { height: 6px; border-radius: 99px; background: #EEF0F5; margin: 4px 0 10px; overflow: hidden; }
-        .pc-barra i { display: block; height: 100%; background: var(--pc-cor); border-radius: 99px; }
-        .pc-num { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; font-size: 0.7rem; color: #64748B; }
-        .pc-num b { display: block; font-size: 1.05rem; color: #0D1330; font-weight: 800; }
-        .pc-proj { margin-top: 10px; padding-top: 9px; border-top: 1px dashed #E4E7EF; font-size: 0.72rem; color: #334155; line-height: 1.5; }
-        .pc-proj b { color: #0D1330; }
-        .pc-total { margin-top: 12px; background: linear-gradient(135deg, #0D1330, #1e2a6b); color: #fff; border-radius: 12px; padding: 12px 14px; font-size: 0.78rem; line-height: 1.55; }
-        .pc-total b { font-size: 0.95rem; }
-        .pc-total small { display: block; color: #cdd5f3; font-size: 0.68rem; margin-top: 4px; }
+        .pc-linha { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: #334155; margin-bottom: 6px; }
+        .pc-linha b { font-size: 1.05rem; font-weight: 800; color: var(--pc-cor); }
+        .pc-linha b.pc-lim { color: #d97706; }
+        .pc-prog { display: flex; justify-content: space-between; font-size: 0.68rem; color: #64748B; margin: 8px 0 4px; }
+        .pc-barra { height: 8px; border-radius: 99px; background: #E0E6EF; overflow: hidden; }
+        .pc-barra i { display: block; height: 100%; width: 0; border-radius: 99px; background: var(--pc-cor); transition: width 0.5s; }
+        .pc-total { margin-top: 12px; background: #f5f7ff; border-radius: 10px; padding: 10px 12px; font-size: 0.78rem; color: #0D1330; }
         .ig-espera { font-size: 0.7rem; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 7px 10px; margin: 8px 0 0; line-height: 1.4; }
         /* ── MANUAL DO CLIENTE ── */
         .manual { max-width: 860px; margin: 0 auto; font-family: 'Inter', sans-serif; color: #0D1330; }
@@ -6085,10 +6083,36 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div id="ph-saude"><div class="ph-mudo">Carregando…</div></div>
                 </section>
             </div>
-            <!-- PAINEL: os 3 canais de prospecção lado a lado, com projeção -->
+            <!-- PAINEL: hoje nos 3 canais (WhatsApp, Instagram, LinkedIn) -->
             <section id="pc-canais" class="ph-card pr-bloco" aria-labelledby="pc-t">
-                <h3 id="pc-t">Seus 3 canais <span class="ph-tag">projeção de 30 dias</span></h3>
-                <div id="pc-corpo"><div class="ph-mudo">Carregando…</div></div>
+                <h3 id="pc-t">Hoje nos 3 canais <span class="ph-tag">atualizado às <span id="mc-ultima-atualizacao">—</span></span></h3>
+                <div class="pc-grade">
+                    <div class="pc-canal pc-wa">
+                        <div class="pc-cab"><span class="pc-ic" data-ic="wa"></span>WhatsApp</div>
+                        <div class="pc-linha"><span>Enviados hoje</span><b class="pc-env" id="mc-hoje-enviados">—</b></div>
+                        <div class="pc-linha"><span>Limite diário</span><b class="pc-lim" id="mc-hoje-limite">—</b></div>
+                        <div class="pc-linha"><span>Responderam hoje</span><b class="pc-resp" id="pc-wa-resp">—</b></div>
+                        <div class="pc-prog"><span>Progresso do dia</span><span id="mc-hoje-pct">0%</span></div>
+                        <div class="pc-barra"><i id="mc-hoje-bar"></i></div>
+                    </div>
+                    <div class="pc-canal pc-ig">
+                        <div class="pc-cab"><span class="pc-ic" data-ic="ig"></span>Instagram</div>
+                        <div class="pc-linha"><span>DMs hoje</span><b class="pc-env" id="pc-ig-env">—</b></div>
+                        <div class="pc-linha"><span>Limite diário</span><b class="pc-lim" id="pc-ig-lim">—</b></div>
+                        <div class="pc-linha"><span>Responderam hoje</span><b class="pc-resp" id="pc-ig-resp">—</b></div>
+                        <div class="pc-prog"><span>Progresso do dia</span><span id="pc-ig-pct">0%</span></div>
+                        <div class="pc-barra"><i id="pc-ig-bar"></i></div>
+                    </div>
+                    <div class="pc-canal pc-li">
+                        <div class="pc-cab"><span class="pc-ic" data-ic="li"></span>LinkedIn</div>
+                        <div class="pc-linha"><span>Convites hoje</span><b class="pc-env" id="pc-li-env">—</b></div>
+                        <div class="pc-linha"><span>Limite diário</span><b class="pc-lim" id="pc-li-lim">—</b></div>
+                        <div class="pc-linha"><span>Responderam hoje</span><b class="pc-resp" id="pc-li-resp">—</b></div>
+                        <div class="pc-prog"><span>Progresso do dia</span><span id="pc-li-pct">0%</span></div>
+                        <div class="pc-barra"><i id="pc-li-bar"></i></div>
+                    </div>
+                </div>
+                <div class="pc-total" id="pc-total" hidden></div>
             </section>
             <!-- PAINEL: funil do envio até a venda -->
             <section id="pr-funil" class="ph-card pr-bloco" aria-labelledby="pr-t-funil">
@@ -6172,36 +6196,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <h3 id="pr-t-parado">Pipeline parado</h3>
                     <div id="pr-parado"><div class="ph-mudo">Carregando…</div></div>
                 </section>
-            </div>
-
-            <!-- Linha 2: Hoje -->
-            <div style="display:grid;grid-template-columns:1fr;gap:14px;margin-bottom:22px;">
-                <!-- Hoje -->
-                <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:18px;">
-                    <div style="font-family:'Inter',sans-serif;font-size:0.6rem;color:var(--muted);letter-spacing:0.5px;margin-bottom:12px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> HOJE</div>
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                        <span style="font-size:0.85rem;color:var(--text);">Enviados hoje</span>
-                        <span style="font-family:'Inter',sans-serif;font-size:1.1rem;font-weight:700;color:#16a34a;" id="mc-hoje-enviados">—</span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                        <span style="font-size:0.85rem;color:var(--text);">Limite diário</span>
-                        <span style="font-family:'Inter',sans-serif;font-size:1.1rem;font-weight:700;color:#d97706;" id="mc-hoje-limite">30</span>
-                    </div>
-                    <div style="margin-top:8px;">
-                        <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:var(--muted);margin-bottom:4px;">
-                            <span>Progresso do dia</span>
-                            <span id="mc-hoje-pct">0%</span>
-                        </div>
-                        <div style="background:#E0E6EF;border-radius:99px;height:8px;overflow:hidden;">
-                            <div id="mc-hoje-bar" style="height:100%;border-radius:99px;background:linear-gradient(90deg,#16a34a,#4ade80);width:0%;transition:width 0.5s;"></div>
-                        </div>
-                    </div>
-                    <div style="margin-top:12px;font-family:'Inter',sans-serif;font-size:0.6rem;color:var(--muted);">
-                        Última atualização: <span id="mc-ultima-atualizacao">—</span>
-                    </div>
-                </div>
-
-
             </div>
 
             <!-- Log de campanhas recentes -->
@@ -16708,88 +16702,48 @@ async function prProdutosCarregar() {
         sec.hidden = false;
     } catch (e) { sec.hidden = true; }
 }
-// ── Painel: os 3 canais (WhatsApp, Instagram, LinkedIn) lado a lado, com projeção de 30 dias ──
-// Envio = 1º contato (WhatsApp enviado, DM ou convite registrado). Resposta: no WhatsApp só de pessoa (robô não conta);
-// no Instagram e no LinkedIn, o que você marcou como "respondeu". Projeção: ritmo dos últimos 14 dias × 22 dias úteis.
-const PC_DIAS_UTEIS_MES = 22;
-function _pcDiasUteis(desde) {   // dias úteis de `desde` até hoje (inclui hoje)
-    let n = 0; const d = new Date(desde); d.setHours(0, 0, 0, 0); const fim = new Date(); fim.setHours(0, 0, 0, 0);
-    for (; d <= fim; d.setDate(d.getDate() + 1)) { const w = d.getDay(); if (w && w !== 6) n++; }
-    return Math.max(1, n);
-}
-function pcResumo(itens, limite) {
-    // itens: [{ t: ms, resp: bool }]
-    const agora = Date.now(), ini = new Date(); ini.setHours(0, 0, 0, 0);
-    const d7 = agora - 7 * 86400000, d14 = agora - 14 * 86400000;
-    const hoje = itens.filter(x => x.t >= ini.getTime()).length;
-    const s7 = itens.filter(x => x.t >= d7), s14 = itens.filter(x => x.t >= d14);
-    const total = itens.length, resp = itens.filter(x => x.resp).length;
-    // taxa só com 10 envios e 3 dias desde o primeiro (antes disso ninguém teve tempo de responder)
-    const primeiro = itens.length ? Math.min(...itens.map(x => x.t)) : agora;
-    const maduro = agora - primeiro >= 3 * 86400000;
-    const taxa = total >= 10 && maduro ? resp / total : null;
-    const porDia = s14.length / _pcDiasUteis(d14);
-    const proj = Math.round(porDia * PC_DIAS_UTEIS_MES);
-    const cap = (limite || 0) * PC_DIAS_UTEIS_MES;
-    return { maduro, hoje, limite, env7: s7.length, resp7: s7.filter(x => x.resp).length, total, resp, taxa, porDia, proj,
-        projResp: taxa != null ? Math.round(proj * taxa) : null, cap, capResp: taxa != null ? Math.round(cap * taxa) : null };
-}
+// ── Painel: hoje nos 3 canais. O WhatsApp (enviados, limite, progresso) continua vindo das métricas de envio;
+// aqui entram o Instagram, o LinkedIn e quem respondeu hoje em cada canal (no Instagram e no LinkedIn, o que você marcou).
 let _pcRodando = false;
+function _pcPintar(k, env, lim) {
+    const pct = lim ? Math.min(100, Math.round(env / lim * 100)) : 0;
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    set(`pc-${k}-env`, env); set(`pc-${k}-lim`, lim); set(`pc-${k}-pct`, pct + '%');
+    const bar = document.getElementById(`pc-${k}-bar`); if (bar) bar.style.width = pct + '%';
+}
 async function painelCanaisCarregar() {
-    const box = document.getElementById('pc-corpo');
-    if (!box || _pcRodando || typeof currentUser === 'undefined' || !currentUser) return;
+    if (!document.getElementById('pc-canais') || _pcRodando || typeof currentUser === 'undefined' || !currentUser) return;
     _pcRodando = true;
     try {
-        const uid = currentUser.id;
-        const [wa, ig, li] = await Promise.all([
-            prBuscarTudo(() => prodQ(supabaseClient.from('leads').select('enviado_em,respondeu,resposta_suspeita_bot,campanha_id').eq('user_id', uid).not('enviado_em', 'is', null).order('id'))).then(r => prodFiltrar(r)),
-            prBuscarTudo(() => supabaseClient.from('abordagens_instagram').select('id,criado_em,resultado,produto_id').eq('user_id', uid).order('id')).then(r => prodPipe(r)).catch(() => []),
-            prBuscarTudo(() => supabaseClient.from('abordagens_linkedin').select('id,criado_em,resultado,produto_id').eq('user_id', uid).order('id')).then(r => prodPipe(r)).catch(() => []),
+        document.querySelectorAll('#pc-canais .pc-ic').forEach(ic => { if (!ic.innerHTML) ic.innerHTML = { wa: _LOGO_REDE.whatsapp, ig: _IG_GLIFO, li: _LI_GLIFO }[ic.dataset.ic] || ''; });
+        const uid = currentUser.id, ini = new Date(); ini.setHours(0, 0, 0, 0); const iso = ini.toISOString();
+        const deHoje = t => !!t && new Date(t).getTime() >= ini.getTime();
+        const [waResp, ig, li] = await Promise.all([
+            prBuscarTudo(() => prodQ(supabaseClient.from('leads').select('respondeu,resposta_suspeita_bot,campanha_id,respondido_em').eq('user_id', uid).gte('respondido_em', iso).order('id'))).then(r => prodFiltrar(r).filter(l => l.respondeu && !l.resposta_suspeita_bot && deHoje(l.respondido_em)).length).catch(() => null),
+            prBuscarTudo(() => supabaseClient.from('abordagens_instagram').select('id,criado_em,resultado,resultado_em,produto_id').eq('user_id', uid).order('id')).then(r => prodPipe(r)).catch(() => []),
+            prBuscarTudo(() => supabaseClient.from('abordagens_linkedin').select('id,criado_em,resultado,resultado_em,produto_id').eq('user_id', uid).order('id')).then(r => prodPipe(r)).catch(() => []),
         ]);
-        let limWa = 30; try { limWa = _iaLimiteDiario(); } catch (e) {}
-        const canais = [
-            { k: 'wa', nome: 'WhatsApp', cor: '#16a34a', ic: _LOGO_REDE.whatsapp, verbo: 'mensagens', aba: 'ia',
-              r: pcResumo(wa.map(l => ({ t: new Date(l.enviado_em).getTime(), resp: !!l.respondeu && !l.resposta_suspeita_bot })), limWa) },
-            { k: 'ig', nome: 'Instagram', cor: '#c13584', ic: _IG_GLIFO, verbo: 'DMs', aba: 'insta',
-              r: pcResumo(ig.map(a => ({ t: new Date(a.criado_em).getTime(), resp: a.resultado === 'respondeu' })), igLimite()) },
-            { k: 'li', nome: 'LinkedIn', cor: '#0a66c2', ic: _LI_GLIFO, verbo: 'convites', aba: 'linkedin',
-              r: pcResumo(li.map(a => ({ t: new Date(a.criado_em).getTime(), resp: a.resultado === 'respondeu' })), liLimite()) },
-        ];
-        const n = v => Number(v || 0).toLocaleString('pt-BR');
-        box.replaceChildren();
-        const grade = prEl('div', 'pc-grade');
-        canais.forEach(c => {
-            const r = c.r, el = prEl('div', 'pc-canal'); el.style.setProperty('--pc-cor', c.cor);
-            const cab = prEl('div', 'pc-cab'); const ic = prEl('span', 'pc-ic'); ic.innerHTML = c.ic; cab.append(ic, c.nome); el.appendChild(cab);
-            const hj = prEl('div', 'pc-hoje'); hj.append(prEl('span', '', `Hoje: ${r.hoje} de ${r.limite} ${c.verbo}`), prEl('span', '', r.limite ? Math.min(100, Math.round(r.hoje / r.limite * 100)) + '%' : ''));
-            el.appendChild(hj);
-            const bar = prEl('div', 'pc-barra'); const fill = document.createElement('i'); fill.style.width = (r.limite ? Math.min(100, r.hoje / r.limite * 100) : 0) + '%'; bar.appendChild(fill); el.appendChild(bar);
-            const num = prEl('div', 'pc-num');
-            const cel = (v, t) => { const d = prEl('div'); d.append(prEl('b', '', v), t); return d; };
-            num.append(cel(n(r.env7), 'últimos 7 dias'), cel(n(r.resp7), 'responderam (7 dias)'), cel(n(r.total), 'desde o início'),
-                cel(r.taxa != null ? prPctTxt(r.resp, r.total) : '—', r.taxa != null ? 'taxa de resposta' : (r.total >= 10 ? 'taxa (aguardando respostas)' : 'taxa (com 10 envios)')));
-            el.appendChild(num);
-            const pj = prEl('div', 'pc-proj');
-            if (r.proj) pj.innerHTML = `No ritmo atual: <b>~${n(r.proj)} ${c.verbo}</b> em 30 dias` + (r.projResp != null ? `, <b>~${n(r.projResp)} respostas</b>.` : '.');
-            else pj.innerHTML = `Sem envios nos últimos 14 dias.`;
-            if (r.cap) pj.innerHTML += `<br>Usando o limite todo: até <b>${n(r.cap)}</b>` + (r.capResp != null ? ` → <b>~${n(r.capResp)} respostas</b>.` : '.');
-            const ir = prEl('button', 'ig-link', 'Abrir ' + c.nome + ' →'); ir.type = 'button';
-            ir.onclick = () => trocarAba(c.aba, document.querySelector(`.nav-item[onclick*="'${c.aba}'"]`));
-            pj.appendChild(document.createElement('br')); pj.appendChild(ir);
-            el.appendChild(pj);
-            grade.appendChild(el);
-        });
-        box.appendChild(grade);
-        // somando os 3
-        const tot = canais.reduce((a, c) => ({ proj: a.proj + c.r.proj, resp: a.resp + (c.r.projResp || 0), cap: a.cap + c.r.cap, capResp: a.capResp + (c.r.capResp || 0), hoje: a.hoje + c.r.hoje }), { proj: 0, resp: 0, cap: 0, capResp: 0, hoje: 0 });
-        const t = prEl('div', 'pc-total');
-        t.innerHTML = `Somando os 3 canais: hoje <b>${n(tot.hoje)}</b> contatos. Nos próximos 30 dias, no ritmo atual, <b>~${n(tot.proj)} contatos</b> e <b>~${n(tot.resp)} respostas</b>. ` +
-            `Usando o limite todo dos 3: <b>~${n(tot.cap)} contatos</b> e <b>~${n(tot.capResp)} respostas</b>.` +
-            `<small>Projeção = média por dia útil dos últimos 14 dias × ${PC_DIAS_UTEIS_MES} dias úteis, com a taxa de resposta de cada canal (só entra canal com 10 envios ou mais e 3 dias desde o primeiro contato). No Instagram e no LinkedIn conta o que você marcou como "respondeu".</small>`;
-        box.appendChild(t);
-    } catch (e) {
-        box.replaceChildren(prEl('div', 'ph-mudo', 'Não consegui montar os canais agora: ' + (e && e.message)));
-    } finally { _pcRodando = false; }
+        const conta = rows => ({ env: rows.filter(r => deHoje(r.criado_em)).length, resp: rows.filter(r => r.resultado === 'respondeu' && deHoje(r.resultado_em)).length });
+        const i = conta(ig), l = conta(li);
+        _pcPintar('ig', i.env, igLimite()); _pcPintar('li', l.env, liLimite());
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v == null ? '—' : v; };
+        set('pc-wa-resp', waResp); set('pc-ig-resp', i.resp); set('pc-li-resp', l.resp);
+        // WhatsApp de hoje: o mesmo número do bloco de métricas (se ainda não carregou, conta pela tabela leads)
+        const waEnv = Number((document.getElementById('mc-hoje-enviados') || {}).textContent);
+        const waTot = isNaN(waEnv) ? 0 : waEnv;
+        if (isNaN(waEnv)) {
+            const n = await prBuscarTudo(() => prodQ(supabaseClient.from('leads').select('id,campanha_id,enviado_em').eq('user_id', uid).gte('enviado_em', iso).order('id'))).then(r => prodFiltrar(r).filter(l => deHoje(l.enviado_em)).length).catch(() => 0);
+            let lim = 30; try { lim = _iaLimiteDiario(); } catch (e) {}
+            set('mc-hoje-enviados', n); set('mc-hoje-limite', lim);
+            const pct = lim ? Math.min(100, Math.round(n / lim * 100)) : 0; set('mc-hoje-pct', pct + '%');
+            const bar = document.getElementById('mc-hoje-bar'); if (bar) bar.style.width = pct + '%';
+        }
+        const waHoje = Number((document.getElementById('mc-hoje-enviados') || {}).textContent) || waTot;
+        const tot = document.getElementById('pc-total');
+        set('mc-ultima-atualizacao', new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }));
+        if (tot) { tot.hidden = false; tot.textContent = `Hoje, somando os 3 canais: ${waHoje + i.env + l.env} contatos e ${(waResp || 0) + i.resp + l.resp} respostas.`; }
+    } catch (e) { console.warn('[3 canais]', e && e.message); }
+    finally { _pcRodando = false; }
 }
 // roda sempre que o Painel carrega as métricas (sem alterar a função original)
 (function () {
