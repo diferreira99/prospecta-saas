@@ -6546,6 +6546,8 @@ function trocarAba(aba, el) {
     const content = document.getElementById('main-content');
     content.style.padding  = '';
     content.style.overflow = '';
+    // Tela nova começa do topo (antes abria na altura em que a anterior estava rolada)
+    content.scrollTop = 0; try { window.scrollTo(0, 0); } catch (e) {}
 
     // Sincronizar dashboard ao entrar na aba IA
     if (aba === 'ia') {
@@ -13785,7 +13787,11 @@ function manualAbrir() {
             corpo.innerHTML = html;
             if (it.aba) {
                 const ir = prEl('button', 'manual-ir', 'Abrir esta tela →'); ir.type = 'button';
-                ir.onclick = () => trocarAba(it.aba, document.querySelector(`.nav-item[onclick*="'${it.aba}'"]`));
+                ir.onclick = () => {
+                    trocarAba(it.aba, document.querySelector(`.nav-item[onclick*="'${it.aba}'"]`));
+                    // parte específica da tela (ex.: o cartão Proteção da conta em Integrações)
+                    if (it.alvo) setTimeout(() => { const el = document.getElementById(it.alvo); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 350);
+                };
                 corpo.appendChild(ir);
             }
             d.appendChild(corpo); sec.appendChild(d);
@@ -13811,7 +13817,7 @@ const MANUAL = {
             sub: 'Em uns 20 minutos você sai do zero para a primeira campanha. Faça nesta ordem.',
             itens: [
                 {
-                    titulo: 'Primeiros passos', resumo: 'Do login à primeira campanha',
+                    titulo: 'Primeiros passos', resumo: 'Do login à primeira campanha', aba: 'integracoes', alvo: 'integ-card-wa',
                     passos: [
                         '**Entre no app** com o e-mail e a senha que o suporte mandou pelo WhatsApp. O app lembra o acesso. Esqueceu a senha? Toque em "Esqueci minha senha".',
                         '**Instale como aplicativo.** Android ou computador: toque em "Instalar" no aviso. iPhone: abra no Safari → Compartilhar → "Adicionar à Tela de Início".',
@@ -13986,7 +13992,7 @@ const MANUAL = {
                     ]
                 },
                 {
-                    titulo: 'Proteção do número', resumo: 'As travas que agem sozinhas', aba: 'integracoes',
+                    titulo: 'Proteção do número', resumo: 'As travas que agem sozinhas', aba: 'integracoes', alvo: 'integ-card-protecao',
                     texto: '**Saúde do número** (Painel): nota de 0 a 100 com os sinais dos últimos 7 dias. Cinza: menos de 20 envios. Verde (75+): normal. Amarelo (50 a 74): corta o limite do dia pela metade. Vermelho (abaixo de 50): pausa as campanhas, confere a cada 3 h e avisa. É uma estimativa do app, não uma métrica oficial do WhatsApp.',
                     blocos: [
                         { t: 'Travas (Integrações → Proteção da conta)', l: ['**Um balão só** (ligada): a mensagem sai inteira, não em 3 balões.', '**Frear pela saúde do número** (ligada).', '**Conferir WhatsApp depois da busca** (ligada): até 400 por dia.', '**Responder robôs sozinho** (ligada): até 2 vezes em 24 h.', '**Cancelar se o WhatsApp derrubar o aparelho** (ligada).', '**Freio de bloqueio** (ligada): se 4 das últimas 10 empresas não receberem em 15 minutos, cancela e avisa.', '**Modo pós-restrição** (liga sozinho se o número cair): recomeça com 10 por dia e sobe 5 por dia até o limite normal.'] },
@@ -14000,7 +14006,7 @@ const MANUAL = {
             titulo: 'Rotina e dúvidas', cor: '#0D9488',
             itens: [
                 {
-                    titulo: 'Rotina recomendada', resumo: '20 minutos de manhã, respostas rápidas durante o dia',
+                    titulo: 'Rotina recomendada', resumo: '20 minutos de manhã, respostas rápidas durante o dia', aba: 'metricas',
                     blocos: [
                         { t: 'Todo dia útil, antes das 9h', l: ['Painel: resolver "Precisa de você agora" e conferir a saúde do número.', 'Plano: seguir o consultor do dia e mandar a campanha pela Prospecção WhatsApp.', 'Respostas: aprovar os follow-ups do dia.', 'Instagram e LinkedIn: as tarefas de "Campanhas · hoje" e as DMs novas, respeitando o intervalo.'] },
                         { t: 'Durante o dia', l: ['Responder os interessados em até 30 minutos.', 'Mover no Pipeline quem avançou, com valor e próxima ação.'] },

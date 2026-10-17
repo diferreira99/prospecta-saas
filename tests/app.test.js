@@ -946,7 +946,17 @@ test('Manual do Cliente: aba depois de Configuração, com busca e botão que ab
       busca.value = ''; busca.dispatchEvent(new Event('input'));
       const pipe = [...box.querySelectorAll('details')].find(d => /Pipeline/.test(d.querySelector('summary').textContent) && d.querySelector('.manual-ir'));
       pipe.querySelector('.manual-ir').click();
-      return { ultimo: itens[itens.length - 1], penultimo: itens[itens.length - 2], titulo: document.getElementById('page-title').textContent, total, visiveis, vazio, abriu: document.getElementById('tab-pipeline').classList.contains('active') };
+      const abriu = document.getElementById('tab-pipeline').classList.contains('active');
+      // rolado lá embaixo no manual: a tela aberta começa do topo, e "Proteção do número" vai direto ao cartão
+      trocarAba('manual', document.querySelector(".nav-item[onclick*=\"'manual'\"]"));
+      const prot = [...box.querySelectorAll('details')].find(d => /Proteção do número/.test(d.querySelector('summary').textContent));
+      prot.open = true; prot.scrollIntoView();
+      const mc = document.getElementById('main-content'); const rolado = mc.scrollTop;
+      prot.querySelector('.manual-ir').click();
+      const topoLogo = mc.scrollTop;
+      await new Promise(r => setTimeout(r, 1800));
+      const card = document.getElementById('integ-card-protecao').getBoundingClientRect().top;
+      return { rolado, topoLogo, card, ultimo: itens[itens.length - 1], penultimo: itens[itens.length - 2], titulo: document.getElementById('page-title').textContent, total, visiveis, vazio, abriu };
     });
     assert.match(r.ultimo, /Manual do Cliente/);
     assert.match(r.penultimo, /Integrações/);
@@ -954,6 +964,9 @@ test('Manual do Cliente: aba depois de Configuração, com busca e botão que ab
     assert.ok(r.visiveis.some(t => /Instagram/.test(t)), JSON.stringify(r.visiveis));
     assert.strictEqual(r.vazio, true);
     assert.strictEqual(r.abriu, true);
+    assert.ok(r.rolado > 500, 'estava rolado no manual: ' + r.rolado);
+    assert.strictEqual(r.topoLogo, 0);
+    assert.ok(r.card >= 0 && r.card < 300, 'cartão Proteção da conta no alto da tela: ' + r.card);
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
