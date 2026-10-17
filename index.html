@@ -200,6 +200,9 @@
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 24 24' fill='none' stroke='%23475069' stroke-width='3'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 7px center; }
         .prod-topo:hover { border-color: #cfd4e0; }
         .prod-topo:focus-within { border-color: var(--accent); }
+        .cc-avulsas { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: space-between; }
+        .cc-avulsas .ph-linha { flex: 1 1 260px; margin: 0; }
+        .ig-espera { font-size: 0.7rem; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 7px 10px; margin: 8px 0 0; line-height: 1.4; }
         .prod-tag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: #eef2ff; color: #4338ca; font-size: 0.56rem; font-weight: 700; vertical-align: middle; white-space: nowrap; }
         .topbar-btn { font-family: 'Inter', sans-serif; font-size: 0.68rem; padding: 7px 13px; border-radius: 8px; border: 1.5px solid var(--border); background: var(--surface2); color: var(--muted); cursor: pointer; transition: all 0.15s; }
         .topbar-btn:hover { border-color: var(--accent); color: var(--accent); }
@@ -12483,6 +12486,10 @@ const _IG_GLIFO = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="
 var _igFeitos = null;          // chaves (@) já abordadas
 var _igHoje = 0;
 var _igUltimo = null;          // última abordagem registrada (para o "desfazer")
+// Intervalo mínimo entre uma DM e a próxima: DM em sequência rápida faz o Instagram bloquear ações da conta
+const IG_INTERVALO_PADRAO = 90;
+function igIntervalo() { const n = Number(userGet('ig_intervalo', IG_INTERVALO_PADRAO)); return n >= 0 && n <= 900 ? n : IG_INTERVALO_PADRAO; }
+function igEsperaSeg() { const u = Number(userGet('ig_ultima_dm', 0)) || 0; return Math.max(0, Math.ceil((u + igIntervalo() * 1000 - Date.now()) / 1000)); }
 function igLimite() { const n = Number(userGet('ig_limite', IG_LIMITE_PADRAO)); return n >= 1 && n <= 200 ? n : IG_LIMITE_PADRAO; }
 function igHandle(url) {
     const m = String(url || '').match(/instagram\.com\/([A-Za-z0-9._]{1,30})/i);
@@ -12639,19 +12646,35 @@ async function igAbordar(fila, inicio, opcoes) {
         const outra = prEl('button', 'modal-btn', 'Gerar outra');
         const abrir = prEl('button', 'modal-btn primary', 'Copiar e abrir conversa');
         acoes.append(pular, outra, abrir); m.appendChild(acoes);
+        // Trava de segurança: só libera a próxima DM depois do intervalo (a mensagem já vai sendo escrita)
+        const travar = () => {
+            const seg = igEsperaSeg();
+            if (!seg) { abrir.dataset.espera = ''; abrir.textContent = 'Copiar e abrir conversa'; if (!ta.disabled) abrir.disabled = false; return; }
+            abrir.dataset.espera = '1'; abrir.disabled = true;
+            abrir.textContent = `Próxima DM em ${Math.floor(seg / 60)}:${String(seg % 60).padStart(2, '0')}`;
+            setTimeout(() => { if (document.body.contains(abrir)) travar(); }, 1000);
+        };
+        if (igEsperaSeg()) {
+            const av = prEl('div', 'ig-espera', `⏱️ Intervalo de segurança: ${igIntervalo()}s entre uma DM e outra, para o Instagram não bloquear a conta. Revise a mensagem enquanto isso. `);
+            const mi = prEl('button', 'ig-link', 'mudar intervalo');
+            mi.onclick = () => { const v = prompt('Quantos segundos entre uma DM e outra? (recomendado: 90 ou mais)', String(igIntervalo())); const n = Number(v); if (v !== null && n >= 0 && n <= 900) { userSet('ig_intervalo', Math.round(n)); mostrar(); } };
+            av.appendChild(mi); m.insertBefore(av, acoes);
+        }
         pular.onclick = () => { if (fila.length > 1) { i++; mostrar(); } else fechar(); };
         const gerar = async () => {
             ta.disabled = true; outra.disabled = abrir.disabled = true; ta.value = ''; ta.placeholder = 'A IA está escrevendo…';
             try { ta.value = await igGerarDM(l); }
             catch (e) { ta.placeholder = 'Não consegui gerar (' + e.message + '). Escreva a sua mensagem aqui.'; }
-            ta.disabled = false; outra.disabled = abrir.disabled = false;
+            ta.disabled = false; outra.disabled = false; abrir.disabled = !!abrir.dataset.espera;
         };
         const gerarInicio = !opcoes.textoInicial;
         outra.onclick = gerar;
         if (opcoes.textoInicial) { ta.value = opcoes.textoInicial; ta.disabled = false; outra.disabled = abrir.disabled = false; }
+        travar();
         abrir.onclick = async () => {
             const texto = ta.value.trim();
             if (!texto) { showToast('Escreva a mensagem antes', 'err'); return; }
+            if (igEsperaSeg()) { travar(); return; }
             // copia (com tempo limite: alguns navegadores travam esperando permissão) e cai no jeito antigo se falhar
             let copiou = false;
             try { await Promise.race([navigator.clipboard.writeText(texto).then(() => { copiou = true; }), new Promise((_, rej) => setTimeout(() => rej(new Error('tempo')), 1500))]); } catch (e) {}
@@ -12669,6 +12692,7 @@ async function igAbordar(fila, inicio, opcoes) {
                 sim.disabled = true; sim.textContent = 'Registrando…';
                 try {
                     const desfazer = await igRegistrar(l); feitas++; i++;
+                    userSet('ig_ultima_dm', saiuEm);   // o intervalo conta a partir de quando a conversa foi aberta
                     if (opcoes.aoRegistrar) await opcoes.aoRegistrar();
                     _igUltimo = { nome: l.title || l.name || '@' + h, desfazer, sozinho };
                     if (fila.length > 1) mostrar(); else fechar();
@@ -13148,6 +13172,19 @@ function canalDesenhar(aba, buscas, feitos) {
     const hrb = prEl('section', 'ph-card hr-box'); box.appendChild(hrb); hrPintar();
     // cadência das campanhas deste canal
     const sc = ccSecaoHoje(aba); if (sc) box.appendChild(sc);
+    // abordagens avulsas sem cadência: um toque coloca numa campanha (entram no Retomar, contando da 1ª mensagem)
+    {
+        const canalCc = CC_CANAL[aba];
+        const naCamp = new Set(((_cc && _cc.leads) || []).filter(r => (_cc.camps || []).some(k => k.id === r.campanha_id && k.canal === canalCc)).map(r => r.chave));
+        const soltas = (feitos || []).filter(r => !r.resultado && !naCamp.has(r.chave)).length;
+        if (soltas) {
+            const sv = prEl('section', 'ph-card cc-avulsas');
+            sv.appendChild(prEl('div', 'ph-linha', `${soltas} abordage${soltas === 1 ? 'm avulsa' : 'ns avulsas'} no ${c.nome} sem campanha. Numa campanha elas ganham a cadência (Retomar e Último toque) contando da primeira mensagem.`));
+            const bt = prEl('button', 'ps-acao', 'Colocar numa campanha'); bt.type = 'button';
+            bt.onclick = () => ccNova(canalCc, 'avulsas');
+            sv.appendChild(bt); box.appendChild(sv);
+        }
+    }
     // 2º contato do dia
     if (retomar.length) {
         const sR = prEl('section', 'ph-card canal-retomar');
@@ -13464,8 +13501,10 @@ async function ccFazer(aba, item, aoTerminar) {
             aoFechar: fim });
         return;
     }
-    const ab = { chave: r.chave, nome: r.nome, instagram: l.instagram, linkedin: l.linkedin, bio: l.instagramBio, pessoa: l.pessoa || '', criado_em: r.atualizado_em };
-    canalRetomar(aba, ab, { final: tipo === 'ultimo', desde: r.atualizado_em,
+    // a 1ª mensagem foi avulsa (antes da campanha)? conta a partir dela no Retomar
+    const desde = (r.etapa === 1 && l.primeiraEm) ? l.primeiraEm : r.atualizado_em;
+    const ab = { chave: r.chave, nome: r.nome, instagram: l.instagram, linkedin: l.linkedin, bio: l.instagramBio, pessoa: l.pessoa || '', criado_em: desde };
+    canalRetomar(aba, ab, { final: tipo === 'ultimo', desde,
         aoMandar: async () => { await ccAvancar(r, camp); },
         aoAdiar: async dias => { await ccAdiar(r, dias); },
         aoFechar: fim });
@@ -13568,7 +13607,7 @@ async function ccOrigens() {
     buscas.forEach(b => op.push({ v: 'b:' + b.id, t: 'Busca: ' + b.nome + ` (${b.leads.length})`, leads: b.leads, origem: 'busca ' + b.nome, nome: b.nome }));
     return op;
 }
-async function ccNova(canal) {
+async function ccNova(canal, origemInicial) {
     const aba = CC_ABA[canal], c = CANAIS[aba], nomeCanal = c.nome;
     const fundo = prEl('div', 'modal-backdrop active'), m = prEl('div', 'modal ig-modal cc-modal');
     fundo.appendChild(m); document.body.appendChild(fundo);
@@ -13578,13 +13617,25 @@ async function ccNova(canal) {
     m.appendChild(prEl('div', 'modal-sub', 'Escolha de onde vêm as empresas e a cadência. Todo dia a aba Prospecção ' + nomeCanal + ' mostra quem está no ponto certo da cadência.'));
     const corpo = prEl('div', 'ph-mudo', 'Carregando suas campanhas e buscas…'); m.appendChild(corpo);
     await Promise.all([c.carregar(true), ccCarregar(true)]);
-    let origens = [];
-    try { origens = await ccOrigens(); } catch (e) { corpo.textContent = 'Não consegui carregar agora: ' + e.message; return; }
+    let origens = [], abordagens = [];
+    try {
+        [origens, abordagens] = await Promise.all([ccOrigens(),
+            prBuscarTudo(() => supabaseClient.from(c.tabela).select('*').eq('user_id', currentUser.id).order('id'))]);
+    } catch (e) { corpo.textContent = 'Não consegui carregar agora: ' + e.message; return; }
     corpo.remove();
+    // Abordagens avulsas (feitas fora de campanha) que ainda não tiveram resposta: podem entrar numa campanha
+    // direto no "Retomar", contando os dias a partir da DM/convite que já foi feito.
+    const abDe = {}; abordagens.forEach(r => { abDe[r.chave] = r; });
+    const emCampanha = new Set(((_cc && _cc.leads) || []).filter(r => (_cc.camps || []).some(k => k.id === r.campanha_id && k.canal === canal)).map(r => r.chave));
+    const avulsas = abordagens.filter(r => !r.resultado && !emCampanha.has(r.chave) && prodNaVisao(r.produto_id)).map(r => ({
+        title: r.nome || '', name: r.nome || '', phone: r.telefone || '', instagram: r.instagram || '', linkedin: r.linkedin || '',
+        instagramBio: r.bio || '', decisores: r.pessoa ? [{ nome: r.pessoa }] : [] }));
+    if (avulsas.length) origens.unshift({ v: 'avulsas', t: `Abordados avulsos no ${nomeCanal}, sem campanha (${avulsas.length})`, leads: avulsas, origem: 'abordagens avulsas no ' + nomeCanal, nome: 'Avulsas' });
     const rot = t => prEl('div', 'ig-rot', t);
     m.appendChild(rot('1. De onde vêm as empresas'));
     const sel = document.createElement('select'); sel.className = 'ig-texto';
     origens.forEach(o => { const op = document.createElement('option'); op.value = o.v; op.textContent = o.t; sel.appendChild(op); });
+    if (origemInicial && origens.some(o => o.v === origemInicial)) sel.value = origemInicial;
     m.appendChild(sel);
     m.appendChild(rot('2. Cadência (dias depois do início)'));
     const lin = prEl('div', 'cc-dias');
@@ -13594,6 +13645,10 @@ async function ccNova(canal) {
     const mWa = document.createElement('input'); mWa.type = 'checkbox'; mWa.checked = false;
     mWrap.append(mWa, prEl('span', '', 'Mencionar que já chamamos no WhatsApp (ex.: "te chamei no WhatsApp também"). Desligado, a mensagem sai como um primeiro contato, sem ligar ao WhatsApp.'));
     m.appendChild(mWrap);
+    const aWrap = prEl('label', 'cc-opcao cc-opcao-avulsas');
+    const aInc = document.createElement('input'); aInc.type = 'checkbox'; aInc.checked = true;
+    aWrap.append(aInc, prEl('span', '', 'Incluir quem eu já abordei avulso por lá (sem resposta): entra direto no "Retomar", contando os dias da primeira mensagem.'));
+    m.appendChild(aWrap);
     m.appendChild(rot('3. Nome'));
     const nome = document.createElement('input'); nome.className = 'ig-texto'; nome.maxLength = 80; m.appendChild(nome);
     const prev = prEl('div', 'ph-linha'); m.appendChild(prev);
@@ -13601,17 +13656,26 @@ async function ccNova(canal) {
     let lista = [];
     const montar = () => {
         const o = origens.find(x => x.v === sel.value);
-        const vistos = new Set(); lista = []; let semRede = 0, ja = 0;
+        const vistos = new Set(); lista = []; let semRede = 0, ja = 0, retomar = 0;
+        const soAvulsas = o && o.v === 'avulsas';
         (o ? o.leads : []).forEach(l => {
             if (!l) return;
             if (!c.tem(l)) { semRede++; return; }
             const k = c.chave(l); if (!k || vistos.has(k)) return; vistos.add(k);
-            if (c.feito(l) || ativas.has(k) || bloqueadoLead(l)) { ja++; return; }
+            if (ativas.has(k) || emCampanha.has(k) || bloqueadoLead(l)) { ja++; return; }
+            const ab = abDe[k];
+            if (ab || c.feito(l)) {
+                // já abordado avulso: sem resposta e com a opção ligada, continua a cadência a partir da 1ª mensagem
+                if (ab && !ab.resultado && (aInc.checked || soAvulsas)) { lista.push(Object.assign({}, l, { _desde: ab.criado_em, instagramBio: l.instagramBio || ab.bio || '' })); retomar++; }
+                else ja++;
+                return;
+            }
             lista.push(l);
         });
+        aWrap.hidden = soAvulsas || !Object.keys(abDe).length;
         if (!nome.dataset.mexeu) nome.value = ((o && o.nome) || 'Campanha') + ' · ' + nomeCanal;
         mWrap.hidden = !(o && o.v.startsWith('wa:'));
-        prev.textContent = `${lista.length} empresas entram na campanha.` + (semRede ? ` ${semRede} ainda sem ${nomeCanal}: use "Completar redes do histórico" na aba do canal e crie de novo depois.` : '') + (ja ? ` ${ja} já foram abordadas por lá ou estão em outra campanha.` : '');
+        prev.textContent = `${lista.length} empresas entram na campanha` + (retomar ? ` (${retomar} já abordadas avulso entram no Retomar)` : '') + '.' + (semRede ? ` ${semRede} ainda sem ${nomeCanal}: use "Completar redes do histórico" na aba do canal e crie de novo depois.` : '') + (ja ? ` ${ja} já foram abordadas por lá ou estão em outra campanha.` : '');
         criar.disabled = !lista.length;
     };
     nome.addEventListener('input', () => { nome.dataset.mexeu = '1'; });
@@ -13619,7 +13683,7 @@ async function ccNova(canal) {
     const canc = prEl('button', 'modal-btn', 'Cancelar'); canc.type = 'button'; canc.onclick = fechar;
     const criar = prEl('button', 'modal-btn primary', 'Criar campanha'); criar.type = 'button';
     acoes.append(canc, criar); m.appendChild(acoes);
-    sel.onchange = montar; montar();
+    sel.onchange = montar; aInc.onchange = montar; montar();
     criar.onclick = async () => {
         const et = [0, Math.max(1, Number(dias[1].value) || 3), Math.max(Number(dias[1].value) + 1, Number(dias[2].value) || 7)];
         criar.disabled = true; criar.textContent = 'Criando…';
@@ -13629,9 +13693,15 @@ async function ccNova(canal) {
             if (error) throw error;
             const id = data && data[0] && data[0].id;
             const agoraIso = new Date().toISOString();
-            const linhas = lista.map(l => ({ campanha_id: id, user_id: currentUser.id, chave: c.chave(l), nome: (l.title || l.name || '').slice(0, 200), etapa: 0, status: 'pendente', proxima_em: agoraIso, atualizado_em: agoraIso,
+            // Quem já recebeu a 1ª mensagem avulsa entra na etapa Retomar, no dia certo da cadência (contado da 1ª mensagem)
+            const quando = l => {
+                if (!l._desde) return agoraIso;
+                const d = new Date(l._desde); d.setDate(d.getDate() + et[1]); d.setHours(8, 0, 0, 0);
+                return (d.getTime() < Date.now() ? new Date() : d).toISOString();
+            };
+            const linhas = lista.map(l => ({ campanha_id: id, user_id: currentUser.id, chave: c.chave(l), nome: (l.title || l.name || '').slice(0, 200), etapa: l._desde ? 1 : 0, status: 'pendente', proxima_em: quando(l), atualizado_em: agoraIso,
                 link: canal === 'instagram' ? igUrl(l) : liUrl(l),
-                lead: { title: l.title || l.name || '', phone: l.phone || '', address: l.address || '', category: l.category || l.cat || '', instagram: l.instagram || '', linkedin: l.linkedin || '', instagramBio: l.instagramBio || '', decisores: Array.isArray(l.decisores) ? l.decisores.slice(0, 3) : [], waSemResposta: !!l.waSemResposta, mencionarWa: !!(l.waSemResposta && mWa.checked), website: l.website || '' } }));
+                lead: { title: l.title || l.name || '', phone: l.phone || '', address: l.address || '', category: l.category || l.cat || '', instagram: l.instagram || '', linkedin: l.linkedin || '', instagramBio: l.instagramBio || '', decisores: Array.isArray(l.decisores) ? l.decisores.slice(0, 3) : [], waSemResposta: !!l.waSemResposta, mencionarWa: !!(l.waSemResposta && mWa.checked), website: l.website || '', primeiraEm: l._desde || null } }));
             for (let i = 0; i < linhas.length; i += 200) { const r = await supabaseClient.from('campanhas_canal_leads').insert(linhas.slice(i, i + 200)); if (r.error) throw r.error; }
             fechar();
             showToast(`✓ Campanha criada com ${linhas.length} empresas. As de hoje estão na aba Prospecção ${nomeCanal}.`, 'ok');

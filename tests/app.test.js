@@ -718,8 +718,8 @@ test('campanha no Instagram com cadência: nasce de quem não respondeu no Whats
     const opcoes = await a.pagina.$$eval('.cc-modal select option', os => os.map(o => o.textContent));
     assert.match(opcoes[0], /Quem não respondeu no WhatsApp · todas as campanhas \(3\)/);
     assert.match(await a.pagina.textContent('.cc-modal'), /2 empresas entram na campanha\. 1 ainda sem Instagram/);
-    assert.strictEqual(await a.pagina.isChecked('.cc-modal .cc-opcao input'), false, 'citar o WhatsApp vem desligado');
-    await a.pagina.check('.cc-modal .cc-opcao input');
+    assert.strictEqual(await a.pagina.isChecked('.cc-modal .cc-opcao:not(.cc-opcao-avulsas) input'), false, 'citar o WhatsApp vem desligado');
+    await a.pagina.check('.cc-modal .cc-opcao:not(.cc-opcao-avulsas) input');
     await a.pagina.click('.cc-modal button:has-text("Criar campanha")');
     await a.pagina.waitForTimeout(600);
     const r1 = await a.pagina.evaluate(() => ({ camp: _db.campanhas_canal[0], leads: _db.campanhas_canal_leads.map(x => [x.chave, x.etapa, x.status, x.lead.mencionarWa]), card: document.querySelector('#cc-box .cc-card').innerText }));
@@ -887,5 +887,45 @@ test('Pipeline: a leitura da nuvem de 45 em 45s não apaga o card criado enquant
     });
     assert.deepStrictEqual(r.local, ['Card antigo', 'Grupo Facility']);
     assert.deepStrictEqual(r.nuvem, ['Card antigo', 'Grupo Facility']);
+  } finally { await a.fechar(); }
+});
+
+test('campanha adota as abordagens avulsas no Retomar (contando da 1ª DM) e a DM seguinte respeita o intervalo de segurança', async () => {
+  const dois = new Date(Date.now() - 2 * 86400000).toISOString();
+  const db = {
+    abordagens_instagram: [
+      { id: 1, user_id: 'u1', chave: 'gfacility', nome: 'Grupo Facility', telefone: '11911110009', instagram: 'https://www.instagram.com/gfacility/', bio: 'RH e facilities', criado_em: dois, resultado: null },
+      { id: 2, user_id: 'u1', chave: 'jarespondeu', nome: 'Já Respondeu', instagram: 'https://www.instagram.com/jarespondeu/', criado_em: dois, resultado: 'respondeu' } ],
+  };
+  const a = await abrirApp({ db, largura: 1280, rotas: [[/\/ia$/, () => ({ texto: 'Oi! Posso mostrar uma ideia?' })]] });
+  try {
+    await a.pagina.evaluate(() => { window.open = () => null; Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => {} }, configurable: true }); });
+    // aba Prospecção Instagram avisa das avulsas sem campanha e o botão já abre a campanha com elas
+    await a.pagina.evaluate(() => trocarAba('insta', document.querySelector(`.nav-item[onclick*="'insta'"]`)));
+    await a.pagina.waitForSelector('#canal-insta .cc-avulsas');
+    assert.match(await a.pagina.textContent('#canal-insta .cc-avulsas'), /1 abordagem avulsa no Instagram sem campanha/);
+    await a.pagina.click('#canal-insta .cc-avulsas button');
+    await a.pagina.waitForSelector('.cc-modal select');
+    assert.match(await a.pagina.$eval('.cc-modal select', s => s.selectedOptions[0].textContent), /Abordados avulsos no Instagram, sem campanha \(1\)/);
+    assert.match(await a.pagina.textContent('.cc-modal'), /1 empresas entram na campanha \(1 já abordadas avulso entram no Retomar\)/);
+    await a.pagina.click('.cc-modal button:has-text("Criar campanha")');
+    await a.pagina.waitForTimeout(600);
+    const r = await a.pagina.evaluate(() => _db.campanhas_canal_leads.map(x => ({ chave: x.chave, etapa: x.etapa, quando: x.proxima_em, primeira: x.lead.primeiraEm })));
+    assert.strictEqual(r.length, 1);
+    assert.strictEqual(r[0].chave, 'gfacility'); assert.strictEqual(r[0].etapa, 1);
+    const dias = (new Date(r[0].quando) - new Date(r[0].primeira)) / 86400000;
+    assert.ok(dias > 2 && dias < 4, 'Retomar no 3º dia depois da 1ª DM: ' + dias);
+    // intervalo: acabou de mandar uma DM → o botão da próxima espera
+    await a.pagina.evaluate(() => { userSet('ig_ultima_dm', Date.now()); userSet('ig_intervalo', 90); igAbordar([{ title: 'Nova', instagram: 'https://www.instagram.com/nova/' }]); });
+    await a.pagina.waitForSelector('.ig-modal textarea:not([disabled])');
+    const b = await a.pagina.$eval('.ig-modal .modal-btn.primary', x => ({ txt: x.textContent, dis: x.disabled }));
+    assert.match(b.txt, /Próxima DM em 1:(2|3)\d/); assert.strictEqual(b.dis, true);
+    assert.match(await a.pagina.textContent('.ig-modal'), /Intervalo de segurança: 90s/);
+    // passou o intervalo → libera
+    await a.pagina.evaluate(() => userSet('ig_ultima_dm', Date.now() - 91000));
+    await a.pagina.waitForTimeout(1300);
+    const b2 = await a.pagina.$eval('.ig-modal .modal-btn.primary', x => ({ txt: x.textContent, dis: x.disabled }));
+    assert.deepStrictEqual(b2, { txt: 'Copiar e abrir conversa', dis: false });
+    assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
