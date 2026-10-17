@@ -657,6 +657,117 @@ test('menu em etapas: recolhidas, abrem no toque, a etapa da tela atual abre soz
   } finally { await a.fechar(); }
 });
 
+test('completar redes do histórico: site primeiro, Google depois (quem não respondeu no WhatsApp antes), grava nas buscas e nos leads', async () => {
+  const db = {
+    buscas: [{ user_id: 'u1', id: 11, nicho: 'Contabilidade', local: 'Guarulhos', criado_em: new Date().toISOString(), leads: [
+      { title: 'Contábil Alfa', phone: '1133330001', website: 'https://alfa.com.br', address: 'R. A, 1 - Centro, Guarulhos - SP' },
+      { title: 'Contábil Beta', phone: '1133330002', address: 'R. B, 2 - Centro, Guarulhos - SP' },
+      { title: 'Já Tem', phone: '1133330003', instagram: 'https://www.instagram.com/jatem/', linkedin: 'https://www.linkedin.com/company/jatem/' } ] }],
+    leads: [{ id: 'L1', user_id: 'u1', campanha_id: 'c1', title: 'Pet Antigo', phone: '5511988887777', address: 'R. C, 3 - Centro, Campinas - SP', enviado_em: '2026-09-20T10:00:00Z', respondeu: false, opt_out: false }],
+    campanhas: [{ id: 'c1', user_id: 'u1', nome: 'PetShop · Campinas', local: 'Campinas' }],
+  };
+  const pedidos = [];
+  const a = await abrirApp({ db, largura: 1280, rotas: [
+    [/\/enrich$/, (j) => { pedidos.push(['site', j]); return { results: { 'https://alfa.com.br': { instagram: 'https://www.instagram.com/contabilalfa/', linkedin: '', emails: ['oi@alfa.com.br'], pessoas: [{ nome: 'Ana Reis', cargo: 'Sócia' }] } } }; }],
+    [/\/leads\/redes-google$/, (j) => { pedidos.push(['google', j]); const r = {}; j.leads.forEach(x => { r[x.id] = x.nome === 'Pet Antigo' ? { instagram: 'https://www.instagram.com/petantigo/' } : {}; }); return { resultados: r }; }],
+  ] });
+  try {
+    await a.pagina.evaluate(() => hrRodar());
+    await a.pagina.waitForFunction(() => _hr && !_hr.rodando, null, { timeout: 15000 });
+    const r = await a.pagina.evaluate(() => ({ hr: { ig: _hr.achIg, li: _hr.achLi, fim: _hr.fim }, busca: _db.buscas[0].leads, lead: _db.leads[0] }));
+    assert.strictEqual(pedidos[0][0], 'site');
+    assert.deepStrictEqual(pedidos[0][1].sites, [{ site: 'https://alfa.com.br', nome: 'Contábil Alfa' }], 'só quem tem site e falta rede; com o nome da empresa');
+    assert.strictEqual(pedidos[1][0], 'google');
+    assert.strictEqual(pedidos[1][1].leads[0].nome, 'Pet Antigo', 'quem não respondeu no WhatsApp vai primeiro no Google');
+    assert.ok(!pedidos[1][1].leads.some(x => x.nome === 'Já Tem'), 'quem já tem as duas redes não gasta busca');
+    assert.strictEqual(r.busca[0].instagram, 'https://www.instagram.com/contabilalfa/');
+    assert.deepStrictEqual(r.busca[0].emails, ['oi@alfa.com.br']);
+    assert.strictEqual(r.busca[0].decisores[0].nome, 'Ana Reis');
+    assert.ok(r.busca[0].redesSite && r.busca[0].googleOk);
+    assert.strictEqual(r.lead.instagram, 'https://www.instagram.com/petantigo/');
+    assert.ok(r.lead.redes_em, 'lead antigo marcado como conferido (não repete)');
+    assert.deepStrictEqual([r.hr.ig, r.hr.li], [2, 0]);
+    assert.match(r.hr.fim, /Pronto/);
+    // rodar de novo não repete ninguém
+    pedidos.length = 0;
+    await a.pagina.evaluate(() => hrRodar());
+    await a.pagina.waitForFunction(() => _hr && !_hr.rodando, null, { timeout: 15000 });
+    assert.ok(!pedidos.some(([t, j]) => t === 'site'), 'site não é lido de novo');
+    assert.ok(!pedidos.some(([t, j]) => t === 'google' && j.leads.some(x => x.nome === 'Pet Antigo')), 'Google não repete o lead antigo');
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('campanha no Instagram com cadência: nasce de quem não respondeu no WhatsApp, Dia 0 → 3 → 7, tarefas do dia e resultado tiram da cadência', async () => {
+  const db = {
+    leads: [
+      { id: 'L1', user_id: 'u1', campanha_id: 'c1', title: 'Pet Um', phone: '5511988880001', instagram: 'https://www.instagram.com/petum/', enviado_em: '2026-10-10T10:00:00Z', respondeu: false, opt_out: false },
+      { id: 'L2', user_id: 'u1', campanha_id: 'c1', title: 'Pet Dois', phone: '5511988880002', instagram: 'https://www.instagram.com/petdois/', enviado_em: '2026-10-10T10:00:00Z', respondeu: false, opt_out: false },
+      { id: 'L3', user_id: 'u1', campanha_id: 'c1', title: 'Respondeu', phone: '5511988880003', instagram: 'https://www.instagram.com/resp/', enviado_em: '2026-10-10T10:00:00Z', respondeu: true, opt_out: false },
+      { id: 'L4', user_id: 'u1', campanha_id: 'c1', title: 'Sem Insta', phone: '5511988880004', enviado_em: '2026-10-10T10:00:00Z', respondeu: false, opt_out: false } ],
+    campanhas: [{ id: 'c1', user_id: 'u1', nome: 'PetShop · São Paulo', local: 'São Paulo' }],
+  };
+  const a = await abrirApp({ db, largura: 1280, rotas: [[/\/ia$/, (j) => ({ texto: /ÚLTIMA mensagem/.test(JSON.stringify(j)) ? 'Vou parar por aqui. Se fizer sentido, me chama!' : /SEGUNDO contato/.test(JSON.stringify(j)) ? 'Um exemplo rápido: pets atendidos dobraram. Quer ver?' : 'Oi! Te chamei no WhatsApp também. Posso mostrar uma ideia?' })]] });
+  try {
+    await a.pagina.evaluate(() => { config.uazapi = { url: 'https://srv.test', token: 't' }; window.open = () => null; Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => {} }, configurable: true }); window.confirm = () => true; });
+    // aba Campanhas → Instagram → nova campanha
+    await a.pagina.evaluate(() => trocarAba('campanhas', document.querySelector(`.nav-item[onclick*="'campanhas'"]`)));
+    await a.pagina.click('#cc-canais button[data-c="instagram"]');
+    await a.pagina.click('#cc-box button:has-text("Nova campanha no Instagram")');
+    await a.pagina.waitForSelector('.cc-modal select');
+    const opcoes = await a.pagina.$$eval('.cc-modal select option', os => os.map(o => o.textContent));
+    assert.match(opcoes[0], /Quem não respondeu no WhatsApp · todas as campanhas \(3\)/);
+    assert.match(await a.pagina.textContent('.cc-modal'), /2 empresas entram na campanha\. 1 ainda sem Instagram/);
+    await a.pagina.click('.cc-modal button:has-text("Criar campanha")');
+    await a.pagina.waitForTimeout(600);
+    const r1 = await a.pagina.evaluate(() => ({ camp: _db.campanhas_canal[0], leads: _db.campanhas_canal_leads.map(x => [x.chave, x.etapa, x.status, x.lead.waSemResposta]), card: document.querySelector('#cc-box .cc-card').innerText }));
+    assert.deepStrictEqual(r1.camp.etapas, [0, 3, 7]);
+    assert.deepStrictEqual(r1.leads, [['petum', 0, 'pendente', true], ['petdois', 0, 'pendente', true]]);
+    assert.match(r1.card, /2\s*empresas/);
+    // aba Prospecção Instagram: tarefas de hoje; a fila livre não repete quem está na campanha
+    await a.pagina.evaluate(() => trocarAba('insta', document.querySelector(`.nav-item[onclick*="'insta'"]`)));
+    await a.pagina.waitForSelector('#canal-insta .cc-hoje');
+    assert.match(await a.pagina.textContent('#canal-insta .cc-hoje'), /Campanhas · hoje \(2\).*Pet Um.*Primeira mensagem/s);
+    // Dia 0: primeira DM (com o WhatsApp sem resposta no prompt) → registra e agenda o Dia 3
+    await a.pagina.click('#canal-insta .cc-hoje li:has-text("Pet Um") button:has-text("Fazer")');
+    await a.pagina.waitForSelector('.ig-modal textarea:not([disabled])');
+    const ia1 = a.pedidos.filter(p => /\/ia$/.test(p.caminho)).pop();
+    assert.match(JSON.stringify(ia1.corpo), /WhatsApp há alguns dias e não teve resposta/);
+    await a.pagina.evaluate(async () => { const l = { title: 'Pet Um', instagram: 'https://www.instagram.com/petum/' }; await igRegistrar(l); });
+    await a.pagina.evaluate(async () => { const it = ccHoje('instagram').find(x => x.r.chave === 'petum'); await ccAvancar(it.r, it.camp); document.querySelector('.modal-backdrop.active')?.remove(); });
+    let lp = await a.pagina.evaluate(() => _db.campanhas_canal_leads.find(x => x.chave === 'petum'));
+    assert.strictEqual(lp.etapa, 1);
+    const diasAte = Math.round((new Date(lp.proxima_em) - Date.now()) / 86400000);
+    assert.ok(diasAte >= 2 && diasAte <= 3, 'próxima etapa em 3 dias: ' + diasAte);
+    // Dia 3 chegou: Retomar → Mandei → Dia 7
+    await a.pagina.evaluate(() => { const x = _db.campanhas_canal_leads.find(x => x.chave === 'petum'); x.proxima_em = new Date(Date.now() - 1000).toISOString(); _cc = null; canalAbrir('insta', true); });
+    await a.pagina.waitForTimeout(500);
+    await a.pagina.click('#canal-insta .cc-hoje li:has-text("Pet Um") button:has-text("Fazer")');
+    await a.pagina.waitForSelector('.ig-modal textarea:not([disabled])');
+    assert.match(await a.pagina.inputValue('.ig-modal textarea'), /Quer ver\?/);
+    await a.pagina.click('.ig-modal button:has-text("Mandei")');
+    await a.pagina.waitForTimeout(500);
+    lp = await a.pagina.evaluate(() => _db.campanhas_canal_leads.find(x => x.chave === 'petum'));
+    assert.strictEqual(lp.etapa, 2);
+    // Dia 7: Último toque → Mandei → concluído
+    await a.pagina.evaluate(() => { const x = _db.campanhas_canal_leads.find(x => x.chave === 'petum'); x.proxima_em = new Date(Date.now() - 1000).toISOString(); _cc = null; canalAbrir('insta', true); });
+    await a.pagina.waitForTimeout(500);
+    assert.match(await a.pagina.textContent('#canal-insta .cc-hoje'), /Último toque/);
+    await a.pagina.click('#canal-insta .cc-hoje li:has-text("Pet Um") button:has-text("Fazer")');
+    await a.pagina.waitForSelector('.ig-modal textarea:not([disabled])');
+    assert.match(await a.pagina.inputValue('.ig-modal textarea'), /Vou parar por aqui/);
+    await a.pagina.click('.ig-modal button:has-text("Mandei")');
+    await a.pagina.waitForTimeout(500);
+    lp = await a.pagina.evaluate(() => _db.campanhas_canal_leads.find(x => x.chave === 'petum'));
+    assert.strictEqual(lp.status, 'concluido');
+    // resultado marcado na aba tira da cadência
+    await a.pagina.evaluate(async () => { await ccMarcarResultado('instagram', 'petdois', 'respondeu'); });
+    const pd = await a.pagina.evaluate(() => _db.campanhas_canal_leads.find(x => x.chave === 'petdois').status);
+    assert.strictEqual(pd, 'respondeu');
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
 test('cadência multicanal: etapa de Instagram vira tarefa em Respostas e conta como feita ao registrar', async () => {
   const db = { fila_followups: [
     { id: 5, user_id: 'u1', phone: '5511999990000', lead_nome: 'Clínica Sol', campanha_id: 'c1', campanha_nome: 'Dentistas', dia_etapa: 6, status: 'pendente', canal: 'instagram', extra: { instagram: 'https://www.instagram.com/clinicasol/' }, mensagem: 'Oi! Te mandei um WhatsApp, vi que vocês usam mais o Instagram. Posso te mostrar em 2 min?', criado_em: new Date().toISOString() },
