@@ -1002,31 +1002,37 @@ test('Métricas de Envio nos 3 canais: cartões somam WhatsApp, Instagram e Link
     campanhas_canal_leads: [{ id: 1, user_id: 'u1', campanha_id: 'k1', chave: 'ig0', etapa: 1, status: 'respondeu' }, { id: 2, user_id: 'u1', campanha_id: 'k1', chave: 'ig1', etapa: 1, status: 'pendente' }] };
   const a = await abrirApp({ largura: 1280, db, rotas: [[/status-campanha/, () => ({ rows })]] });
   try {
-    const ler = () => a.pagina.evaluate(() => ({ env: document.getElementById('mc-val-enviados').textContent, envSub: document.getElementById('mc-sub-enviados').textContent,
-      err: document.getElementById('mc-val-erros').textContent, resp: document.getElementById('mc-val-respostas').textContent, respSub: document.getElementById('mc-sub-respostas').textContent,
+    const ler = () => a.pagina.evaluate(() => ({
+      cards: [...document.querySelectorAll('#mc-canais-grid .mc-ccard')].map(c => c.innerText.replace(/\s+/g, ' ')),
+      tamanhos: [...document.querySelectorAll('#mc-canais-grid .mc-cnums b')].map(b => getComputedStyle(b).fontSize),
       linhas: document.querySelectorAll('#mc-tabela-body tr').length, canais: [...document.querySelectorAll('#mc-tabela-body .mc-chip-canal')].map(x => x.textContent),
-      rank: document.getElementById('mc-ranking-campanhas').innerText.replace(/\s+/g, ' '), hora: document.getElementById('mc-horario-conteudo').innerText }));
-    await a.pagina.evaluate(async () => { await carregarMetricas(); }); await a.pagina.waitForTimeout(800);
+      rank: document.getElementById('mc-ranking-campanhas').innerText.replace(/\s+/g, ' '), hora: (document.querySelector('#mc-horario-conteudo .mc-hgrid') || {}).innerText?.replace(/\s+/g, ' ') || '' }));
+    await a.pagina.evaluate(async () => { await carregarMetricas(); }); await a.pagina.waitForTimeout(900);
     let r = await ler();
-    assert.strictEqual(r.env, '12', 'WhatsApp 7 + Instagram 4 + LinkedIn 1');
-    assert.match(r.envSub, /WhatsApp 7 · Instagram 4 · LinkedIn 1/);
-    assert.strictEqual(r.err, '1');
-    assert.strictEqual(r.resp, '3');
-    assert.match(r.respSub, /WhatsApp 2 · Instagram 1 · LinkedIn 0 · 25% de quem recebeu/);
+    assert.deepStrictEqual(r.cards, [
+      'Total 12 contatos 3 responderam 25% taxa de resposta',
+      'WhatsApp 7 mensagens 2 responderam 28,6% taxa de resposta',
+      'Instagram 4 DMs 1 responderam 25% taxa de resposta',
+      'LinkedIn 1 convites 0 responderam 0% taxa de resposta']);
+    assert.strictEqual(new Set(r.tamanhos).size, 1, 'mesmo tamanho de número nos 4 cartões');
     assert.strictEqual(r.linhas, 13);
     assert.deepStrictEqual([...new Set(r.canais)].sort(), ['Instagram', 'LinkedIn', 'WhatsApp']);
     assert.match(r.rank, /Instagram Facilities SP/);
-    assert.match(r.hora, /Instagram.*poucos dados.*LinkedIn/s);
+    assert.match(r.hora, /WhatsApp .*Instagram .*LinkedIn/);
     // só Instagram
-    await a.pagina.selectOption('#mc-filtro-canal', 'instagram'); await a.pagina.waitForTimeout(800);
+    await a.pagina.selectOption('#mc-filtro-canal', 'instagram'); await a.pagina.waitForTimeout(900);
     r = await ler();
-    assert.strictEqual(r.env, '4'); assert.strictEqual(r.err, '—'); assert.strictEqual(r.resp, '1');
+    assert.deepStrictEqual(r.cards, ['Instagram 4 DMs 1 responderam 25% taxa de resposta']);
     assert.strictEqual(r.linhas, 4); assert.deepStrictEqual([...new Set(r.canais)], ['Instagram']);
-    assert.match(r.rank, /Instagram Facilities SP 2 empresas · 2 já abordadas · ativa 50% responderam/); assert.ok(!/c1/.test(r.rank), "só Instagram no ranking");
-    // só WhatsApp: volta a lógica original
-    await a.pagina.selectOption('#mc-filtro-canal', 'whatsapp'); await a.pagina.waitForTimeout(800);
+    assert.match(r.rank, /Instagram Facilities SP 2 empresas · 2 já abordadas · ativa 50% responderam/); assert.ok(!/c1/.test(r.rank), 'só Instagram no ranking');
+    assert.doesNotMatch(r.hora, /WhatsApp|LinkedIn/);
+    // só WhatsApp
+    await a.pagina.selectOption('#mc-filtro-canal', 'whatsapp'); await a.pagina.waitForTimeout(900);
     r = await ler();
-    assert.strictEqual(r.env, '7'); assert.strictEqual(r.resp, '2');
+    assert.deepStrictEqual(r.cards, ['WhatsApp 7 mensagens 2 responderam 28,6% taxa de resposta']);
+    // funil do envio à venda com uma coluna por canal
+    const f = await a.pagina.evaluate(async () => { await prCarregar(); return document.querySelector('#pr-funil-corpo .mc-ftab').innerText.replace(/\s+/g, ' '); });
+    assert.match(f, /Total WhatsApp Instagram LinkedIn Contatos 12 7 4 1 Responderam 3 25% 2 28,6% 1 25% 0 0%/i);
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });

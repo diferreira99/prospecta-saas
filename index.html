@@ -216,6 +216,29 @@
         .pc-barra { height: 8px; border-radius: 99px; background: #E0E6EF; overflow: hidden; }
         .pc-barra i { display: block; height: 100%; width: 0; border-radius: 99px; background: var(--pc-cor); transition: width 0.5s; }
         .pc-total { margin-top: 12px; background: #f5f7ff; border-radius: 10px; padding: 10px 12px; font-size: 0.78rem; color: #0D1330; }
+        #pr-bench { display: none !important; }
+        .mc-cgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 22px; }
+        .mc-cgrid.um { grid-template-columns: minmax(0, 1fr); max-width: 420px; }
+        @media (max-width: 1100px) { .mc-cgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 560px) { .mc-cgrid { grid-template-columns: 1fr; } }
+        .mc-ccard { background: var(--surface); border: 1.5px solid var(--border); border-top: 3px solid var(--pc-cor); border-radius: 14px; padding: 14px 16px; }
+        .mc-ccard .pc-cab { margin-bottom: 12px; }
+        .mc-cnums { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .mc-cnums b { display: block; font-family: 'Inter', sans-serif; font-size: 1.5rem; font-weight: 800; color: var(--pc-cor); line-height: 1.1; }
+        .mc-cnums span { font-size: 0.66rem; color: var(--muted); }
+        .mc-total { --pc-cor: #0D1330; }
+        .mc-ftab { width: 100%; border-collapse: collapse; font-family: 'Inter', sans-serif; }
+        .mc-ftab th { font-size: 0.68rem; font-weight: 700; text-align: right; padding: 6px 8px; color: #fff; }
+        .mc-ftab th:first-child { text-align: left; color: var(--muted); }
+        .mc-ftab th span { display: inline-block; padding: 2px 9px; border-radius: 99px; }
+        .mc-ftab td { font-size: 0.8rem; padding: 9px 8px; border-top: 1px solid var(--border); text-align: right; }
+        .mc-ftab td:first-child { text-align: left; color: var(--text); }
+        .mc-ftab td b { font-size: 0.95rem; }
+        .mc-ftab td small { display: block; font-size: 0.6rem; color: var(--muted); }
+        .mc-hgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+        @media (max-width: 760px) { .mc-hgrid { grid-template-columns: 1fr; } }
+        .mc-hgrid > div { border: 1px solid var(--border); border-top: 3px solid var(--pc-cor); border-radius: 10px; padding: 10px 12px; font-size: 0.74rem; color: var(--text); line-height: 1.5; }
+        .integ-saude { border: none; box-shadow: none; padding: 0; margin: 0; }
         .mc-canal-box { background: var(--surface2); border: 1.5px solid var(--border); border-radius: 10px; padding: 4px 8px; }
         .mc-canal-box select { font-family: 'Inter', sans-serif; font-size: 0.62rem; font-weight: 600; background: transparent; border: none; color: var(--text); outline: none; cursor: pointer; }
         .mc-canais-extra { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border); font-size: 0.72rem; color: var(--text); line-height: 1.6; }
@@ -2171,6 +2194,18 @@ function iniciarAppPosLogin() {
             <div style="max-width:960px;">
                 <!-- CONSULTOR DO DIA: o que fazer hoje, pelos números (preenchido pelo JS) -->
                 <section id="cons-dia" class="ph-card cons" aria-labelledby="cons-t" hidden></section>
+                <!-- O que precisa de você (veio do Painel: o Painel ficou só com métricas e campanhas) -->
+                <div id="painel-hoje" class="ph-grid pl-tarefas" aria-live="polite">
+                    <section class="ph-card" aria-labelledby="ph-t1">
+                    <h3 id="ph-t1">Precisa de você agora</h3>
+                    <div id="ph-acoes"><div class="ph-mudo">Carregando…</div></div>
+                    <div id="pr-quentes"></div>
+                </section>
+                    <section class="ph-card" aria-labelledby="pr-t-parado">
+                    <h3 id="pr-t-parado">Pipeline parado</h3>
+                    <div id="pr-parado"><div class="ph-mudo">Carregando…</div></div>
+                </section>
+                </div>
                 <!-- PLANO INTELIGENTE: o de hoje em 1 clique, montar pelo que responde e arquivar o antigo -->
                 <section id="pl-hoje" class="pl-hoje" aria-labelledby="pl-hoje-t" hidden></section>
                 <div class="pl-acoes">
@@ -5905,6 +5940,14 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
 
             <!-- PROTEÇÃO DA CONTA -->
+            <!-- SAÚDE DO NÚMERO (veio do Painel) -->
+            <div class="integ-card" id="integ-card-saude">
+                <section class="ph-card integ-saude" aria-labelledby="ph-t2">
+                    <h3 id="ph-t2">Saúde do número <span class="ph-tag" title="Estimativa feita pelo Prospecta+ com sinais indiretos. Não é uma métrica oficial da Meta.">estimativa</span></h3>
+                    <div id="ph-saude"><div class="ph-mudo">Carregando…</div></div>
+                </section>
+            </div>
+
             <div class="integ-card" id="integ-card-protecao">
                 <div class="integ-header">
                     <span class="integ-icon">🛡️</span>
@@ -5913,7 +5956,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <p class="integ-desc">Cuidados para o WhatsApp não restringir ou banir o seu número. Você liga, desliga e ajusta; o servidor e a automação seguem o que estiver aqui.</p>
                 <div id="prot-corpo" class="prot-corpo">
                     <label class="prot-item"><input type="checkbox" id="prot-balao" onchange="protMudou()"><span><b>Um balão só</b><small>Manda a mensagem inteira numa única mensagem, em vez de 3 seguidas. Três mensagens de um desconhecido pesam mais como spam.</small></span></label>
-                    <label class="prot-item"><input type="checkbox" id="prot-saude" onchange="protMudou()"><span><b>Frear as campanhas pela saúde do número</b><small>Nota amarela: o limite do dia cai pela metade. Nota vermelha: as campanhas pausam sozinhas, voltam quando a nota melhorar e você recebe um aviso no WhatsApp de alerta. A nota fica no Painel.</small></span></label>
+                    <label class="prot-item"><input type="checkbox" id="prot-saude" onchange="protMudou()"><span><b>Frear as campanhas pela saúde do número</b><small>Nota amarela: o limite do dia cai pela metade. Nota vermelha: as campanhas pausam sozinhas, voltam quando a nota melhorar e você recebe um aviso no WhatsApp de alerta. A nota fica em Integrações, no cartão Saúde do número.</small></span></label>
                     <label class="prot-item"><input type="checkbox" id="prot-waauto" onchange="protMudou()"><span><b>Conferir WhatsApp sozinho depois da busca</b><small>Marca 📱 em quem tem WhatsApp sem você clicar em nada. Vai devagar (1 número a cada 1,5 s) e para em 400 por dia, para não pesar no seu número.</small></span></label>
                     <label class="prot-item"><input type="checkbox" id="prot-robo" onchange="protMudou()"><span><b>Responder robôs de atendimento sozinho</b><small>Quando a empresa responde com um menu ("1 - Financeiro, 2 - Comercial…"), escolhe o Comercial na hora e marca o lead como "aguardando atendente". No máximo 2 respostas por empresa em 24 h. Se nenhuma pessoa aparecer em 48 h, uma retomada curta vai para a sua aprovação.</small></span></label>
                     <label class="prot-item"><input type="checkbox" id="prot-auto" onchange="protMudou()"><span><b>Cancelar a campanha se o WhatsApp derrubar o aparelho</b><small>Quando o WhatsApp desconecta o servidor (restrição ou outro login), a campanha é cancelada em vez de continuar ao reconectar.</small></span></label>
@@ -6076,18 +6119,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                             </div>
             <section id="painel-aovivo" class="cp-aovivo" aria-live="polite" hidden></section>
-            <!-- PAINEL: o que precisa de você + saúde do número -->
-            <div id="painel-hoje" class="ph-grid" aria-live="polite">
-                <section class="ph-card" aria-labelledby="ph-t1">
-                    <h3 id="ph-t1">Precisa de você agora</h3>
-                    <div id="ph-acoes"><div class="ph-mudo">Carregando…</div></div>
-                    <div id="pr-quentes"></div>
-                </section>
-                <section class="ph-card" aria-labelledby="ph-t2">
-                    <h3 id="ph-t2">Saúde do número <span class="ph-tag" title="Estimativa feita pelo Prospecta+ com sinais indiretos. Não é uma métrica oficial da Meta.">estimativa</span></h3>
-                    <div id="ph-saude"><div class="ph-mudo">Carregando…</div></div>
-                </section>
-            </div>
             <!-- PAINEL: hoje nos 3 canais (WhatsApp, Instagram, LinkedIn) -->
             <section id="pc-canais" class="ph-card pr-bloco" aria-labelledby="pc-t">
                 <h3 id="pc-t">Hoje nos 3 canais <span class="ph-tag">atualizado às <span id="mc-ultima-atualizacao">—</span></span></h3>
@@ -6158,7 +6189,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
 
             <!-- Cards Totais -->
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:22px;" id="metricas-cards-grid">
+            <div style="display:none;" id="metricas-cards-grid" aria-hidden="true"><!-- números do WhatsApp (base); a tela mostra o #mc-canais-grid -->
                 <div class="metricas-card" id="mc-enviados">
                     <div class="mc-icon" style="background:#dcfce7;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
                     <div class="mc-value" style="color:#16a34a;" id="mc-val-enviados">—</div>
@@ -6178,6 +6209,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="mc-sub" id="mc-sub-respostas">Carregando...</div>
                 </div>
             </div>
+            <div id="mc-canais-grid" class="mc-cgrid"></div>
             <div id="pr-bench" class="pr-bench" hidden></div>
 
             <!-- HORÁRIO IDEAL DE ENVIO -->
@@ -6198,10 +6230,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <h3 id="pr-t-ab">Teste A/B das mensagens</h3>
                     <div id="pr-ab"><div class="ph-mudo">Carregando…</div></div>
                 </section>
-                <section class="ph-card" aria-labelledby="pr-t-parado">
-                    <h3 id="pr-t-parado">Pipeline parado</h3>
-                    <div id="pr-parado"><div class="ph-mudo">Carregando…</div></div>
-                </section>
+                
             </div>
 
             <!-- Log de campanhas recentes -->
@@ -6582,7 +6611,7 @@ function trocarAba(aba, el) {
         }, 100);
     }
 
-    if (aba === 'integracoes') setTimeout(() => { try { integAbrir(); } catch (e) {} }, 50);
+    if (aba === 'integracoes') setTimeout(() => { try { integAbrir(); } catch (e) {} try { painelHojeCarregar(); } catch (e) {} }, 50);
     if (aba === 'manual') setTimeout(() => { try { manualAbrir(); } catch (e) { console.warn('[manual]', e); } }, 30);
     if (aba === 'insta' || aba === 'linkedin') setTimeout(() => { try { canalAbrir(aba); } catch (e) { console.warn('[canal]', e); } }, 50);
     // Renderizar histórico ao entrar na aba
@@ -6606,7 +6635,7 @@ function trocarAba(aba, el) {
         setTimeout(() => { carregarFilaSugestoes(); carregarFilaFollowups(); }, 80);
     }
     if (aba === 'plano') {
-        setTimeout(() => { carregarPlanoProspeccao(); carregarModelosPlano(); consAbrir(); }, 80);
+        setTimeout(() => { carregarPlanoProspeccao(); carregarModelosPlano(); consAbrir(); try { painelHojeCarregar(); } catch (e) {} }, 80);
     }
 
     if (aba === 'inbox') {
@@ -13883,12 +13912,11 @@ const MANUAL = {
                     blocos: [
                         { t: 'De cima para baixo', l: [
                             '**Ao vivo**: a campanha que está enviando agora (quantas foram, a última empresa, se espera o horário). "Cancelar campanha" para tudo.',
-                            '**Precisa de você agora**: respostas e follow-ups para aprovar, reuniões de hoje, lembretes, leads quentes parados há mais de 24 h e WhatsApp desconectado. Cada item tem o botão que leva à tela certa.',
-                            '**Saúde do número**: nota de 0 a 100 (veja "Proteção do número").',
-                            '**Do envio à venda**: enviados → responderam → interessados → negociando → ganhos, com valor em R$ e o motivo de perda mais comum.',
+                            '**Hoje nos 3 canais**: WhatsApp, Instagram e LinkedIn lado a lado, com enviados hoje, limite diário, quem respondeu hoje e o progresso do dia.',
+                            '**Do envio à venda**: contatos → responderam → interessados → negociando → ganhos, com uma coluna para cada canal e o total, valor em R$ e o motivo de perda mais comum.',
                             '**Por produto**: enviadas, responderam, negociando e ganhos de cada produto.',
-                            '**Métricas de envio**: enviados, erros e respostas de pessoas, com filtro por período e campanha.',
-                            '**Horário ideal**, **Onde prospectar** (nichos, celular × fixo, dias), **Teste A/B**, **Pipeline parado**, **Hoje** (enviados e limite) e **Últimas campanhas / Ranking**.'
+                            '**Métricas de envio**: um cartão igual para cada canal (contatos, responderam e taxa) e o total, com filtro de **Canal**, período e campanha.',
+                            '**Horário ideal** por canal, **Onde prospectar**, **Teste A/B** e **Últimas campanhas / Ranking** com os 3 canais.'
                         ] }
                     ],
                     dicas: ['Taxa de resposta conta só pessoas; robô de atendimento não entra. Em prospecção fria, 5% a 10% é o normal; acima de 10% é ótimo; abaixo de 3%, revise a mensagem e a lista.', '**Relatório PDF** (ícone de documento no topo): Completo, Apenas Resumo ou Personalizado. Dá para mandar por WhatsApp na hora, com o número com DDI (ex.: 5511999998888).']
@@ -13900,7 +13928,7 @@ const MANUAL = {
             itens: [
                 {
                     titulo: 'Plano de Prospecção e consultor do dia', resumo: 'O que fazer hoje, pelos seus números', aba: 'plano',
-                    texto: 'No topo, **🧭 Seu plano de hoje** diz o que fazer primeiro, baseado nos seus envios: (1) quem já respondeu, (2) a campanha nova do nicho e cidade que mais geram interessados, (3) uma segunda opção se sobrar janela, (4) as DMs e retomadas do Instagram e do LinkedIn, e o que **evitar**. Cada passo tem o botão que já faz a ação (ex.: "Buscar Contabilidade em Campinas").',
+                    texto: 'Logo abaixo do plano ficam **Precisa de você agora** (respostas e follow-ups para aprovar, reuniões de hoje, lembretes, leads quentes parados e WhatsApp desconectado) e **Pipeline parado**. No topo, **🧭 Seu plano de hoje** diz o que fazer primeiro, baseado nos seus envios: (1) quem já respondeu, (2) a campanha nova do nicho e cidade que mais geram interessados, (3) uma segunda opção se sobrar janela, (4) as DMs e retomadas do Instagram e do LinkedIn, e o que **evitar**. Cada passo tem o botão que já faz a ação (ex.: "Buscar Contabilidade em Campinas").',
                     blocos: [
                         { t: 'Calendário', l: ['O card de hoje mostra a combinação do dia ("academia em Jundiaí"). "Buscar e montar campanha" já separa os melhores; "Só buscar" faz só a busca. "Esgotada": você já mandou para quase todas daquela busca — troque a cidade.', '**Montar plano das próximas semanas**: confira as cidades, ligue ou desligue nichos (cada um mostra quanto responde), escolha 10, 20, 30 ou 40 dias úteis → "Ver prévia" → "Salvar plano".', 'Regras: só dias úteis, nunca o mesmo nicho dois dias seguidos, não repete o que já buscou e nichos que respondem mais aparecem até 3 vezes mais.', 'Cada dia usado mostra o resultado (enviadas, responderam, interessados, R$). Atrasados pulam para os próximos dias úteis.', '**Colar plano**: uma linha por dia, "Nicho, Local". **Modelos**: salve o plano e gere outro trocando um termo.'] }
                     ]
@@ -14009,12 +14037,12 @@ const MANUAL = {
                 {
                     titulo: 'Integrações', resumo: 'WhatsApp, horário, ritmo, proteção e alertas', aba: 'integracoes',
                     blocos: [
-                        { t: 'Cartões', l: ['**Como está tudo agora**: WhatsApp, IA, Horário, Envios de hoje e Alertas; o que estiver com problema tem "Resolver".', '**Integração WhatsApp**: QR Code ou código de 8 dígitos, "Testar Conexão" e "Desconectar / trocar número". Se cair por mais de 1 minuto, aparece a faixa vermelha "Conectar agora" e as campanhas ficam pausadas.', '**Horário de Envio**: recomendado segunda a sexta, 7h às 12h. Fora dele, pausa e volta sozinho.', '**Simulação Humanizada**: Seguro (90–180 s, 20/dia), Normal (60–120 s, 30/dia, padrão) ou Rápido (40–80 s, 50/dia, mais risco). Limite de 1 a 100 novas por dia; o servidor tem teto de 150 mensagens por dia.', '**Alertas e notificações**: número de alerta (lead quente, campanha finalizada ou pausada, WhatsApp que voltou, freio acionado e resumo às 18h) e notificações do aparelho.', '**Seus dados**: backup automático toda madrugada por 30 dias e "Baixar meus dados (Excel)".'] }
+                        { t: 'Cartões', l: ['**Saúde do número**: nota de 0 a 100 e os sinais dos últimos 7 dias (veja "Proteção do número").', '**Como está tudo agora**: WhatsApp, IA, Horário, Envios de hoje e Alertas; o que estiver com problema tem "Resolver".', '**Integração WhatsApp**: QR Code ou código de 8 dígitos, "Testar Conexão" e "Desconectar / trocar número". Se cair por mais de 1 minuto, aparece a faixa vermelha "Conectar agora" e as campanhas ficam pausadas.', '**Horário de Envio**: recomendado segunda a sexta, 7h às 12h. Fora dele, pausa e volta sozinho.', '**Simulação Humanizada**: Seguro (90–180 s, 20/dia), Normal (60–120 s, 30/dia, padrão) ou Rápido (40–80 s, 50/dia, mais risco). Limite de 1 a 100 novas por dia; o servidor tem teto de 150 mensagens por dia.', '**Alertas e notificações**: número de alerta (lead quente, campanha finalizada ou pausada, WhatsApp que voltou, freio acionado e resumo às 18h) e notificações do aparelho.', '**Seus dados**: backup automático toda madrugada por 30 dias e "Baixar meus dados (Excel)".'] }
                     ]
                 },
                 {
                     titulo: 'Proteção do número', resumo: 'As travas que agem sozinhas', aba: 'integracoes', alvo: 'integ-card-protecao',
-                    texto: '**Saúde do número** (Painel): nota de 0 a 100 com os sinais dos últimos 7 dias. Cinza: menos de 20 envios. Verde (75+): normal. Amarelo (50 a 74): corta o limite do dia pela metade. Vermelho (abaixo de 50): pausa as campanhas, confere a cada 3 h e avisa. É uma estimativa do app, não uma métrica oficial do WhatsApp.',
+                    texto: '**Saúde do número** (Integrações): nota de 0 a 100 com os sinais dos últimos 7 dias. Cinza: menos de 20 envios. Verde (75+): normal. Amarelo (50 a 74): corta o limite do dia pela metade. Vermelho (abaixo de 50): pausa as campanhas, confere a cada 3 h e avisa. É uma estimativa do app, não uma métrica oficial do WhatsApp.',
                     blocos: [
                         { t: 'Travas (Integrações → Proteção da conta)', l: ['**Um balão só** (ligada): a mensagem sai inteira, não em 3 balões.', '**Frear pela saúde do número** (ligada).', '**Conferir WhatsApp depois da busca** (ligada): até 400 por dia.', '**Responder robôs sozinho** (ligada): até 2 vezes em 24 h.', '**Cancelar se o WhatsApp derrubar o aparelho** (ligada).', '**Freio de bloqueio** (ligada): se 4 das últimas 10 empresas não receberem em 15 minutos, cancela e avisa.', '**Modo pós-restrição** (liga sozinho se o número cair): recomeça com 10 por dia e sobe 5 por dia até o limite normal.'] },
                         { t: 'Boas práticas', l: ['Um número só para prospecção.', 'Número novo: duas semanas no pronto Seguro (20 por dia).', 'Suba o limite de 10 em 10 por semana, com a saúde verde.', 'Mensagem curta e com pergunta.', 'Respeite quem pede para sair.', 'Se o número cair, espere algumas horas, reconecte e deixe o modo pós-restrição trabalhar.'] }
@@ -14029,7 +14057,7 @@ const MANUAL = {
                 {
                     titulo: 'Rotina recomendada', resumo: '20 minutos de manhã, respostas rápidas durante o dia', aba: 'metricas',
                     blocos: [
-                        { t: 'Todo dia útil, antes das 9h', l: ['Painel: resolver "Precisa de você agora" e conferir a saúde do número.', 'Plano: seguir o consultor do dia e mandar a campanha pela Prospecção WhatsApp.', 'Respostas: aprovar os follow-ups do dia.', 'Instagram e LinkedIn: as tarefas de "Campanhas · hoje" e as DMs novas, respeitando o intervalo.'] },
+                        { t: 'Todo dia útil, antes das 9h', l: ['Plano de Prospecção: resolver "Precisa de você agora". Integrações: conferir a saúde do número.', 'Plano: seguir o consultor do dia e mandar a campanha pela Prospecção WhatsApp.', 'Respostas: aprovar os follow-ups do dia.', 'Instagram e LinkedIn: as tarefas de "Campanhas · hoje" e as DMs novas, respeitando o intervalo.'] },
                         { t: 'Durante o dia', l: ['Responder os interessados em até 30 minutos.', 'Mover no Pipeline quem avançou, com valor e próxima ação.'] },
                         { t: 'Toda segunda', l: ['"Onde prospectar" (Painel) e Histórico: o que mais respondeu.', 'Ajustar o Plano.', 'Meus Leads: pôr no Pipeline quem respondeu e ficou fora.', 'Pipeline: tratar os "leads esfriando".'] }
                     ],
@@ -16768,7 +16796,7 @@ function mcCanal() {
     if (camp !== 'all') return 'whatsapp';        // campanha do WhatsApp escolhida: só ele
     const v = userGet('mc_canal', 'todos'); return MC_CANAL[v] || v === 'todos' ? v : 'todos';
 }
-function mcCanalTrocar(v) { userSet('mc_canal', v); filtrarMetricasPorCampanha(); }
+function mcCanalTrocar(v) { userSet('mc_canal', v); filtrarMetricasPorCampanha(); mcHorarioAplicar().catch(() => {}); }
 async function mcCarregarAbordagens(forcar) {
     if (_mcAb && !forcar && Date.now() - _mcAb.em < 60000) return _mcAb;
     const uid = currentUser.id, out = { em: Date.now() };
@@ -16785,32 +16813,36 @@ function _mcNoPeriodo(t) {
 }
 function _mcSet(id, v) { const el = document.getElementById(id); if (el) el.textContent = v; }
 function _mcNum(id) { const n = Number(String((document.getElementById(id) || {}).textContent || '').replace(/\D/g, '')); return isNaN(n) ? 0 : n; }
+function mcCanaisDoFiltro() { const c = mcCanal(); return c === 'todos' ? ['whatsapp', 'instagram', 'linkedin'] : [c]; }
 async function mcCanaisAplicar() {
     const canal = mcCanal();
     const sel = document.getElementById('mc-filtro-canal'); if (sel) { sel.value = canal; sel.disabled = ((document.getElementById('mc-filtro-campanha') || {}).value || 'all') !== 'all'; }
-    if (canal === 'whatsapp' || typeof currentUser === 'undefined' || !currentUser) return;
+    const grid = document.getElementById('mc-canais-grid');
+    if (!grid || typeof currentUser === 'undefined' || !currentUser) return;
     const ab = await mcCarregarAbordagens();
     const per = k => (ab[k] || []).filter(r => _mcNoPeriodo(r.criado_em));
-    const c = { instagram: per('instagram'), linkedin: per('linkedin') };
-    const resp = k => c[k].filter(r => r.resultado === 'respondeu').length;
-    const n = v => Number(v || 0).toLocaleString('pt-BR');
-    const bench = document.getElementById('pr-bench');
-    if (canal === 'todos') {
-        const env = _mcWa.env + c.instagram.length + c.linkedin.length, rs = _mcWa.resp + resp('instagram') + resp('linkedin');
-        _mcSet('mc-val-enviados', n(env));
-        _mcSet('mc-sub-enviados', `WhatsApp ${n(_mcWa.env)} · Instagram ${n(c.instagram.length)} · LinkedIn ${n(c.linkedin.length)}`);
-        _mcSet('mc-val-erros', n(_mcWa.err));
-        _mcSet('mc-sub-erros', _mcWa.err ? 'Só no WhatsApp (DM e convite você envia)' : 'Nenhum erro');
-        _mcSet('mc-val-respostas', n(rs));
-        _mcSet('mc-sub-respostas', `WhatsApp ${n(_mcWa.resp)} · Instagram ${n(resp('instagram'))} · LinkedIn ${n(resp('linkedin'))}` + (env ? ` · ${prPctTxt(rs, env)} de quem recebeu` : ''));
-        if (bench && !bench.hidden && !/^No WhatsApp/.test(bench.textContent)) bench.textContent = 'No WhatsApp: ' + bench.textContent;
-    } else {
-        const lst = c[canal], r = resp(canal), m = MC_CANAL[canal];
-        _mcSet('mc-val-enviados', n(lst.length)); _mcSet('mc-sub-enviados', `${m.unid} registrados no ${m.nome}`);
-        _mcSet('mc-val-erros', '—'); _mcSet('mc-sub-erros', 'Não se aplica: você envia pelo app do ' + m.nome);
-        _mcSet('mc-val-respostas', n(r)); _mcSet('mc-sub-respostas', lst.length ? `${prPctTxt(r, lst.length)} marcados como "respondeu"` : 'Nenhum envio no período');
-        if (bench) bench.hidden = true;
+    const v = {
+        whatsapp: { env: _mcWa.env, resp: _mcWa.resp },
+        instagram: { env: per('instagram').length, resp: per('instagram').filter(r => r.resultado === 'respondeu').length },
+        linkedin: { env: per('linkedin').length, resp: per('linkedin').filter(r => r.resultado === 'respondeu').length },
+    };
+    const n = x => Number(x || 0).toLocaleString('pt-BR');
+    const card = (cls, cor, icone, nome, unid, x) => {
+        const c = prEl('div', 'mc-ccard ' + cls); if (cor) c.style.setProperty('--pc-cor', cor);
+        const cab = prEl('div', 'pc-cab'); const ic = prEl('span', 'pc-ic'); ic.innerHTML = icone; cab.append(ic, nome); c.appendChild(cab);
+        const nums = prEl('div', 'mc-cnums');
+        [[n(x.env), unid], [n(x.resp), 'responderam'], [x.env ? prPctTxt(x.resp, x.env) : '—', 'taxa de resposta']].forEach(([a, b]) => { const d = prEl('div'); d.append(prEl('b', '', a), prEl('span', '', b)); nums.appendChild(d); });
+        c.appendChild(nums); return c;
+    };
+    const lista = mcCanaisDoFiltro();
+    grid.replaceChildren();
+    grid.classList.toggle('um', lista.length === 1);
+    if (lista.length > 1) {
+        const t = lista.reduce((a, k) => ({ env: a.env + v[k].env, resp: a.resp + v[k].resp }), { env: 0, resp: 0 });
+        grid.appendChild(card('mc-total', '', '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M3 12h18M3 6h18M3 18h18"/></svg>', 'Total', 'contatos', t));
     }
+    const ic = { whatsapp: _LOGO_REDE.whatsapp, instagram: _IG_GLIFO, linkedin: _LI_GLIFO };
+    lista.forEach(k => grid.appendChild(card('', MC_CANAL[k].cor, ic[k], MC_CANAL[k].nome, MC_CANAL[k].unid, v[k])));
 }
 // Horário ideal por canal (mesma conta do WhatsApp: faixa do dia do envio × quem respondeu)
 function mcHorarioTexto(itens) {
@@ -16823,17 +16855,23 @@ function mcHorarioTexto(itens) {
     return `<b>${m.label}</b>: ${prPctTxt(m.resp, m.env)} responderam (${m.env} envios)`;
 }
 async function mcHorarioAplicar() {
-    const canal = mcCanal(), el = document.getElementById('mc-horario-conteudo');
-    if (!el || canal === 'whatsapp') return;
+    const el = document.getElementById('mc-horario-conteudo');
+    if (!el || typeof currentUser === 'undefined' || !currentUser) return;
     const ab = await mcCarregarAbordagens();
-    const itens = k => (ab[k] || []).map(r => ({ t: r.criado_em, resp: r.resultado === 'respondeu' }));
-    const linha = k => `<span class="mc-chip-canal" style="background:${MC_CANAL[k].cor}">${MC_CANAL[k].nome}</span> ${mcHorarioTexto(itens(k))}`;
-    if (canal === 'todos') {
-        el.querySelectorAll('.mc-canais-extra').forEach(x => x.remove());
-        const d = document.createElement('div'); d.className = 'mc-canais-extra';
-        d.innerHTML = 'Nos outros canais (pelo horário em que a DM ou o convite foi registrado):<br>' + linha('instagram') + '<br>' + linha('linkedin');
-        el.appendChild(d);
-    } else el.innerHTML = linha(canal) + '<div class="ph-linha" style="margin-top:6px">No ' + MC_CANAL[canal].nome + ' conta o horário em que você registrou a abordagem e quem você marcou como "respondeu".</div>';
+    const wa = await prBuscarTudo(() => prodQ(supabaseClient.from('leads').select('enviado_em,respondeu,resposta_suspeita_bot,campanha_id').eq('user_id', currentUser.id).not('enviado_em', 'is', null).order('id'))).then(r => prodFiltrar(r)).catch(() => []);
+    const itens = {
+        whatsapp: wa.map(l => ({ t: l.enviado_em, resp: !!l.respondeu && !l.resposta_suspeita_bot })),
+        instagram: (ab.instagram || []).map(r => ({ t: r.criado_em, resp: r.resultado === 'respondeu' })),
+        linkedin: (ab.linkedin || []).map(r => ({ t: r.criado_em, resp: r.resultado === 'respondeu' })),
+    };
+    const g = prEl('div', 'mc-hgrid');
+    mcCanaisDoFiltro().forEach(k => {
+        const d = prEl('div'); d.style.setProperty('--pc-cor', MC_CANAL[k].cor);
+        d.innerHTML = `<b style="color:${MC_CANAL[k].cor}">${MC_CANAL[k].nome}</b><br>` + mcHorarioTexto(itens[k]);
+        g.appendChild(d);
+    });
+    el.replaceChildren(g);
+    el.appendChild(prEl('div', 'ph-linha', 'Faixa do dia em que o contato saiu × quem respondeu (no Instagram e no LinkedIn, o que você marcou). Mínimo de 20 contatos por canal.')).style.marginTop = '8px';
 }
 // Últimos envios e ranking com os 3 canais
 async function mcTabelaRankingAplicar(rows, campanhaId) {
@@ -17021,46 +17059,43 @@ function prDesenharFunil(d) {
     const ini = new Date(); ini.setDate(1); ini.setHours(0, 0, 0, 0);
     const ganhoMes = ganhos.filter(p => p.fechado_em && new Date(p.fechado_em) >= ini).reduce((s, p) => s + (Number(p.valor) || 0), 0);
 
-    const etapas = [
-        { nome: 'Enviados', n: enviados },
-        { nome: 'Pessoas responderam', n: humanas },
-        { nome: 'Interessados', n: interessados.size },
-        { nome: 'Em negociação', n: negociacao },
-        { nome: 'Ganhos', n: ganhos.length, ganho: true },
-    ];
-    box.innerHTML = '';
-    if (!enviados) { box.appendChild(prEl('div', 'ph-mudo', 'Ainda não há envios. Os números aparecem depois da primeira campanha.')); return; }
-    const lista = prEl('div', 'pr-funil');
-    etapas.forEach((e, i) => {
-        const row = prEl('div', 'pr-etapa' + (e.ganho ? ' ganho' : ''));
-        row.appendChild(prEl('span', '', e.nome));
-        const barra = prEl('div', 'pr-barra');
-        const fill = prEl('span');
-        fill.style.width = Math.max(0, Math.min(100, enviados ? e.n / enviados * 100 : 0)) + '%';
-        barra.appendChild(fill);
-        row.appendChild(barra);
-        const num = prEl('span', 'pr-num', e.n.toLocaleString('pt-BR'));
-        if (i > 0) num.appendChild(prEl('small', '', prPctTxt(e.n, etapas[i - 1].n)));
-        row.appendChild(num);
-        lista.appendChild(row);
+    // Funil por canal, todos com o mesmo peso: WhatsApp (envios), Instagram (DMs) e LinkedIn (convites).
+    // Resposta: WhatsApp só pessoa; Instagram/LinkedIn = marcado como "respondeu" ou card em Respondeu ou além no Pipeline.
+    const canalDo = p => p.canal === 'instagram' ? 'instagram' : p.canal === 'linkedin' ? 'linkedin' : 'whatsapp';
+    const ab = (d.canais && { instagram: d.canais.insta.ab || [], linkedin: d.canais.linkedin.ab || [] }) || { instagram: [], linkedin: [] };
+    const col = { whatsapp: { env: enviados, resp: humanas, int: 0, neg: 0, gan: 0 }, instagram: {}, linkedin: {} };
+    ['instagram', 'linkedin'].forEach(k => {
+        const cards = d.pipeline.filter(p => canalDo(p) === k);
+        const env = Math.max(ab[k].length, cards.length);
+        const resp = Math.max(ab[k].filter(r => r.resultado === 'respondeu').length, cards.filter(p => ['respondeu', 'negociando', 'fechado'].includes(p.col)).length);
+        col[k] = { env, resp, int: 0, neg: 0, gan: 0 };
     });
-    box.appendChild(lista);
+    ['whatsapp', 'instagram', 'linkedin'].forEach(k => {
+        const cards = d.pipeline.filter(p => canalDo(p) === k);
+        col[k].neg = cards.filter(p => p.col === 'negociando' || p.col === 'fechado').length;
+        col[k].gan = cards.filter(p => p.col === 'fechado').length;
+        col[k].valor = cards.filter(p => p.col === 'fechado').reduce((s2, p) => s2 + (Number(p.valor) || 0), 0);
+    });
+    col.whatsapp.int = interessados.size;
+    col.instagram.int = col.instagram.neg; col.linkedin.int = col.linkedin.neg;   // sem classificação da IA: interessado = negociando ou ganho
+    const ks = ['whatsapp', 'instagram', 'linkedin'];
+    const tot = f => ks.reduce((a2, k) => a2 + (col[k][f] || 0), 0);
+    const linhas = [['Contatos', 'env'], ['Responderam', 'resp'], ['Interessados', 'int'], ['Em negociação', 'neg'], ['Ganhos', 'gan']];
+    box.innerHTML = '';
+    if (!tot('env')) { box.appendChild(prEl('div', 'ph-mudo', 'Ainda não há contatos. Os números aparecem depois da primeira campanha ou abordagem.')); return; }
+    const tab = document.createElement('table'); tab.className = 'mc-ftab';
+    const cab = '<tr><th></th><th><span style="background:#0D1330">Total</span></th>' + ks.map(k => `<th><span style="background:${MC_CANAL[k].cor}">${MC_CANAL[k].nome}</span></th>`).join('') + '</tr>';
+    const cel = (k, f, i) => {
+        const v = k ? (col[k][f] || 0) : tot(f), ant = i ? (k ? (col[k][linhas[i - 1][1]] || 0) : tot(linhas[i - 1][1])) : 0;
+        return `<td><b${k ? ` style="color:${MC_CANAL[k].cor}"` : ''}>${v.toLocaleString('pt-BR')}</b>${i ? `<small>${ant ? prPctTxt(v, ant) : '—'}</small>` : ''}</td>`;
+    };
+    tab.innerHTML = cab + linhas.map(([nome, f], i) => `<tr><td>${nome}</td>${cel(null, f, i)}${ks.map(k => cel(k, f, i)).join('')}</tr>`).join('');
+    const wrap = prEl('div'); wrap.style.overflowX = 'auto'; wrap.appendChild(tab); box.appendChild(wrap);
+    const etapas = linhas.map(([nome, f]) => ({ nome: nome === 'Contatos' ? 'Contatos' : nome, n: tot(f) }));
     const emNeg = d.pipeline.filter(p => p.col === 'negociando');
-    const prev = emNeg.reduce((s, p) => s + (Number(p.valor) || 0), 0), semValor = emNeg.filter(p => !(Number(p.valor) > 0)).length;
+    const prev = emNeg.reduce((s2, p) => s2 + (Number(p.valor) || 0), 0), semValor = emNeg.filter(p => !(Number(p.valor) > 0)).length;
     box.appendChild(prEl('div', 'ph-linha', 'Ganho no mês: ' + _brl(ganhoMes) + ' · ganho total: ' + _brl(totalGanho) +
-        ' · em negociação: ' + _brl(prev) + (semValor ? ` (${semValor} sem valor)` : '') + '. A porcentagem pequena ao lado de cada número é em relação à etapa anterior.'));
-    const igPipe = d.pipeline.filter(p => p.canal === 'instagram');
-    if (igPipe.length || (_igFeitos && _igFeitos.size)) {
-        const igResp = igPipe.filter(p => ['respondeu', 'negociando', 'fechado'].includes(p.col)).length;
-        const igN = Math.max(_igFeitos ? _igFeitos.size : 0, igPipe.length);
-        box.appendChild(prEl('div', 'ph-linha', `Instagram: ${igN} abordados · ${igResp} responderam${igN ? ' (' + Math.round(igResp / igN * 100) + '%)' : ''}. Conta quem você moveu para Respondeu ou além no Pipeline.`));
-    }
-    const liPipe = d.pipeline.filter(p => p.canal === 'linkedin');
-    if (liPipe.length || (_liFeitos && _liFeitos.size)) {
-        const liResp = liPipe.filter(p => ['respondeu', 'negociando', 'fechado'].includes(p.col)).length;
-        const liN = Math.max(_liFeitos ? _liFeitos.size : 0, liPipe.length);
-        box.appendChild(prEl('div', 'ph-linha', `LinkedIn: ${liN} convites · ${liResp} responderam${liN ? ' (' + Math.round(liResp / liN * 100) + '%)' : ''}.`));
-    }
+        ' · em negociação: ' + _brl(prev) + (semValor ? ` (${semValor} sem valor)` : '') + '. A porcentagem pequena embaixo de cada número é em relação à linha de cima. No Instagram e no LinkedIn, resposta é o que você marcou ou moveu no Pipeline.'));
     const motivos = {};
     d.pipeline.filter(p => p.col === 'descartado' && p.motivo_perda).forEach(p => { motivos[p.motivo_perda] = (motivos[p.motivo_perda] || 0) + 1; });
     const nomesMot = { sem_interesse: 'sem interesse', tem_fornecedor: 'já tem fornecedor', preco: 'preço', nao_responde: 'não responde', robo: 'só robô', momento: 'não é o momento', outro: 'outro' };
