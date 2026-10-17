@@ -868,3 +868,24 @@ test('abrir o app com campanhas e leads salvos no aparelho não quebra a inicial
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('Pipeline: a leitura da nuvem de 45 em 45s não apaga o card criado enquanto ela chegava', async () => {
+  const a = await abrirApp({ largura: 1280, db: { pipeline_leads: [{ id: 'velho', user_id: 'u1', name: 'Card antigo', phone: '11900000001', col: 'novo' }] } });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      await pkSincronizarDaNuvem(); await new Promise(r => setTimeout(r, 100));
+      // a nuvem demora a responder; nesse meio tempo uma abordagem cria um card novo
+      const orig = supabaseClient.from.bind(supabaseClient);
+      supabaseClient.from = t => { const q = orig(t); if (t !== 'pipeline_leads') return q; const th = q.then.bind(q); q.then = (ok, err) => new Promise(r => setTimeout(r, 300)).then(() => th(ok, err)); return q; };
+      const leitura = pkSincronizarDaNuvem();
+      await new Promise(r => setTimeout(r, 50));
+      pkLoad(); pkLeads.push({ id: 'novo1', name: 'Grupo Facility', phone: '11900000002', col: 'contatado', canal: 'instagram' }); pkSave();
+      await leitura; await new Promise(r => setTimeout(r, 800));
+      supabaseClient.from = orig;
+      pkLoad();
+      return { local: pkLeads.map(l => l.name).sort(), nuvem: _db.pipeline_leads.map(l => l.name).sort() };
+    });
+    assert.deepStrictEqual(r.local, ['Card antigo', 'Grupo Facility']);
+    assert.deepStrictEqual(r.nuvem, ['Card antigo', 'Grupo Facility']);
+  } finally { await a.fechar(); }
+});

@@ -2909,6 +2909,7 @@ function pkSave() {
     // Card novo nasce no funil do produto atual (o que a IA está vendendo)
     const p = typeof prodAtual === 'function' ? prodAtual() : null;
     if (p) pkLeads.forEach(l => { if (!l.produtoId) l.produtoId = p.id; });
+    _pkMudouEm = Date.now();
     userSet('pk_leads', pkLeads); pkSincronizarParaNuvem();
 }
 // Pipeline separado por produto: cada produto tem o seu funil; "Todos" mostra tudo com a etiqueta
@@ -2965,11 +2966,18 @@ async function pkSincronizarParaNuvem() {
 
 // Puxa o Pipeline da nuvem (fonte de verdade entre aparelhos/navegadores) e atualiza a
 // tela se ela já estiver aberta. Roda em segundo plano, sem travar a UI local.
+// Hora da última mudança feita neste aparelho. Se ela acontecer enquanto a cópia da nuvem está chegando,
+// ou se ainda há envio para a nuvem em andamento, a cópia da nuvem está velha e não pode substituir a daqui
+// (antes, um card criado no meio da leitura de 45 em 45s sumia e o envio seguinte apagava ele da nuvem também).
+let _pkMudouEm = 0;
 async function pkSincronizarDaNuvem() {
     if (!currentUser) return;
+    if (_pkSyncEmAndamento || _pkSyncPendente) return;
+    const inicio = Date.now();
     try {
         const { data, error } = await supabaseClient.from('pipeline_leads').select('*').eq('user_id', currentUser.id);
         if (error) throw error;
+        if (_pkMudouEm >= inicio || _pkSyncEmAndamento || _pkSyncPendente) return;
         if (Array.isArray(data) && data.length) {
             pkLeads = data.map(r => ({
                 id: r.id, name: r.name || '', cat: r.cat || '', phone: r.phone || '', website: r.website || '',
