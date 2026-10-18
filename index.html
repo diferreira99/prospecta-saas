@@ -254,6 +254,7 @@
         .num-selo { display: inline-block; font-size: 0.6rem; font-weight: 700; padding: 1px 8px; border-radius: 99px; margin-left: 6px; background: #f1f5f9; color: #475569; }
         .num-selo.ok { background: #dcfce7; color: #15803d; } .num-selo.alerta { background: #fef3c7; color: #b45309; } .num-selo.ruim { background: #fee2e2; color: #b91c1c; }
         .num-bts { display: flex; gap: 6px; flex-wrap: wrap; }
+        .inbox-voz-btn { font-size: 1.05rem; }
         .ig-espera { font-size: 0.7rem; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; border-radius: 8px; padding: 7px 10px; margin: 8px 0 0; line-height: 1.4; }
         /* ── MANUAL DO CLIENTE ── */
         .manual { max-width: 860px; margin: 0 auto; font-family: 'Inter', sans-serif; color: #0D1330; }
@@ -3373,8 +3374,9 @@ function rsCard(g) {
     wa.href = '#';
     wa.onclick = e => { e.preventDefault(); window.open('https://wa.me/' + formatPhoneBR(g.ultimo.phone) + (ta.value.trim() ? '?text=' + encodeURIComponent(ta.value.trim()) : ''), '_blank'); };
     const ret = prEl('button', 'rs-link', '⏰ Retomar depois');
-    const reu = prEl('button', 'rs-link', '📅 Marcar reunião');
-    rap.append(wa, ret, reu);
+    const reu = prEl('button', 'rs-link', '📅 Reunião ou ligação');
+    const aud = prEl('button', 'rs-link', '🎙️ Responder em áudio');
+    rap.append(wa, ret, reu, aud);
     if (g.classif !== 'pare') { const nc = prEl('button', 'rs-link', '🚫 Não contatar'); nc.onclick = () => rsNaoContatar(g, false); rap.appendChild(nc); }
     card.appendChild(rap);
     const painel = prEl('div', 'rs-painel');
@@ -3386,6 +3388,7 @@ function rsCard(g) {
     };
     ret.onclick = () => abrir('retomar');
     reu.onclick = () => abrir('reuniao');
+    aud.onclick = () => abrir('audio');
     if (_rsAbertos[g.k]) rsPintarPainel(painel, g, _rsAbertos[g.k]);
     card.appendChild(painel);
     return card;
@@ -3393,6 +3396,7 @@ function rsCard(g) {
 function rsPintarPainel(painel, g, tipo) {
     painel.innerHTML = '';
     if (!tipo) return;
+    if (tipo === 'audio') { rsPainelAudio(painel, g); return; }
     if (tipo === 'retomar') {
         painel.appendChild(prEl('div', 'rs-painel-tit', 'Quando retomar? No dia, ele aparece no Painel.'));
         const linha = prEl('div', 'rs-painel-linha');
@@ -3449,9 +3453,18 @@ function rsEscreverResposta(g, texto) {
     ta.focus();
 }
 const AGENDA_ERROS = { ocupado: 'esse horário já está ocupado na agenda', muito_cedo_ou_passado: 'precisa de pelo menos 2 horas de antecedência', fim_de_semana: 'só marcamos de segunda a sexta', fora_do_expediente: 'só das 8h às 18h', data_invalida: 'data ou hora inválida', sem_permissao: 'sua conta não tem agenda ligada', login_invalido: 'entre de novo no Prospecta+', agenda_falhou: 'o Google Agenda não criou o evento' };
+var _rsAgendaTipo = 'reuniao';   // 'reuniao' (30 min, Google Meet) ou 'ligacao' (15 min, você liga)
 function rsPainelAgenda(painel, g) {
     painel.innerHTML = '';
-    painel.appendChild(prEl('div', 'rs-painel-tit', '📅 Horários livres na sua agenda (30 min, com Google Meet). Nada vai para o lead sem você enviar.'));
+    const lig = _rsAgendaTipo === 'ligacao';
+    const tipos = prEl('div', 'rs-painel-linha');
+    [['reuniao', '📹 Reunião (30 min, Meet)'], ['ligacao', '📞 Ligação (15 min)']].forEach(([k, t]) => {
+        const b = prEl('button', 'ps-sug sin' + (_rsAgendaTipo === k ? ' ativo' : ''), t); b.type = 'button';
+        b.onclick = () => { _rsAgendaTipo = k; rsPainelAgenda(painel, g); };
+        tipos.appendChild(b);
+    });
+    painel.appendChild(tipos);
+    painel.appendChild(prEl('div', 'rs-painel-tit', lig ? '📞 Horários livres para você ligar (15 min). Entra na sua agenda ("📞 Ligação", com o número) e no Pipeline com lembrete. Nada vai para o lead sem você enviar.' : '📅 Horários livres na sua agenda (30 min, com Google Meet). Nada vai para o lead sem você enviar.'));
     const linha = prEl('div', 'rs-painel-linha');
     linha.appendChild(prEl('span', 'ph-mudo', 'Buscando horários livres…'));
     painel.appendChild(linha);
@@ -3467,7 +3480,8 @@ function rsPainelAgenda(painel, g) {
     const marcar = async (dia, hora, texto, btn) => {
         btn.disabled = true; const antes = btn.textContent; btn.textContent = '⏳ Marcando…';
         try {
-            const r = await agendaChamar({ acao: 'marcar', dia, hora, nome: g.nome, empresa: info.title || g.nome, phone: formatPhoneBR(g.ultimo.phone), produto: (prodAtual() && prodAtual().nome) || '' });
+            // ligação: o evento leva "📞 Ligação" no título (o n8n de hoje cria tudo como reunião de 30 min; o número fica na descrição)
+            const r = await agendaChamar({ acao: 'marcar', tipo: lig ? 'ligacao' : 'reuniao', dia, hora, nome: g.nome, empresa: (lig ? '📞 Ligação — ' : '') + (info.title || g.nome), phone: formatPhoneBR(g.ultimo.phone), produto: (prodAtual() && prodAtual().nome) || '' });
             if (!r.ok) {
                 const alt = (r.alternativas || []).map(x => x.texto).join(', ');
                 showToast('❌ Não marquei: ' + (AGENDA_ERROS[r.motivo] || AGENDA_ERROS[r.erro] || r.erro) + (alt ? '. Livres: ' + alt : ''), 'err');
@@ -3475,10 +3489,17 @@ function rsPainelAgenda(painel, g) {
             }
             const quando = new Date(r.inicio).getTime();
             const txt = (r.escolhido && r.escolhido.texto) || texto;
-            await rsPipeline(g, l => { l.reuniaoEm = quando; l.reuniaoMarcada = true; if (r.meet) l.reuniaoLink = r.meet; if (['novo', 'contatado', 'respondeu'].includes(l.col)) { l.col = 'negociando'; l.movedAt = Date.now(); } },
-                '📅 Reunião criada no Google Agenda' + (r.meet ? ' com Meet' : '') + '. Revise a mensagem e envie.');
-            // o Pipeline redesenha o cartão: a confirmação entra na caixa depois disso
-            rsEscreverResposta(g, 'Combinado! Deixei marcada a nossa conversa para ' + txt + ' (30 minutos, por vídeo).' + (r.meet ? '\nO link da chamada é este: ' + r.meet : '') + '\nQualquer coisa, é só me avisar por aqui.');
+            const tel = formatPhoneBR(g.ultimo.phone);
+            if (lig) {
+                await rsPipeline(g, l => { l.reuniaoEm = quando; l.reuniaoMarcada = true; l.proximaAcaoEm = quando; l.proximaAcaoTxt = '📞 Ligar para ' + (_integTelVer ? _integTelVer(tel) : tel) + ' (ligação combinada, 15 min)'; if (['novo', 'contatado', 'respondeu'].includes(l.col)) { l.col = 'negociando'; l.movedAt = Date.now(); } },
+                    '📞 Ligação marcada na agenda e no Pipeline. Revise a mensagem e envie (em texto ou em áudio).');
+                rsEscreverResposta(g, 'Combinado! Te ligo ' + txt + ' neste número, coisa de 15 minutinhos. Qualquer coisa, é só me avisar por aqui.');
+            } else {
+                await rsPipeline(g, l => { l.reuniaoEm = quando; l.reuniaoMarcada = true; if (r.meet) l.reuniaoLink = r.meet; if (['novo', 'contatado', 'respondeu'].includes(l.col)) { l.col = 'negociando'; l.movedAt = Date.now(); } },
+                    '📅 Reunião criada no Google Agenda' + (r.meet ? ' com Meet' : '') + '. Revise a mensagem e envie.');
+                // o Pipeline redesenha o cartão: a confirmação entra na caixa depois disso
+                rsEscreverResposta(g, 'Combinado! Deixei marcada a nossa conversa para ' + txt + ' (30 minutos, por vídeo).' + (r.meet ? '\nO link da chamada é este: ' + r.meet : '') + '\nQualquer coisa, é só me avisar por aqui.');
+            }
         } catch (e) { showToast('❌ ' + (e && e.message), 'err'); }
         finally { btn.disabled = false; btn.textContent = antes; }
     };
@@ -3494,16 +3515,18 @@ function rsPainelAgenda(painel, g) {
         if (!slots.length) { linha.appendChild(prEl('span', 'ph-mudo', 'Nenhum horário livre nos próximos dias. Use "Outro dia".')); return; }
         slots.forEach(sl => {
             const b = prEl('button', 'ps-sug sin', sl.texto);
-            b.onclick = () => { escolhido = sl; linha.querySelectorAll('button').forEach(x => x.classList.toggle('ativo', x === b)); btMarcar.disabled = false; btMarcar.textContent = '📅 Marcar ' + sl.dia_semana.split('-')[0] + ' ' + sl.dia_mes + ' ' + sl.hora; };
+            b.onclick = () => { escolhido = sl; linha.querySelectorAll('button').forEach(x => x.classList.toggle('ativo', x === b)); btMarcar.disabled = false; btMarcar.textContent = (lig ? '📞 Marcar ligação ' : '📅 Marcar ') + sl.dia_semana.split('-')[0] + ' ' + sl.dia_mes + ' ' + sl.hora; };
             linha.appendChild(b);
         });
         const btProp = prEl('button', 'rs-btn', '💬 Propor estes horários na resposta');
         btProp.onclick = () => {
             const t = slots.map(x => x.texto);
-            rsEscreverResposta(g, 'Que tal uma conversa rápida de 30 minutos por vídeo? Tenho ' + (t.length > 1 ? t.slice(0, -1).join(', ') + ' ou ' + t[t.length - 1] : t[0]) + '. Qual fica melhor para você?');
+            const lista = t.length > 1 ? t.slice(0, -1).join(', ') + ' ou ' + t[t.length - 1] : t[0];
+            rsEscreverResposta(g, lig ? 'Posso te ligar rapidinho, coisa de 15 minutos, pra te explicar melhor? Tenho ' + lista + '. Qual fica melhor pra você?'
+                : 'Que tal uma conversa rápida de 30 minutos por vídeo? Tenho ' + lista + '. Qual fica melhor para você?');
             showToast('💬 Horários na caixa de resposta. Revise e envie.', 'ok');
         };
-        const btMarcar = prEl('button', 'rs-btn verde', '📅 Escolha um horário acima');
+        const btMarcar = prEl('button', 'rs-btn verde', lig ? '📞 Escolha um horário acima' : '📅 Escolha um horário acima');
         btMarcar.disabled = true;
         btMarcar.onclick = () => escolhido && marcar(escolhido.dia_mes, escolhido.hora, escolhido.texto, btMarcar);
         acoes.append(btProp, btMarcar);
@@ -3864,7 +3887,7 @@ function renderizarFilaFollowups() {
         const selo = canal === 'instagram' ? `<span class="fu-canal fu-canal-ig">${_IG_GLIFO} Instagram · você envia</span>` : canal === 'linkedin' ? `<span class="fu-canal fu-canal-li">${_LI_GLIFO} LinkedIn · você envia</span>` : '';
         const botao = canal === 'instagram' ? `<button onclick="fuAbrirCanal(${item.id})" style="padding:8px 16px;border-radius:8px;border:none;background:#0D1330;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;">Abrir no Instagram</button>`
             : canal === 'linkedin' ? `<button onclick="fuAbrirCanal(${item.id})" style="padding:8px 16px;border-radius:8px;border:none;background:#0D1330;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;">Abrir no LinkedIn</button>`
-            : `<button onclick="enviarFollowup(${item.id})" style="padding:8px 16px;border-radius:8px;border:none;background:#FF6A00;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;">📤 Enviar follow-up</button>`;
+            : `<button onclick="fuAudioOuvir(${item.id}, this)" class="ps-acao" title="Ouvir como fica em áudio">▶ Ouvir</button><button onclick="fuEnviarAudio(${item.id}, this)" class="ps-acao" title="A IA fala o texto e manda como áudio">🎙️ Enviar em áudio</button><button onclick="enviarFollowup(${item.id})" style="padding:8px 16px;border-radius:8px;border:none;background:#FF6A00;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;">📤 Enviar follow-up</button>`;
         return `
         <div class="fila-card" style="background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
@@ -5627,6 +5650,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <!-- Mic -->
                             <button class="inbox-mic-btn" id="inbox-mic-btn" onclick="toggleGravacao()" title="Gravar áudio"><svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm0 2a2 2 0 0 0-2 2v6a2 2 0 0 0 4 0V5a2 2 0 0 0-2-2zm7 8a1 1 0 0 1 1 1 8 8 0 0 1-7 7.94V22h-2v-2.06A8 8 0 0 1 4 12a1 1 0 0 1 2 0 6 6 0 0 0 12 0 1 1 0 0 1 1-1z"/></svg></button>
 
+                            <button class="inbox-mic-btn inbox-voz-btn" id="inbox-voz-btn" onclick="enviarAudioIAInbox()" title="Enviar o texto digitado como áudio, com a voz da IA" aria-label="Enviar como áudio com a voz da IA">🗣️</button>
                             <button class="inbox-send-btn" onclick="enviarMensagemInbox()" id="inbox-send-btn" title="Enviar">&#10148;</button>
                         </div>
                     </div>
@@ -6016,6 +6040,16 @@ document.addEventListener('DOMContentLoaded', () => {
                             <option value="openai">OpenAI (ChatGPT — gpt-4o-mini)</option>
                             <option value="gemini">Google Gemini (gemini-2.5-flash)</option>
                         </select>
+                    </div>
+                    <div class="integ-field">
+                        <label class="integ-label">Voz dos áudios (respostas, follow-ups e Inbox)</label>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            <select class="integ-select" id="voz-audio-select" onchange="audioTrocarVoz(this.value)" style="flex:1;min-width:140px;">
+                                <option value="feminina">Feminina</option>
+                                <option value="masculina">Masculina</option>
+                            </select>
+                            <button type="button" class="ps-acao" onclick="audioOuvir('Oi, tudo bem? Aqui é do Prospecta. Esse é um teste de como os seus áudios vão soar.', this)">▶ Ouvir exemplo</button>
+                        </div>
                     </div>
                 </div>
 
@@ -6638,7 +6672,7 @@ function trocarAba(aba, el) {
         }, 100);
     }
 
-    if (aba === 'integracoes') setTimeout(() => { try { integAbrir(); } catch (e) {} try { painelHojeCarregar(); } catch (e) {} try { numCarregar(); } catch (e) {} }, 50);
+    if (aba === 'integracoes') setTimeout(() => { try { const v = document.getElementById('voz-audio-select'); if (v) v.value = audioVoz(); } catch (e) {} try { integAbrir(); } catch (e) {} try { painelHojeCarregar(); } catch (e) {} try { numCarregar(); } catch (e) {} }, 50);
     if (aba === 'manual') setTimeout(() => { try { manualAbrir(); } catch (e) { console.warn('[manual]', e); } }, 30);
     if (aba === 'insta' || aba === 'linkedin') setTimeout(() => { try { canalAbrir(aba); } catch (e) { console.warn('[canal]', e); } }, 50);
     // Renderizar histórico ao entrar na aba
@@ -13825,6 +13859,110 @@ async function ccNova(canal, origemInicial) {
     };
 }
 
+// ===================== ÁUDIO COM A VOZ DA IA =====================
+// O servidor do WhatsApp gera a fala (voz pronta da OpenAI) e manda como mensagem de voz ("microfone").
+// Sempre com a sua aprovação: o texto é o da caixa (resposta, follow-up ou Inbox); dá para ouvir antes.
+function audioVoz() { return userGet('voz_audio', 'feminina') === 'masculina' ? 'masculina' : 'feminina'; }
+function audioTrocarVoz(v) { userSet('voz_audio', v === 'masculina' ? 'masculina' : 'feminina'); showToast('🎙️ Voz dos áudios: ' + (v === 'masculina' ? 'masculina' : 'feminina'), 'ok'); }
+// Texto para falar: sem link, sem emoji e sem [colchetes] por preencher
+function audioTexto(t) {
+    return String(t || '').replace(/https?:\/\/\S+/g, '').replace(/\p{Extended_Pictographic}|️|‍/gu, '').replace(/[*_~]/g, '').replace(/[ \t]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{2,}/g, '\n').trim();
+}
+function audioChecar(texto) {
+    if (!texto) { showToast('Escreva o texto do áudio', 'err'); return false; }
+    if (/\[[^\]\n]{1,40}\]/.test(texto)) { showToast('Preencha o trecho entre [colchetes] antes', 'err'); return false; }
+    if (texto.length > 700) { showToast('Texto longo para um áudio: corte para até 700 caracteres (uns 45 segundos)', 'err'); return false; }
+    if (!config.uazapi?.url || !config.uazapi?.token) { showToast('Configure o servidor WhatsApp em Integrações primeiro', 'err'); return false; }
+    return true;
+}
+function _audioReq(caminho, corpo) {
+    return fetch(config.uazapi.url.replace(/\/+$/, '') + caminho, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-token': config.uazapi.token }, body: JSON.stringify(corpo) });
+}
+var _audioTocando = null;
+async function audioOuvir(texto, btn) {
+    const t = audioTexto(texto); if (!audioChecar(t)) return;
+    const antes = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Gerando…'; }
+    try {
+        const r = await _audioReq('/tts', { texto: t, voz: audioVoz() });
+        if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || (r.status === 404 ? 'o servidor do WhatsApp ainda não tem áudio (precisa atualizar)' : 'HTTP ' + r.status)); }
+        const url = URL.createObjectURL(await r.blob());
+        try { _audioTocando && _audioTocando.pause(); } catch (e) {}
+        _audioTocando = new Audio(url); _audioTocando.onended = () => URL.revokeObjectURL(url);
+        await _audioTocando.play();
+    } catch (e) { showToast('❌ Não consegui gerar o áudio: ' + (e && e.message), 'err'); }
+    finally { if (btn) { btn.disabled = false; btn.textContent = antes; } }
+}
+async function audioEnviar(phone, texto) {
+    const r = await _audioReq('/send-audio', { phone: String(phone || '').replace(/\D/g, ''), texto, voz: audioVoz() });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || (r.status === 404 ? 'o servidor do WhatsApp ainda não tem áudio (precisa atualizar)' : 'HTTP ' + r.status));
+    return d;
+}
+// Respostas: a sugestão da caixa vira áudio
+function rsPainelAudio(painel, g) {
+    painel.innerHTML = '';
+    painel.appendChild(prEl('div', 'rs-painel-tit', `🎙️ A IA fala o texto da caixa acima com a voz ${audioVoz()} (troque em Integrações) e manda como áudio do WhatsApp. Links e emojis ficam de fora.`));
+    const linha = prEl('div', 'rs-painel-linha');
+    const ouvir = prEl('button', 'rs-btn', '▶ Ouvir antes'); ouvir.type = 'button';
+    const enviar = prEl('button', 'rs-btn verde', '🎙️ Enviar áudio'); enviar.type = 'button';
+    const caixa = () => document.getElementById('fila-texto-' + g.ultimo.id);
+    ouvir.onclick = () => audioOuvir(caixa()?.value, ouvir);
+    enviar.onclick = async () => {
+        const t = audioTexto(caixa()?.value); if (!audioChecar(t)) return;
+        enviar.disabled = true; enviar.textContent = '⏳ Enviando áudio…';
+        try {
+            await audioEnviar(g.ultimo.phone, t);
+            await supabaseClient.from('respostas_historico').insert({ user_id: currentUser.id, phone: formatPhoneBR(g.ultimo.phone), lead_nome: g.nome || '', direcao: 'enviada', mensagem: '🎙️ (áudio) ' + t, criado_em: new Date().toISOString() }).then(() => {}, () => {});
+            await rsAtualizarStatus(g.itens.map(i => i.id), 'enviado');
+            rsTirarDaFila(g);
+            rsPipeline(g, l => { if (['novo', 'contatado'].includes(l.col)) { l.col = 'respondeu'; l.movedAt = Date.now(); } }, '🎙️ Áudio enviado');
+        } catch (e) { showToast('❌ Não enviei o áudio: ' + (e && e.message), 'err'); enviar.disabled = false; enviar.textContent = '🎙️ Enviar áudio'; }
+    };
+    linha.append(ouvir, enviar); painel.appendChild(linha);
+}
+// Follow-ups: o texto da etapa vira áudio; conta como etapa enviada
+function fuAudioOuvir(filaId, btn) { audioOuvir(document.getElementById('fu-texto-' + filaId)?.value, btn); }
+async function fuEnviarAudio(filaId, btn) {
+    const item = _filaFollowupsCache.find(i => i.id === filaId); if (!item) return;
+    const t = audioTexto(document.getElementById('fu-texto-' + filaId)?.value || item.mensagem); if (!audioChecar(t)) return;
+    if (!confirm('Mandar este follow-up como áudio para ' + (item.lead_nome || item.phone) + '?')) return;
+    const antes = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Enviando…';
+    try {
+        await audioEnviar(item.phone, t);
+        await supabaseClient.from('fila_followups').update({ status: 'enviado', respondido_em: new Date().toISOString() }).eq('id', filaId).eq('user_id', currentUser.id);
+        await supabaseClient.from('followups_enviados').insert({ user_id: currentUser.id, phone: item.phone, campanha_id: item.campanha_id, dia_etapa: item.dia_etapa, enviado_em: new Date().toISOString() });
+        await supabaseClient.from('respostas_historico').insert({ user_id: currentUser.id, phone: item.phone, lead_nome: item.lead_nome || '', direcao: 'enviada', mensagem: '🎙️ (áudio) ' + t, criado_em: new Date().toISOString() }).then(() => {}, () => {});
+        _filaFollowupsCache = _filaFollowupsCache.filter(i => i.id !== filaId);
+        renderizarFilaFollowups(); atualizarBadgeRespostas();
+        showToast('🎙️ Follow-up enviado em áudio', 'ok');
+    } catch (e) { showToast('❌ Não enviei o áudio: ' + (e && e.message), 'err'); btn.disabled = false; btn.textContent = antes; }
+}
+// Inbox: o que está digitado vai como áudio com a voz da IA
+async function enviarAudioIAInbox() {
+    if (!inboxChatAtual) return;
+    if (inboxChatAtual.grupo) { showToast('Áudio com a voz da IA só em conversa individual', 'err'); return; }
+    const input = document.getElementById('inbox-input'), btn = document.getElementById('inbox-voz-btn');
+    const t = audioTexto(input?.value);
+    if (!t) { showToast('Digite o texto que a IA vai falar e toque em 🗣️', 'err'); return; }
+    if (!audioChecar(t) || !ibPodeEnviar(t)) return;
+    btn.disabled = true;
+    try {
+        await audioEnviar(inboxChatAtual.phone, t);
+        input.value = ''; input.style.height = 'auto';
+        const area = document.getElementById('inbox-messages');
+        if (area) {
+            const b = document.createElement('div'); b.className = 'inbox-bubble me';
+            b.innerHTML = '<span>🎙️ <i>Áudio:</i> ' + escapeHtml(t) + '</span><div class="inbox-bubble-footer"><span class="inbox-bubble-time">' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) + '</span><span class="inbox-bubble-tick" style="color:#4DA8FF">✓✓</span></div>';
+            area.appendChild(b); area.scrollTop = area.scrollHeight;
+        }
+        try { await supabaseClient.from('respostas_historico').insert({ user_id: currentUser.id, phone: inboxChatAtual.phone, lead_nome: inboxChatAtual.name || '', direcao: 'enviada', mensagem: '🎙️ (áudio) ' + t, criado_em: new Date().toISOString() }); } catch (e) {}
+        ibTirarDaFila(inboxChatAtual);
+        showToast('🎙️ Áudio enviado', 'ok');
+    } catch (e) { showToast('❌ Não enviei o áudio: ' + (e && e.message), 'err'); }
+    finally { btn.disabled = false; }
+}
+
 // ===================== NÚMEROS DO WHATSAPP (reserva) =====================
 // O servidor guarda a sessão de cada número numa pasta; aqui você troca qual fica ligado (um por vez).
 // Servidor antigo (sem /numeros): o cartão e a etiqueta do topo ficam escondidos.
@@ -14118,15 +14256,15 @@ const MANUAL = {
                     texto: 'Quando um lead responde, a IA classifica e escreve uma sugestão. Nada sai sem o seu toque. A fila vem em três grupos: **Interessados** ("cada minuto conta"), **Outras pessoas** e **Robôs de atendimento**; acima de 30 minutos de espera o tempo fica vermelho.',
                     blocos: [
                         { t: 'Classificações', l: ['**Quente** e **Dúvida**: responda primeiro.', '**Pare de mandar**: toque em "Não contatar mais".', '**Morno**, **Frio** e **Robô de atendimento**.'] },
-                        { t: 'Botões', l: ['**Enviar resposta** (se tiver um [trecho entre colchetes], preencha antes: o botão fica travado).', '**Já respondi pelo WhatsApp**, **Não tem interesse** (pergunta o motivo e manda para Perdido), **Descartar** (desfaz em "Respondidas e descartadas"), **Abrir no WhatsApp**, **Retomar depois**, **Marcar reunião** e **Não contatar**.'] },
-                        { t: 'Follow-ups e tarefas', l: ['No topo, os follow-ups da cadência do dia ("Dia 3", "Dia 7"…): edite, "Enviar follow-up" ou "Pular esta etapa". **Enviar todos** manda um a cada 20 a 40 segundos (toque de novo para parar).', 'Etapas de Instagram e LinkedIn da cadência multicanal também aparecem aqui como tarefa.', '**Robôs de atendimento**: o app escolhe Comercial no menu da empresa sozinho, no máximo 2 vezes em 24 h. Sem pessoa em 48 h, entra uma retomada curta para você aprovar.', '**Reunião com Google Agenda** (contas com agenda ligada): mostra horários livres, propõe 3 opções na resposta e, ao escolher, cria o evento com Google Meet. Segunda a sexta, 8h às 18h, com 2 h de antecedência.'] }
+                        { t: 'Botões', l: ['**Enviar resposta** (se tiver um [trecho entre colchetes], preencha antes: o botão fica travado).', '**Já respondi pelo WhatsApp**, **Não tem interesse** (pergunta o motivo e manda para Perdido), **Descartar** (desfaz em "Respondidas e descartadas"), **Abrir no WhatsApp**, **Retomar depois**, **Reunião ou ligação** e **Não contatar**.', '**🎙️ Responder em áudio**: a IA fala o texto da caixa e manda como áudio do WhatsApp. Dá para ouvir antes. A voz (feminina ou masculina) se escolhe em Integrações → IA para Mensagens. Links e emojis ficam de fora; até 700 caracteres.', '**📞 Ligação (15 min)**: em "Reunião ou ligação", escolha Ligação. "Propor estes horários" escreve o convite ("posso te ligar rapidinho?"); ao marcar, entra na sua agenda e no Pipeline com o lembrete "Ligar para…". O convite e a confirmação podem sair em texto ou em áudio.'] },
+                        { t: 'Follow-ups e tarefas', l: ['No topo, os follow-ups da cadência do dia ("Dia 3", "Dia 7"…): edite, "Enviar follow-up" ou "Pular esta etapa". **Enviar todos** manda um a cada 20 a 40 segundos (toque de novo para parar).', 'Etapas de Instagram e LinkedIn da cadência multicanal também aparecem aqui como tarefa.', 'Cada follow-up do WhatsApp tem **▶ Ouvir** e **🎙️ Enviar em áudio**: a etapa sai como áudio com a voz da IA e conta como enviada.', '**Robôs de atendimento**: o app escolhe Comercial no menu da empresa sozinho, no máximo 2 vezes em 24 h. Sem pessoa em 48 h, entra uma retomada curta para você aprovar.', '**Reunião com Google Agenda** (contas com agenda ligada): mostra horários livres, propõe 3 opções na resposta e, ao escolher, cria o evento com Google Meet. Segunda a sexta, 8h às 18h, com 2 h de antecedência.'] }
                     ]
                 },
                 {
                     titulo: 'Inbox', resumo: 'O seu WhatsApp dentro do app', aba: 'inbox',
                     blocos: [
                         { t: 'Lista', l: ['Filtros: Esperando você (padrão), Interessados, Não lidas, Esfriaram (mais de 7 dias), Grupos, Todas e Arquivadas.', 'Busca por nome, número (3 dígitos) ou palavras nas mensagens.', 'Conversa nova: digite o número com DDD e toque em "Começar conversa com…".'] },
-                        { t: 'Na conversa', l: ['Topo: etapa no Pipeline, campanha e há quanto tempo o lead espera.', 'Ações: Pipeline, Retomar, Reunião, Não contatar, Arquivar e "Retomar com IA" em conversas frias.', '**Sugerir resposta** (IA, com o produto da campanha), **Melhorar meu texto** e **Respostas rápidas** (até 12).', 'Anexar foto, vídeo, documento ou áudio; microfone para gravar. Enter envia, Shift+Enter pula linha.'] },
+                        { t: 'Na conversa', l: ['Topo: etapa no Pipeline, campanha e há quanto tempo o lead espera.', 'Ações: Pipeline, Retomar, Reunião, Não contatar, Arquivar e "Retomar com IA" em conversas frias.', '**Sugerir resposta** (IA, com o produto da campanha), **Melhorar meu texto** e **Respostas rápidas** (até 12).', '**🗣️ ao lado do microfone**: o texto digitado vai como áudio com a voz da IA (só em conversa individual).', 'Anexar foto, vídeo, documento ou áudio; microfone para gravar. Enter envia, Shift+Enter pula linha.'] },
                         { t: 'Grupos', l: ['"Escolher grupos para ver aqui": só as mensagens desses grupos ficam guardadas, por 30 dias.', 'Toque no nome de quem escreveu para chamar no privado ou pôr no Pipeline.', 'Pedidos de indicação ("alguém conhece um contador?") geram aviso; "Chamar no privado" faz a IA escrever citando o grupo.'] }
                     ]
                 },

@@ -86,7 +86,7 @@ test('reunião: propõe horários e marca com Meet, sempre esperando você envia
     await a.pagina.evaluate(() => trocarAba('respostas', document.querySelector(`.nav-item[onclick*="'respostas'"]`)));
     await a.pagina.waitForTimeout(1200);
     await a.pagina.evaluate(() => { _filaSugestoesCache = [{ id: 7, phone: '5511999990000', lead_nome: 'Padaria Sol', mensagem_recebida: 'Tenho interesse', classificacao: 'quente', sugestao_ia: 'Posso explicar!', status: 'pendente', criado_em: new Date().toISOString() }]; renderizarFilaSugestoes(); });
-    await a.pagina.evaluate(() => [...document.querySelectorAll('.rs-link')].find(b => b.textContent.includes('Marcar reunião')).click());
+    await a.pagina.evaluate(() => [...document.querySelectorAll('.rs-link')].find(b => b.textContent.includes('Reunião ou ligação')).click());
     await a.pagina.waitForTimeout(600);
     await a.pagina.click('text=💬 Propor estes horários na resposta');
     assert.match(await a.pagina.inputValue('#fila-texto-7'), /sexta-feira, 16\/10, às 10:00/);
@@ -1068,6 +1068,62 @@ test('Números do WhatsApp: lista em Integrações, etiqueta no topo e troca do 
     // servidor antigo (sem /numeros): nada aparece
     const r2 = await a.pagina.evaluate(async () => { _nums = { semSuporte: true }; numPintar(); numTopoPintar(); return [document.getElementById('integ-card-numeros').hidden, document.getElementById('num-topo').hidden]; });
     assert.deepStrictEqual(r2, [true, true]);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('Áudio com a voz da IA (respostas, follow-up e Inbox) e ligação marcada pela agenda', async () => {
+  const db = {
+    fila_sugestoes: [{ id: 5, user_id: 'u1', phone: '5511999990000', lead_nome: 'Padaria Sol', status: 'pendente', classificacao: 'quente' }],
+    fila_followups: [{ id: 9, user_id: 'u1', phone: '5511988880000', lead_nome: 'Pet Um', status: 'pendente', dia_etapa: 3, campanha_id: 'c1', mensagem: 'Oi! Passando para retomar 😊 https://x.com' }],
+    pipeline_leads: [],
+  };
+  const a = await abrirApp({ largura: 1280, db, rpcs: { sou_dono_agenda: true }, rotas: [
+    [/\/send-audio$/, () => ({ success: true, id: 'A1' })],
+    [/\/api\/agenda$/, (j) => j.acao === 'horarios' ? { ok: true, slots: [{ texto: 'terça (20/10) às 10:00', dia_mes: '20/10', hora: '10:00', dia_semana: 'terça-feira' }] } : { ok: true, inicio: '2026-10-20T13:00:00.000Z', escolhido: { texto: 'terça (20/10) às 10:00' }, meet: 'https://meet.google.com/x' }],
+  ] });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      config.uazapi = { url: 'https://srv.test', token: 't' }; window.confirm = () => true;
+      const w = ms => new Promise(r => setTimeout(r, ms));
+      const out = { limpo: audioTexto('Oi *Ana*! 😊 Veja https://site.com\n\n\nAbraço') };
+      // follow-up em áudio
+      _filaFollowupsCache = JSON.parse(JSON.stringify(_db.fila_followups)); renderizarFilaFollowups();
+      const bt = document.querySelector('button[onclick^="fuEnviarAudio(9"]'); out.temBotaoFu = !!bt;
+      await fuEnviarAudio(9, bt); await w(100);
+      out.fuStatus = _db.fila_followups[0].status; out.fuEnviados = (_db.followups_enviados || []).length;
+      // resposta em áudio
+      const ta = document.createElement('textarea'); ta.id = 'fila-texto-5'; ta.value = 'Que bom! Posso te explicar em 10 minutos?'; document.body.appendChild(ta);
+      _filaSugestoesCache = JSON.parse(JSON.stringify(_db.fila_sugestoes));
+      const g = { k: '11999990000', nome: 'Padaria Sol', ultimo: { id: 5, phone: '5511999990000' }, itens: [{ id: 5 }] };
+      const painel = document.createElement('div'); document.body.appendChild(painel);
+      rsPainelAudio(painel, g);
+      [...painel.querySelectorAll('button')].find(b => /Enviar áudio/.test(b.textContent)).click(); await w(400);
+      out.rsStatus = _db.fila_sugestoes[0].status;
+      // ligação pela agenda
+      _rsCtx.leads = {}; _rsAgendaTipo = 'ligacao';
+      const p2 = document.createElement('div'); document.body.appendChild(p2);
+      ta.value = '';
+      rsPainelAgenda(p2, g); await w(300);
+      out.tituloLig = p2.innerText.includes('Horários livres para você ligar');
+      [...p2.querySelectorAll('button')].find(b => /terça/.test(b.textContent)).click();
+      [...p2.querySelectorAll('button')].find(b => /Marcar ligação/.test(b.textContent)).click(); await w(600);
+      out.msgLig = (document.getElementById('fila-texto-5') || {}).value;
+      pkLoad(); out.card = pkLeads.map(l => [l.col, l.proximaAcaoTxt]);
+      return out;
+    });
+    assert.strictEqual(r.limpo, 'Oi Ana! Veja\nAbraço');
+    assert.ok(r.temBotaoFu);
+    const envios = a.pedidos.filter(p => /\/send-audio$/.test(p.caminho)).map(p => p.corpo);
+    assert.deepStrictEqual(envios[0], { phone: '5511988880000', texto: 'Oi! Passando para retomar', voz: 'feminina' }, 'sem emoji e sem link');
+    assert.strictEqual(r.fuStatus, 'enviado'); assert.strictEqual(r.fuEnviados, 1);
+    assert.deepStrictEqual(envios[1], { phone: '5511999990000', texto: 'Que bom! Posso te explicar em 10 minutos?', voz: 'feminina' });
+    assert.strictEqual(r.rsStatus, 'enviado');
+    assert.ok(r.tituloLig);
+    const marcar = a.pedidos.filter(p => /\/api\/agenda$/.test(p.caminho)).map(p => p.corpo).find(c => c.acao === 'marcar');
+    assert.strictEqual(marcar.tipo, 'ligacao');
+    assert.match(r.msgLig, /Te ligo terça \(20\/10\) às 10:00 neste número/);
+    assert.ok(r.card.some(([col, txt]) => col === 'negociando' && /Ligar para/.test(txt || '')), JSON.stringify(r.card));
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
