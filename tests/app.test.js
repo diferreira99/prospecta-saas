@@ -1261,3 +1261,24 @@ test('Histórico é só o registro das buscas; quem falta contatar continua no c
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('lista com telefone repetido: a campanha vai para a nuvem com um lead por telefone (antes ia sem nenhum)', async () => {
+  const a = await abrirApp({ largura: 1280 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      const enviados = [];
+      const orig = supabaseClient.from.bind(supabaseClient);
+      supabaseClient.from = t => { const q = orig(t); if (t === 'leads') { const up = q.upsert.bind(q); q.upsert = (rows, o) => { enviados.push(...rows); return up(rows, o); }; } return q; };
+      await sincronizarCampanhaComTabelas({ id: 'x1', nome: 'Facilities', nicho: 'Facilities', local: 'São Paulo', leads: [
+        { title: 'A', phone: '11999990001' }, { title: 'A filial', phone: '(11) 99999-0001' }, { title: 'B', phone: '11999990002' } ] });
+      const L = (n, tel, id) => ({ title: n, phone: tel, place_id: id, is_whatsapp: true });
+      _histBuscas = [{ id: 'b1', nicho: 'Facilities', local: 'São Paulo', origem: 'maps', total: 3, criado_em: new Date().toISOString(),
+        leads: [L('A', '11999990001', 'p1'), L('A filial', '11999990001', 'p2'), L('B', '11999990002', 'p3')] }];
+      _histRes = { ld: {}, pk: {}, wa: {} };
+      return { tels: enviados.map(x => x.phone), faltam: histGrupos()[0].faltam.map(l => l.title) };
+    });
+    assert.strictEqual(r.tels.length, 2, r.tels.join(','));
+    assert.deepStrictEqual(r.faltam, ['A', 'B']);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});

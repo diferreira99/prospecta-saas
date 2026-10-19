@@ -8379,6 +8379,15 @@ function exportarCSV() {
 campanhas = userGet('campanhas', []);
 
 function salvarCampanhas() { userSet('campanhas', campanhas); }
+// Uma vez por sessão: listas salvas (ainda não disparadas) sobem de novo para a nuvem. Conserta as que
+// ficaram sem leads lá por causa de telefone repetido.
+var _cpResincronizou = false;
+function cpResincronizarSalvas() {
+    if (_cpResincronizou || !currentUser) return;
+    _cpResincronizou = true;
+    (campanhas || []).filter(c => c && !(_prodCampanhas && (_prodCampanhas[c.id] || _prodCampanhas['camp_' + c.id]))).slice(0, 10)
+        .forEach(c => { try { sincronizarCampanhaComTabelas(c); } catch (e) {} });
+}
 
 // Cadência de follow-up: cada campanha nasce com a cadência padrão (3, 7 e 14 dias), que você muda em
 // Campanhas → "Cadência padrão". O servidor coloca cada etapa na fila de aprovação, uma de cada vez.
@@ -8428,11 +8437,16 @@ async function sincronizarCampanhaComTabelas(camp) {
             instagram: igUrl(l) || null,
             linkedin: liUrl(l) || null
         }));
-        if (leadsRows.length) {
+        // Um telefone só uma vez por campanha: a chave da tabela é campanha + telefone, e um repetido no mesmo
+        // lote derruba o lote inteiro (a campanha ficava sem nenhum lead na nuvem).
+        const vistos = new Set();
+        const unicos = leadsRows.filter(r => { const k = r.phone || ''; if (!k) return true; if (vistos.has(k)) return false; vistos.add(k); return true; });
+        if (unicos.length) {
             // upsert em lotes de 500 pra não estourar payload
-            for (let i = 0; i < leadsRows.length; i += 500) {
-                await supabaseClient.from('leads')
-                    .upsert(leadsRows.slice(i, i + 500), { onConflict: 'user_id,dedupe_key' });
+            for (let i = 0; i < unicos.length; i += 500) {
+                const { error } = await supabaseClient.from('leads')
+                    .upsert(unicos.slice(i, i + 500), { onConflict: 'user_id,dedupe_key' });
+                if (error) registrarErroApp('Leads da campanha não foram para a nuvem: ' + error.message, 'campanha ' + camp.id);
             }
         }
     } catch (e) {
@@ -10337,6 +10351,7 @@ function histGrupos() {
     });
     return Object.values(grupos).map(g => {
         const m = { encontrados: 0, comWa: 0, semWa: 0, enviados: 0, responderam: 0, robos: 0, pipeline: 0, ganhos: 0, valor: 0, faltam: [] };
+        const vistosTel = new Set();   // duas empresas com o mesmo telefone (ou a mesma em duas buscas) contam uma vez
         g.leads.forEach(l => {
             m.encontrados++;
             const k = pkTel(l.phone);
@@ -10350,7 +10365,7 @@ function histGrupos() {
             if (p) m.pipeline++;
             if (p && p.col === 'fechado') { m.ganhos++; m.valor += p.valor || 0; }
             l._hist = { env, resp, col: p ? p.col : '', valor: p ? p.valor : 0, wa: waV, bloq: bloqueadoLead({ phone: l.phone, title: l.title || l.name }) };
-            if (k && k.length >= 10 && !env && !p && !l._hist.bloq && waV !== false) m.faltam.push(l);
+            if (k && k.length >= 10 && !env && !p && !l._hist.bloq && waV !== false && !vistosTel.has(k)) { vistosTel.add(k); m.faltam.push(l); }
         });
         m.taxa = m.enviados ? Math.round(m.responderam / m.enviados * 100) : null;
         return Object.assign(g, m, { titulo: g.origem === 'grupo' ? g.nicho : `${g.nicho} em ${g.local}` });
@@ -14420,6 +14435,7 @@ async function prodCarregar() {
     if (atual) { userSet('produto_atual', atual.id); const ta = document.getElementById('ia-prompt-livre'); if (ta) ta.value = atual.instrucoes || ''; }
     prodPintar();
     await prodCarregarCampanhas();
+    cpResincronizarSalvas();
     if (_produtos.length > 1 || userGet('produto_visao', '') === 'todos') prodRecarregarTelas(); else { try { _enviadosRecalcular(); } catch (e) {} }
 }
 function prodTextoMudou(texto) {
