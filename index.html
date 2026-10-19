@@ -14221,7 +14221,7 @@ const MANUAL = {
                     titulo: 'Dor e solução', resumo: 'O Google mostra o que falta; o app diz o que vender', aba: 'prospeccao',
                     texto: 'O próprio Google Maps mostra o que falta em cada empresa. O app mostra a dor e a solução que combina. A mensagem da campanha continua vindo do produto escolhido no topo.',
                     blocos: [
-                        { t: 'As dores que o app reconhece', l: ['🌐 **Sem site** → site simples com WhatsApp, cardápio ou agendamento.', '⭐ **Nota baixa ou reclamações** → gestão de reputação.', '📉 **Poucas avaliações** → otimizar o perfil do Google.', '💬 **Sem WhatsApp** → WhatsApp Business com atendimento automático.', '📸 **Sem Instagram** → gestão de redes sociais.', '💰 **Movimentados** (100+ avaliações, nota 4,3+) → cortar custo: maquininha, energia, sistema de gestão.'] },
+                        { t: 'As dores que o app reconhece', l: ['🌐 **Sem site** → site simples com WhatsApp, cardápio ou agendamento.', '⭐ **Nota baixa ou reclamações** → gestão de reputação.', '**Do que reclamam** (o app lê as avaliações de 1 e 2 estrelas): ⏳ demora no atendimento → atendimento automático no WhatsApp · 📅 agenda e espera → agendamento online · 💳 pagamento → maquininha e Pix · 📦 entrega ou pedido → sistema de pedidos · 🏷️ preço → cortar custos.', '📉 **Poucas avaliações** → otimizar o perfil do Google.', '💬 **Sem WhatsApp** → WhatsApp Business com atendimento automático.', '📸 **Sem Instagram** → gestão de redes sociais.', '💰 **Movimentados** (100+ avaliações, nota 4,3+) → cortar custo: maquininha, energia, sistema de gestão.'] },
                         { t: 'Onde aparece', l: ['**Depois da busca**: a linha "🩺 Oportunidades" conta quantas empresas têm cada dor. Toque numa para filtrar a tabela.', '**No detalhe do lead** (▼ ao lado do Score): o cartão "Dor e solução". Quando a solução combina com o produto do topo, aparece "✅ combina com" o produto.', '**Para vender**: escolha no topo o produto que resolve a dor, filtre a dor na busca e crie a campanha com os melhores.'] }
                     ],
                     dicas: ['Use palavras claras no nome ou nas instruções do produto (ex.: "site", "energia", "maquininha"): é assim que o app sabe que a dor combina com ele.']
@@ -18458,6 +18458,40 @@ var DORES = [
       rot: l => `Movimentado: ${parseInt(l.reviews)} avaliações e nota ${String(l.rating).replace('.', ',')}`,
       sol: 'Cortar custo fixo: taxa de cartão, conta de luz, sistema de gestão' },
 ];
+// O que as avaliações negativas (1 e 2 estrelas) reclamam vira uma dor com solução. Só para você ler:
+// a mensagem da campanha nunca cita reclamação.
+var TEMAS_NEGATIVAS = [
+    { id: 'q-atendimento', ic: '⏳', curto: 'Reclamam de atendimento', rot: 'Clientes reclamam de demora ou de não serem atendidos',
+      re: /demor|ninguem atend|nao atend|nao respond|sem resposta|nao retorn|nunca retorn|ignorad|descaso|mal atendid|atendimento (pessimo|horrivel|ruim|lento)|pessimo atendimento|whats/,
+      sol: 'Atendimento automático no WhatsApp: responde na hora, até fora do horário', chave: /whats|atendimento autom|chatbot|rob[oô]/i },
+    { id: 'q-agenda', ic: '📅', curto: 'Reclamam de agenda e espera', rot: 'Clientes reclamam de agendamento ou de espera',
+      re: /agend|marquei|horario marcado|esperei|espera|fila|remarc|desmarc/,
+      sol: 'Agendamento online com confirmação e lembrete automático', chave: /agend/i },
+    { id: 'q-pagamento', ic: '💳', curto: 'Reclamam de pagamento', rot: 'Clientes reclamam da forma de pagamento',
+      re: /cartao|nao aceita|maquin|pix|pagamento|parcel/,
+      sol: 'Maquininha e pagamento por link/Pix: aceitar tudo sem dor de cabeça', chave: /maquin|stone|cart[aã]o|pagamento|pix/i },
+    { id: 'q-entrega', ic: '📦', curto: 'Reclamam de entrega ou pedido', rot: 'Clientes reclamam de atraso, entrega ou pedido errado',
+      re: /entreg|pedido|atras|veio errad|errad[oa]|faltou|faltando|chegou frio/,
+      sol: 'Sistema de pedidos e gestão: menos erro e atraso', chave: /pedido|delivery|erp|sistema de gest|gest[aã]o/i },
+    { id: 'q-preco', ic: '🏷️', curto: 'Reclamam de preço', rot: 'Clientes reclamam de preço ou cobrança',
+      re: /\bcaro\b|preco|cobra(ram|ndo|r)? a mais|cobranca|abusiv|valor/,
+      sol: 'Cortar custos para baixar preço: taxa de cartão, energia, gestão financeira', chave: /financ|custo|econom|energia|solar|taxa|maquin/i },
+];
+function _semAcento(t) { return String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase(); }
+// Temas das negativas deste lead: { id: quantas avaliações }
+function temasNegativas(l) {
+    const out = {};
+    (Array.isArray(l && l.ultimas_avaliacoes) ? l.ultimas_avaliacoes : [])
+        .filter(r => r && r.nota && r.nota <= 2 && r.texto)
+        .forEach(r => { const t = _semAcento(r.texto); TEMAS_NEGATIVAS.forEach(m => { if (m.re.test(t)) out[m.id] = (out[m.id] || 0) + 1; }); });
+    return out;
+}
+// Entram logo depois de "Nota baixa ou reclamações", na ordem da lista.
+TEMAS_NEGATIVAS.slice().reverse().forEach(m => DORES.splice(DORES.findIndex(d => d.id === 'reputacao') + 1, 0, {
+    id: m.id, ic: m.ic, curto: m.curto, chave: m.chave, sol: m.sol,
+    tem: l => !!temasNegativas(l)[m.id],
+    rot: l => { const n = temasNegativas(l)[m.id] || 0; return `${m.rot} (${n} ${n === 1 ? 'avaliação' : 'avaliações'})`; },
+}));
 function doresLead(l) {
     if (!l) return [];
     return DORES.filter(d => { try { return d.tem(l); } catch (e) { return false; } });

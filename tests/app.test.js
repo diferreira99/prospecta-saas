@@ -1188,3 +1188,30 @@ test('histórico guarda as 3 avaliações escritas mais recentes (para ler e par
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('Dor e solução lê do que as avaliações negativas reclamam (só para você; a mensagem não cita)', async () => {
+  const a = await abrirApp({ largura: 1280 });
+  try {
+    const r = await a.pagina.evaluate(() => {
+      _produtos = [{ id: 'p1', nome: 'Robô de WhatsApp', instrucoes: 'Atendimento automático no WhatsApp', padrao: true }];
+      const lead = { title: 'Clínica Sol', phone: '11999990001', rating: 3.9, reviews: 80, website: 'https://sol.com.br', instagram: 'https://instagram.com/sol',
+        avaliacoes_negativas: 3, ultimas_avaliacoes: [
+          { nota: 1, data: '2026-10-10', texto: 'Liguei várias vezes e ninguém atende, péssimo!' },
+          { nota: 2, data: '2026-10-08', texto: 'Mandei mensagem no WhatsApp e demoraram 3 dias para responder.' },
+          { nota: 1, data: '2026-10-05', texto: 'Marquei horário e esperei 1 hora.' },
+          { nota: 5, data: '2026-10-04', texto: 'Demora nenhuma, ótimo! Não aceita cartão? Aceita sim.' },
+        ] };
+      const ids = doresLead(lead).map(d => d.id);
+      const box = document.createElement('div'); box.innerHTML = blocoDor(lead); document.body.appendChild(box);
+      const prompt = iaPromptServidor(lead, 'Vendo robô', 'A', 'curiosidade');
+      return { ids, txt: box.innerText, prompt };
+    });
+    assert.deepStrictEqual(r.ids.filter(i => i.startsWith('q-')), ['q-atendimento', 'q-agenda'], 'elogio de 5★ não conta');
+    assert.ok(r.ids.indexOf('reputacao') === r.ids.indexOf('q-atendimento') - 1, 'logo depois de reputação');
+    assert.match(r.txt, /Clientes reclamam de demora ou de não serem atendidos \(2 avaliações\)/);
+    assert.match(r.txt, /Atendimento automático no WhatsApp.*✅ combina com Robô de WhatsApp/s);
+    assert.match(r.txt, /agendamento ou de espera \(1 avaliação\)/);
+    assert.ok(!/ninguém atende|esperei/.test(r.prompt), 'texto das negativas não vai para a mensagem');
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
