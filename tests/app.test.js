@@ -614,7 +614,7 @@ test('chave "Buscar em 9 regiões" fica à vista antes da busca e manda a busca 
   } finally { await a.fechar(); }
 });
 
-test('Painel começa pela campanha ao vivo; o Consultor fica no topo do Plano de Prospecção', async () => {
+test('Painel começa pela campanha ao vivo; o Plano abre pelas Pendências e logo depois o Consultor', async () => {
   const a = await abrirApp({ largura: 390 });
   try {
     const r = await a.pagina.evaluate(async () => {
@@ -623,11 +623,11 @@ test('Painel começa pela campanha ao vivo; o Consultor fica no topo do Plano de
       await new Promise(r => setTimeout(r, 1500));
       const plano = document.querySelector('#tab-plano > div').firstElementChild;
       const data = document.getElementById('mc-filtro-data-inicio').getBoundingClientRect();
-      return { painel: painel.slice(0, 2), naPlano: plano && plano.id, visivel: !document.getElementById('cons-dia').hidden, txt: document.getElementById('cons-dia').innerText, noPainel: !!document.querySelector('#tab-metricas #cons-dia'), dataMin: getComputedStyle(document.getElementById('mc-filtro-data-inicio')).minHeight };
+      return { painel: painel.slice(0, 2), naPlano: plano && plano.id, segundo: plano && plano.nextElementSibling && plano.nextElementSibling.id, visivel: !document.getElementById('cons-dia').hidden, txt: document.getElementById('cons-dia').innerText, noPainel: !!document.querySelector('#tab-metricas #cons-dia'), dataMin: getComputedStyle(document.getElementById('mc-filtro-data-inicio')).minHeight };
     });
     assert.deepStrictEqual(r.painel, ['painel-saudacao', 'painel-aovivo']);
     assert.strictEqual(r.noPainel, false);
-    assert.strictEqual(r.naPlano, 'cons-dia');
+    assert.strictEqual(r.naPlano, 'pend-card'); assert.strictEqual(r.segundo, 'cons-dia');
     assert.ok(r.visivel); assert.match(r.txt, /Seu plano de hoje/);
     assert.strictEqual(r.dataMin, '34px');
     assert.deepStrictEqual(a.errosReais(), []);
@@ -1299,6 +1299,53 @@ test('Ouvir antes: pede MP3 (o iPhone não toca OGG) e prepara o player no próp
     assert.strictEqual(r.pedidos[0].c, '/tts');
     assert.strictEqual(r.pedidos[0].corpo.formato, 'mp3');
     assert.deepStrictEqual(r.tocados.map(s => s.slice(0, 5)), ['data:', 'blob:'], 'destrava no toque e depois toca o áudio');
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('Pendências no Plano: automáticas + tarefas com ✅, e campanhas antigas vão para Arquivadas', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      _produtos = [{ id: 'p1', nome: 'Kaizen Connect', instrucoes: 'x', padrao: true }, { id: 'p2', nome: 'Maquininha Stone', instrucoes: '' }];
+      campanhas = [{ id: 'l1', nome: 'Serralheiro – SJC', leads: [] }];
+      phContar = async (t, f) => t === 'fila_followups' ? 67 : t === 'fila_sugestoes' ? 0 : t === 'pipeline_leads' ? 12 : 0;
+      _histRes = { ld: {}, pk: {}, wa: {} }; _histBuscas = [];
+      trocarAba('plano', document.querySelector(`.nav-item[onclick*="'plano'"]`) || document.body);
+      await new Promise(r => setTimeout(r, 300));
+      phContar = async (t, f) => t === 'fila_followups' ? 67 : t === 'fila_sugestoes' ? 0 : t === 'pipeline_leads' ? 12 : 0;
+      await pendCarregar();
+      const txt1 = document.getElementById('pend-card').innerText;
+      const n1 = document.getElementById('pend-n').textContent;
+      // marca a semente do robô e uma automática; adiciona uma nova
+      [...document.querySelectorAll('#pend-lista .pend-item')].find(li => /robô respondeu/.test(li.innerText)).querySelector('.pend-chk').click();
+      [...document.querySelectorAll('#pend-lista .pend-item')].find(li => /Pipeline/.test(li.innerText)).querySelector('.pend-chk').click();
+      document.getElementById('pend-novo').value = 'Ligar para a Facilities X';
+      pendAdicionar();
+      const txt2 = document.getElementById('pend-lista').innerText, n2 = document.getElementById('pend-n').textContent;
+      // campanhas: uma antiga, uma recente
+      const velho = new Date(Date.now() - 30 * 86400000).toISOString(), novo = new Date().toISOString();
+      _histRes = null;
+      _cpDados = { leads: [{ campanha_id: 'c1', phone: '11999990001', enviado_em: velho }, { campanha_id: 'c2', phone: '11999990002', enviado_em: novo }],
+        camps: [{ id: 'c1', nicho: 'PetShop', local: 'São Paulo' }, { id: 'c2', nicho: 'Facilities', local: 'São Paulo' }], interesses: [], pipeline: [], fila: [], fuEnv: [] };
+      cpMontarGrupos(); cpRender();
+      const soltos = [...document.querySelectorAll('#cp-lista > .cp-card h3')].map(h => h.textContent);
+      const arq = document.querySelector('#cp-lista .cp-arquivadas');
+      return { txt1, n1, txt2, n2, soltos, arqTit: arq && arq.querySelector('summary').textContent, arqCards: arq ? arq.querySelectorAll('.cp-card').length : 0 };
+    });
+    assert.match(r.txt1, /Aprovar ou descartar 67 follow-ups/);
+    assert.match(r.txt1, /12 no Pipeline em "Respondeu" há mais de 14 dias/);
+    assert.match(r.txt1, /Disparar a lista salva/);
+    assert.match(r.txt1, /instruções da IA de "Maquininha Stone"/);
+    assert.match(r.txt1, /robô respondeu/);
+    assert.match(r.n1, /^7 em aberto$/);
+    assert.ok(!/12 no Pipeline/.test(r.txt2), 'automática marcada some');
+    assert.match(r.txt2, /✅[\s\S]*robô respondeu[\s\S]*feito em/);
+    assert.match(r.txt2, /Ligar para a Facilities X/);
+    assert.match(r.n2, /^6 em aberto$/);
+    assert.deepStrictEqual(r.soltos.map(t => t.split('·')[0].trim()), ['Facilities']);
+    assert.match(r.arqTit, /Arquivadas \(1\)/);
+    assert.strictEqual(r.arqCards, 1);
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });

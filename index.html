@@ -1416,6 +1416,32 @@
 .ps-aviso { margin:2px 0 8px; padding:8px 12px; border-radius:10px; background:#FFF7ED; border:1px solid #fed7aa; color:#9a3412; font-family:'Inter',sans-serif; font-size:0.72rem; line-height:1.45; }
 .ps-chip { font-family:'Inter',sans-serif; font-size:0.6rem; font-weight:700; padding:4px 10px; border-radius:20px; border:1.5px solid #d1d5db; background:#fff; color:#6b7280; cursor:pointer; white-space:nowrap; }
 .ps-chip[aria-pressed="true"] { border-color:#165DFF; background:#EBF0FF; color:#165DFF; }
+.pend { margin-bottom:16px; }
+.cp-arquivadas { margin-top:6px; }
+.cp-arquivadas > summary { cursor:pointer; font-family:'Inter',sans-serif; font-size:0.78rem; font-weight:700; color:var(--muted); padding:10px 4px; }
+.cp-arquivadas[open] > summary { margin-bottom:8px; }
+.pend-cab { display:flex; align-items:center; gap:8px; }
+.pend-cab h3 { margin:0; }
+.pend-n { font-family:'Inter',sans-serif; font-size:0.62rem; font-weight:800; background:#FF6A00; color:#fff; border-radius:99px; padding:2px 9px; }
+.pend-n.ok { background:#16a34a; }
+.pend-sub { font-family:'Inter',sans-serif; font-size:0.7rem; color:var(--muted); margin:4px 0 10px; }
+.pend-lista { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; font-family:'Inter',sans-serif; }
+.pend-item { display:flex; align-items:flex-start; gap:10px; padding:9px 10px; border:1.5px solid var(--border); border-radius:10px; background:var(--surface); }
+.pend-item.auto { border-color:#FFD6B0; background:#FFF8F1; }
+.pend-item.feito { opacity:.6; }
+.pend-item.feito .pend-txt { text-decoration:line-through; }
+.pend-chk { flex-shrink:0; width:24px; height:24px; border-radius:7px; border:2px solid #cbd5e1; background:#fff; cursor:pointer; font-size:0.8rem; line-height:1; padding:0; display:flex; align-items:center; justify-content:center; }
+.pend-chk:hover { border-color:#16a34a; }
+.pend-item.feito .pend-chk { border-color:#16a34a; background:#dcfce7; }
+.pend-meio { flex:1; min-width:0; }
+.pend-txt { font-size:0.76rem; line-height:1.45; color:var(--text); overflow-wrap:anywhere; }
+.pend-det { font-size:0.66rem; color:var(--muted); margin-top:2px; }
+.pend-ir { flex-shrink:0; font-family:'Inter',sans-serif; font-size:0.64rem; font-weight:700; padding:5px 10px; border-radius:8px; border:1.5px solid #FF6A00; background:#fff; color:#FF6A00; cursor:pointer; white-space:nowrap; }
+.pend-form { display:flex; gap:6px; margin-top:10px; }
+.pend-form input { flex:1; min-width:0; padding:8px 10px; font-size:0.74rem; }
+.pend-add { width:auto; font-family:'Inter',sans-serif; font-size:0.7rem; font-weight:700; padding:8px 12px; border-radius:8px; border:1.5px solid var(--border); background:var(--surface); color:var(--text); cursor:pointer; }
+.pend-limpar { margin-top:8px; font-family:'Inter',sans-serif; font-size:0.64rem; font-weight:700; color:#6b7280; background:none; border:none; padding:0; cursor:pointer; text-decoration:underline; }
+.pend-limpar[hidden] { display:none; }
 /* seletor com cara de chip: o select nativo fica invisível por cima (abre a lista do celular sem dar zoom) */
 .ps-selwrap { position:relative; display:inline-flex; align-items:center; gap:3px; max-width:100%; }
 .ps-selwrap > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -2226,6 +2252,17 @@ function iniciarAppPosLogin() {
         <!-- PLANO DE PROSPECÇÃO -->
         <div class="tab-content" id="tab-plano">
             <div style="max-width:960px;">
+                <!-- PENDÊNCIAS: nada fica para trás. Tudo que está em aberto aparece aqui até virar ✅ -->
+                <section id="pend-card" class="ph-card pend" aria-labelledby="pend-t">
+                    <div class="pend-cab"><h3 id="pend-t">✅ Pendências</h3><span id="pend-n" class="pend-n"></span></div>
+                    <div class="pend-sub">Nada fica para trás: o que está em aberto aparece aqui até virar ✅.</div>
+                    <ul id="pend-lista" class="pend-lista"><li class="ph-mudo">Carregando…</li></ul>
+                    <form id="pend-form" class="pend-form" onsubmit="event.preventDefault(); pendAdicionar();">
+                        <input id="pend-novo" type="text" maxlength="200" placeholder="+ Nova pendência (ex.: ligar para a Facilities X)" autocomplete="off">
+                        <button type="submit" class="pend-add">Adicionar</button>
+                    </form>
+                    <button type="button" id="pend-limpar" class="pend-limpar" onclick="pendLimparFeitas()" hidden>Limpar as ✅ feitas</button>
+                </section>
                 <!-- CONSULTOR DO DIA: o que fazer hoje, pelos números (preenchido pelo JS) -->
                 <section id="cons-dia" class="ph-card cons" aria-labelledby="cons-t" hidden></section>
                 <!-- O que precisa de você (veio do Painel: o Painel ficou só com métricas e campanhas) -->
@@ -6727,7 +6764,7 @@ function trocarAba(aba, el) {
         setTimeout(() => { carregarFilaSugestoes(); carregarFilaFollowups(); }, 80);
     }
     if (aba === 'plano') {
-        setTimeout(() => { carregarPlanoProspeccao(); carregarModelosPlano(); consAbrir(); try { painelHojeCarregar(); } catch (e) {} }, 80);
+        setTimeout(() => { carregarPlanoProspeccao(); carregarModelosPlano(); consAbrir(); try { painelHojeCarregar(); } catch (e) {} try { pendCarregar(); } catch (e) {} }, 80);
     }
 
     if (aba === 'inbox') {
@@ -14353,6 +14390,11 @@ const MANUAL = {
             titulo: 'Cresça', cor: '#165DFF', sub: 'O que já fez.',
             itens: [
                 {
+                    titulo: 'Pendências', resumo: 'Nada fica para trás: tudo vira ✅', aba: 'plano',
+                    texto: 'No topo do Plano de Prospecção. O app junta sozinho o que está em aberto: respostas e follow-ups para aprovar, listas salvas sem disparo, empresas de campanhas que ainda não receberam mensagem, Pipeline parado há mais de 14 dias e produto sem instruções. Cada item tem o botão que leva à tela certa.',
+                    blocos: [{ t: 'Como usar', l: ['Toque no quadrado para marcar ✅. Um item automático some sozinho quando zera; se você marcar antes, ele volta só se aparecer coisa nova.', 'Escreva as suas pendências em "+ Nova pendência".', '"Limpar as ✅ feitas" tira da lista o que já foi feito.'] }]
+                },
+                {
                     titulo: 'Histórico', resumo: 'Todas as buscas que você já fez', aba: 'historico',
                     texto: 'O registro das suas buscas (buscas iguais ficam juntas). Cada uma diz se já virou campanha e quantas empresas ainda não receberam mensagem. No topo, **🏆 Onde vale buscar**: as 3 buscas que mais trouxeram resposta.',
                     blocos: [{ t: 'Botões', l: ['**▶ Abordar as N que faltam**: leva para a Prospecção só quem ainda não recebeu mensagem. O mesmo botão aparece no card da campanha ("Enviar para os N que faltam").', '**⋯**: ver na campanha, carregar todas, buscar de novo (só novas), mesma busca em outra cidade, planilha e apagar (apaga só o registro).', 'Respostas, Pipeline e ganhos ficam na campanha (aba Campanhas).'] }]
@@ -16928,6 +16970,98 @@ function phDesenharSaude(sa, d, zapTxt) {
     box.appendChild(zap);
     box.appendChild(det);
 }
+// ── Pendências ──
+// Cultura do app: nada fica para trás. Itens automáticos (o app vê no banco o que está em aberto) e tarefas
+// que você escreve. Um automático some sozinho quando zera; o ✅ nele vale até aparecer coisa nova.
+// As tarefas ficam nos dados do usuário (sobem para a nuvem com o resto).
+var PEND_SEMENTES = [
+    { id: 's-robo', texto: 'Decidir os follow-ups de "🤖 Só o robô respondeu" (Respostas → aprovar em lote ou descartar)', aba: 'respostas' },
+    { id: 's-lista-velha', texto: 'Apagar a lista salva velha "Contabilidade – São José dos Campos" de 15/10: essa busca já virou campanha', aba: 'campanhas' },
+    { id: 's-protecao', texto: 'Proteção do número: limite de 30 por dia e ligar "Um balão só" enquanto sai da restrição', aba: 'integracoes' },
+];
+function pendTarefas() {
+    let t = userGet('pendencias', null);
+    if (!Array.isArray(t)) t = [];
+    if (!userGet('pendencias_semente_v1', false)) {
+        PEND_SEMENTES.forEach(x => { if (!t.some(y => y.id === x.id)) t.push({ ...x, criadoEm: Date.now() }); });
+        userSet('pendencias_semente_v1', true); userSet('pendencias', t);
+    }
+    return t;
+}
+function pendSalvar(t) { userSet('pendencias', t); }
+function pendAbrir(aba) { trocarAba(aba, document.querySelector(`.nav-item[onclick*="'${aba}'"]`) || document.body); }
+var _pendAuto = [];
+async function pendCarregar() {
+    if (!currentUser || !document.getElementById('pend-lista')) return;
+    pendPintar();   // as tarefas aparecem na hora; os automáticos chegam em seguida
+    const auto = [];
+    try {
+        const d14 = new Date(Date.now() - 14 * 86400000).toISOString();
+        const [fu, fuVelho, sug, parados] = await Promise.all([
+            phContar('fila_followups', [['eq', 'status', 'pendente']]),
+            supabaseClient.from('fila_followups').select('criado_em').eq('user_id', currentUser.id).eq('status', 'pendente').order('criado_em', { ascending: true }).limit(1).then(r => (r.data || [])[0], () => null),
+            phContar('fila_sugestoes', [['eq', 'status', 'pendente']]),
+            phContar('pipeline_leads', [['eq', 'col', 'respondeu'], ['lt', 'moved_at', d14]]),
+        ]);
+        if (sug) auto.push({ id: 'a-sug', n: sug, texto: `Aprovar ${sug} ${sug === 1 ? 'resposta' : 'respostas'} que a IA sugeriu`, aba: 'respostas', ir: 'Respostas' });
+        if (fu) auto.push({ id: 'a-fu', n: fu, texto: `Aprovar ou descartar ${fu} follow-up${fu === 1 ? '' : 's'}`, det: fuVelho && fuVelho.criado_em ? 'o mais antigo espera desde ' + new Date(fuVelho.criado_em).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '', aba: 'respostas', ir: 'Respostas' });
+        if (parados) auto.push({ id: 'a-parado', n: parados, texto: `${parados} no Pipeline em "Respondeu" há mais de 14 dias: retomar ou mover para Perdido`, aba: 'pipeline', ir: 'Pipeline' });
+    } catch (e) {}
+    try {
+        const disp = c => (typeof _cpIdsComEnvio !== 'undefined' && (_cpIdsComEnvio.has(String(c.id)) || _cpIdsComEnvio.has('camp_' + c.id))) || !!(_prodCampanhas && (_prodCampanhas[c.id] || _prodCampanhas['camp_' + c.id]));
+        const salvas = (campanhas || []).filter(c => c && !disp(c));
+        if (salvas.length) auto.push({ id: 'a-listas', n: salvas.length, texto: `Disparar ${salvas.length === 1 ? 'a lista salva' : 'as ' + salvas.length + ' listas salvas'} (ou apagar)`, det: salvas.slice(0, 4).map(c => c.nome).join(' · ') + (salvas.length > 4 ? ' …' : ''), aba: 'campanhas', ir: 'Campanhas' });
+    } catch (e) {}
+    try {
+        const semInstr = (_produtos || []).filter(p => p && !String(p.instrucoes || '').trim());
+        if (semInstr.length) auto.push({ id: 'a-prod', n: semInstr.length, texto: `Escrever as instruções da IA de ${semInstr.map(p => '"' + p.nome + '"').join(', ')}`, det: 'sem isso a IA manda uma mensagem genérica', aba: 'ia', ir: 'Produto' });
+    } catch (e) {}
+    try {
+        if (!_histRes && typeof histCarregar === 'function') await histCarregar();
+        const camps = histGrupos().filter(g => g.enviados && g.faltam.length && g.origem !== 'grupo');
+        const n = camps.reduce((a, g) => a + g.faltam.length, 0);
+        if (n) auto.push({ id: 'a-faltam', n, texto: `${n} empresas de buscas que já viraram campanha ainda sem mensagem`, det: camps.sort((a, b) => b.faltam.length - a.faltam.length).slice(0, 3).map(g => `${g.titulo} (${g.faltam.length})`).join(' · '), aba: 'historico', ir: 'Histórico' });
+    } catch (e) {}
+    _pendAuto = auto;
+    pendPintar();
+}
+function pendPintar() {
+    const ul = document.getElementById('pend-lista'); if (!ul) return;
+    const vistos = userGet('pendencias_vistos', {}) || {};
+    const auto = _pendAuto.filter(a => !(vistos[a.id] && vistos[a.id] >= a.n));
+    const tarefas = pendTarefas();
+    const abertas = tarefas.filter(t => !t.feitoEm), feitas = tarefas.filter(t => t.feitoEm).sort((a, b) => b.feitoEm - a.feitoEm);
+    ul.innerHTML = '';
+    const linha = (cls, chkTxt, chkTitle, onChk, texto, det, ir, aba) => {
+        const li = prEl('li', 'pend-item ' + cls);
+        const chk = prEl('button', 'pend-chk', chkTxt); chk.type = 'button'; chk.title = chkTitle; chk.setAttribute('aria-label', chkTitle); chk.onclick = onChk; li.appendChild(chk);
+        const meio = prEl('div', 'pend-meio'); meio.appendChild(prEl('div', 'pend-txt', texto)); if (det) meio.appendChild(prEl('div', 'pend-det', det)); li.appendChild(meio);
+        if (ir && aba) { const b = prEl('button', 'pend-ir', ir + ' →'); b.type = 'button'; b.onclick = () => pendAbrir(aba); li.appendChild(b); }
+        ul.appendChild(li);
+    };
+    auto.forEach(a => linha('auto', '', 'Marcar como feito (volta se aparecer mais)', () => { const v = userGet('pendencias_vistos', {}) || {}; v[a.id] = a.n; userSet('pendencias_vistos', v); pendPintar(); }, a.texto, a.det, a.ir, a.aba));
+    abertas.forEach(t => linha('', '', 'Marcar como feito', () => pendMarcar(t.id, true), t.texto, '', t.aba ? 'Abrir' : '', t.aba));
+    feitas.slice(0, 5).forEach(t => linha('feito', '✅', 'Desmarcar', () => pendMarcar(t.id, false), t.texto, 'feito em ' + new Date(t.feitoEm).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), '', ''));
+    const n = auto.length + abertas.length;
+    if (!n && !feitas.length) ul.appendChild(prEl('li', 'ph-mudo', 'Nada pendente. Tudo ✅ 🎉'));
+    const badge = document.getElementById('pend-n');
+    if (badge) { badge.textContent = n ? `${n} em aberto` : 'tudo ✅'; badge.classList.toggle('ok', !n); }
+    const lim = document.getElementById('pend-limpar'); if (lim) lim.hidden = !feitas.length;
+}
+function pendMarcar(id, feito) {
+    const t = pendTarefas();
+    const x = t.find(y => y.id === id); if (!x) return;
+    x.feitoEm = feito ? Date.now() : null;
+    pendSalvar(t); pendPintar();
+    if (feito) showToast('✅ Feito!', 'ok');
+}
+function pendAdicionar() {
+    const inp = document.getElementById('pend-novo'); if (!inp) return;
+    const texto = inp.value.trim(); if (!texto) return;
+    const t = pendTarefas(); t.unshift({ id: 'm-' + Date.now(), texto: texto.slice(0, 200), criadoEm: Date.now() });
+    pendSalvar(t); inp.value = ''; pendPintar();
+}
+function pendLimparFeitas() { pendSalvar(pendTarefas().filter(t => !t.feitoEm)); pendPintar(); }
 async function phContar(tabela, filtros) {      // conta linhas sem trazer os dados; devolve null se falhar
     try {
         let q = supabaseClient.from(tabela).select('id', { count: 'exact', head: true }).eq('user_id', currentUser.id);
@@ -18959,7 +19093,7 @@ async function salvarPlanoMontado() {
 // ====================================================================
 var _cpIdsComEnvio = new Set();
 var _cpGrupos = [];
-var _cpFaltamMapa = null;
+var _cpFaltamMapa = null, _cpArqAberto = false;
 // Quem das buscas de cada campanha (mesmo nicho + cidade) ainda não recebeu mensagem: { chave: { grupo, leads } }
 function cpMapaFaltam() {
     if (!_histRes || typeof histGrupos !== 'function') return {};
@@ -19068,7 +19202,18 @@ function cpRender() {
     if (!lst.length) { lista.appendChild(prEl('div', 'ph-mudo', _cpDados ? 'Nenhuma campanha disparada ainda.' : 'Carregando…')); return; }
     const vivo = (userGet('campanhaAtiva', null) || {}).campanhaId;
     _cpFaltamMapa = cpMapaFaltam();
-    lst.forEach(g => lista.appendChild(cpCard(g, media, vivo)));
+    // Sem envio há mais de 21 dias e nada pendente: vai para "Arquivadas" (recolhido; os números continuam nas métricas)
+    const corte = Date.now() - 21 * 86400000;
+    const antiga = g => g.fim && new Date(g.fim).getTime() < corte && !((_cpFaltamMapa[g.k] || { leads: [] }).leads.length) && !g.fuPend && !(vivo && g.ids.has(String(vivo))) && _cpAberto !== g.k;
+    lst.filter(g => !antiga(g)).forEach(g => lista.appendChild(cpCard(g, media, vivo)));
+    const arq = lst.filter(antiga);
+    if (arq.length) {
+        const det = document.createElement('details'); det.className = 'cp-arquivadas'; det.open = !!_cpArqAberto;
+        det.ontoggle = () => { _cpArqAberto = det.open; };
+        det.appendChild(prEl('summary', '', `🗄️ Arquivadas (${arq.length}): sem envio há mais de 21 dias`));
+        arq.forEach(g => det.appendChild(cpCard(g, media, vivo)));
+        lista.appendChild(det);
+    }
 }
 function cpCard(g, media, vivo) {
     const card = prEl('article', 'cp-card' + (_cpAberto === g.k ? ' aberto' : ''));
