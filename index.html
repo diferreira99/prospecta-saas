@@ -6460,6 +6460,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // Produtos: declarados aqui no topo porque telas desenhadas na abertura do app (antes do fim deste script) já usam
 var _produtos = [];
 var _filtroDor = null;
+var _campanhaDor = null;   // campanha criada a partir de uma dor: cada lead leva a dor dele para a IA
 var _prodCampanhas = {};          // campanha_id -> produto_id
 var _enviosPorTel = new Map();    // telefone -> envios que já recebeu (campanha e quando)
 var PROD_INTERVALO_DIAS = 30;     // outro produto só fala com a mesma empresa depois disso
@@ -7375,7 +7376,7 @@ async function buscar() {
         _filtroClass = 'all';
         _filtroSite = 'all';
         _soComWhats = false;
-        _filtrosExtra = {}; _filtroBairro = null; _filtroDor = null; pintarFiltrosExtra();
+        _filtrosExtra = {}; _filtroBairro = null; _filtroDor = null; _campanhaDor = null; pintarFiltrosExtra();
         _sortCol = null;
         _sortDir = -1;
         _expandAberto = null;
@@ -9273,7 +9274,7 @@ function iaPromptServidor(lead, promptLivre, variant, gatilhoTipo) {
     if (elogio) ctx += '\n- Um cliente escreveu no Google (nota ' + elogio.nota + '): "' + String(elogio.texto).replace(/\s+/g, ' ').slice(0, 240) + '"';
     if (neg) ctx += '\n- Avaliações negativas (1 e 2 estrelas): ' + neg;
     const regrasAval = ctx ? '\nSOBRE AS AVALIAÇÕES: se houver elogio de cliente, você pode citar o ponto elogiado de forma natural e curta (ex.: "vi que seus clientes elogiam o atendimento"), sem copiar o texto e sem dizer quem escreveu. Nunca mencione avaliações negativas nem critique a empresa; use-as só para entender o que pode ser uma dor dela.' : '';
-    return 'Você é especialista em prospecção B2B via WhatsApp.\n\nINSTRUÇÕES:\n' + (promptLivre || 'Apresente nossa empresa e peça uma reunião rápida.') + '\n\nLEAD:\n- Empresa: ' + (lead.title || (lead.origemGrupo ? 'nome desconhecido (não use nome na saudação)' : 'Empresa')) + '\n- Categoria: ' + (lead.category || (lead.origemGrupo ? 'não informada' : 'Negócio local')) + '\n- Endereço: ' + (lead.address || 'Não informado') + '\n- Avaliação: ' + (lead.rating ? lead.rating + ' estrelas' : 'Não informado') + ctx + (lead.origemGrupo ? '\n- Origem: vocês participam do mesmo grupo de WhatsApp "' + lead.origemGrupo + '". Cite isso de forma natural e curta no 1º parágrafo (ex.: "vi que estamos no grupo ' + lead.origemGrupo + '"), sem dizer que pegou o número de lá.' : '') + '\n\nCrie UMA mensagem de primeiro contato para WhatsApp.\nREGRAS (variante ' + variant + ', gatilho ' + gatilho.tipo + '): ' + regrasFormato + '\nAdapte para este lead específico. Não copie os exemplos de frase ao pé da letra, apenas se inspire neles.' + regrasAval + '\nRetorne APENAS o texto, sem títulos, sem aspas.\nEscreva em Português do Brasil.';
+    return 'Você é especialista em prospecção B2B via WhatsApp.\n\nINSTRUÇÕES:\n' + (promptLivre || 'Apresente nossa empresa e peça uma reunião rápida.') + '\n\nLEAD:\n- Empresa: ' + (lead.title || (lead.origemGrupo ? 'nome desconhecido (não use nome na saudação)' : 'Empresa')) + '\n- Categoria: ' + (lead.category || (lead.origemGrupo ? 'não informada' : 'Negócio local')) + '\n- Endereço: ' + (lead.address || 'Não informado') + '\n- Avaliação: ' + (lead.rating ? lead.rating + ' estrelas' : 'Não informado') + ctx + (lead.dor ? '\n- Dor que o Google mostra: ' + String(lead.dor).slice(0, 300) : '') + (lead.origemGrupo ? '\n- Origem: vocês participam do mesmo grupo de WhatsApp "' + lead.origemGrupo + '". Cite isso de forma natural e curta no 1º parágrafo (ex.: "vi que estamos no grupo ' + lead.origemGrupo + '"), sem dizer que pegou o número de lá.' : '') + '\n\nCrie UMA mensagem de primeiro contato para WhatsApp.\nREGRAS (variante ' + variant + ', gatilho ' + gatilho.tipo + '): ' + regrasFormato + '\nAdapte para este lead específico. Não copie os exemplos de frase ao pé da letra, apenas se inspire neles.' + regrasAval + (lead.dor ? '\nSOBRE A DOR: comece pela dor que o Google mostra, citando o dado real (nº de avaliações, nota, falta de site), e apresente a solução como o caminho. Fale da solução; nunca critique a empresa nem cite avaliação negativa.' : '') + '\nRetorne APENAS o texto, sem títulos, sem aspas.\nEscreva em Português do Brasil.';
 }
 // O servidor corta em 3 parágrafos; a prévia faz o mesmo.
 function iaComoServidorEnvia(msg) {
@@ -10664,7 +10665,7 @@ async function iniciarEnvioNoServidor({ min, max, typing, batchSize, batchPause 
     const numerosJaEnviados = Array.from(new Set([...Array.from(_telefonesEnviadosCache).filter(t => !_liberados.includes(t)), ...numerosNaoContatar()]));
 
     const payload = {
-        leads,
+        leads: comDorDaCampanha(leads),
         numerosJaEnviados,
         userEmail: currentUser?.email || '',
         userId: currentUser?.id || '',   // o n8n usa para escolher a mensagem que mais traz resposta (A/B que aprende)
@@ -10704,6 +10705,8 @@ async function iniciarEnvioNoServidor({ min, max, typing, batchSize, batchPause 
 
         _campanhaIdAtiva = data.campanhaId;
         _iaEnvioExterno = null;
+        if (_campanhaDor) addLog('🩺 Abordagem pela dor: ' + ((DORES.find(d => d.id === _campanhaDor) || {}).curto || _campanhaDor));
+        _campanhaDor = null;
         setTimeout(() => iaAtualizarCota(true), 4000);
         gravarPerfisLeads(_campanhaIdAtiva, leads);       // score que aprende (não trava o envio)
         // Guarda nicho + local para exibir o nome da campanha nas metricas
@@ -12374,7 +12377,7 @@ async function gerarMensagemIA(lead, promptLivre, chaveForcada, providerForcado,
     ultimaVariantAB = variant;
     ultimaEscolhaAB = escolha;
 
-    const prompt = iaPromptServidor(lead, promptLivre, variant, escolha.gatilho);
+    const prompt = iaPromptServidor(comDorDaCampanha([lead])[0], promptLivre, variant, escolha.gatilho);
 
     // A chave fica no banco: o servidor chama a IA (o navegador nunca vê a chave)
     const temChave = chaveForcada || (provider === 'gemini' ? config.gemini?.key : config.openai?.key);
@@ -18082,6 +18085,7 @@ function melhoresParaCampanha() {
     const base = (_leadsBase && _leadsBase.length) ? _leadsBase : todosLeads;
     return base
         .filter(l => l && l.phone && l.is_whatsapp !== false && !leadJaFoiEnviado(l.phone) && !bloqueadoLead(l) && calcScore(l) >= 40)
+        .filter(l => !_filtroDor || doresLead(l).some(d => d.id === _filtroDor))
         .map(l => ({ l, cel: ehCelularBR(l.phone) ? 1 : 0, sc: calcScore(l) }))
         .sort((a, b) => (b.cel - a.cel) || (b.sc - a.sc))
         .map(x => x.l);
@@ -18094,7 +18098,8 @@ function atualizarAcoesBusca() {
     box.hidden = false;
     const n = melhoresParaCampanha().length;
     const bt = document.getElementById('ps-btn-melhores');
-    bt.textContent = n ? `🚀 Criar campanha com os ${n} melhores` : '🚀 Nenhum lead novo bom para campanha';
+    const dorAt = _filtroDor && DORES.find(d => d.id === _filtroDor);
+    bt.textContent = n ? (dorAt ? `🚀 Campanha pela dor "${dorAt.curto}" com os ${n} melhores` : `🚀 Criar campanha com os ${n} melhores`) : '🚀 Nenhum lead novo bom para campanha';
     bt.disabled = !n;
     const fundo = document.getElementById('ps-btn-fundo');
     fundo.hidden = !(_ultimaQtdBruta >= 100 && !_ultimaBuscaGrade);
@@ -18121,6 +18126,7 @@ function atualizarAcoesBusca() {
 function campanhaComMelhores() {
     const melhores = melhoresParaCampanha();
     if (!melhores.length) { showToast('Nenhum lead novo e bom nesta busca', 'err'); return; }
+    _campanhaDor = _filtroDor || null; _filtroDor = null;
     // tira os filtros da tabela para a lista da IA conter todos os leads da busca
     const busca = document.getElementById('search-leads'); if (busca) busca.value = '';
     _filtrosExtra = {}; pintarFiltrosExtra();
@@ -18134,7 +18140,8 @@ function campanhaComMelhores() {
     document.querySelectorAll('.bn-item').forEach(b => b.classList.remove('active'));
     setTimeout(() => {
         try { renderLeadsIA(); renderLeadsIADashboard(); atualizarEstimativaModal(); } catch (e) {}
-        showToast(`🚀 ${iaLeadsSelecionados.size} melhores selecionados. Confira a mensagem e clique em Enviar.`, 'ok');
+        const dorC = _campanhaDor && DORES.find(d => d.id === _campanhaDor);
+        showToast(dorC ? `🩺 ${iaLeadsSelecionados.size} leads com a dor "${dorC.curto}": a IA abre cada mensagem por essa dor. Confira e clique em Enviar.` : `🚀 ${iaLeadsSelecionados.size} melhores selecionados. Confira a mensagem e clique em Enviar.`, 'ok');
     }, 250);
 }
 function mesmaBuscaOutraCidade() {
@@ -18467,6 +18474,12 @@ var DORES = [
       sol: 'Cortar custo fixo: taxa de cartão menor, conta de luz mais barata, sistema de gestão',
       gancho: l => `A ${dorNome(l)} é bem avaliada e movimentada, ${parseInt(l.reviews)} avaliações no Google. Negócio nesse ritmo costuma pagar caro em taxa de cartão e conta de luz. Posso te mostrar quanto dá pra economizar?` },
 ];
+// Campanha criada pela dor: cada lead vai com a dor dele (texto) para a IA do servidor abrir a mensagem por ela.
+function comDorDaCampanha(leads) {
+    const d = _campanhaDor && DORES.find(x => x.id === _campanhaDor);
+    if (!d) return leads;
+    return leads.map(l => { try { return d.tem(l) ? Object.assign({}, l, { dor: d.rot(l) + '. Solução que eu ofereço: ' + d.sol }) : l; } catch (e) { return l; } });
+}
 function dorNome(l) { return String(l.title || 'empresa').trim(); }
 function dorCategoria(l) { return String(l.category || l.type || 'empresa').toLowerCase().trim(); }
 function dorNotaTxt(l) { const r = parseFloat(l.rating); return r >= 4.3 ? `, com nota ${String(r).replace('.', ',')}` : ''; }
@@ -18579,7 +18592,7 @@ function pintarDores() {
         const p = dorProduto(d);
         b.title = d.sol + (p ? ' · seu produto: ' + p.nome : '');
         b.setAttribute('aria-pressed', String(_filtroDor === d.id));
-        b.addEventListener('click', () => { _filtroDor = _filtroDor === d.id ? null : d.id; aplicarFiltroOrdem(); pintarDores(); });
+        b.addEventListener('click', () => { _filtroDor = _filtroDor === d.id ? null : d.id; aplicarFiltroOrdem(); atualizarAcoesBusca(); });
         box.appendChild(b);
     });
     box.hidden = false;

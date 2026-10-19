@@ -1177,3 +1177,37 @@ test('Dor e solução: o Maps mostra a dor, a busca conta as oportunidades e a I
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('campanha pela dor: filtro de dor vira campanha só com esses leads e a IA abre cada mensagem pela dor', async () => {
+  const a = await abrirApp({ largura: 1280 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      trocarAba('prospeccao', document.querySelector(`.nav-item[onclick*="'prospeccao'"]`));
+      const leads = [
+        { title: 'Padaria Sol', phone: '11999990001', rating: 4.8, reviews: 230, category: 'Padaria', is_whatsapp: true },
+        { title: 'Mercado Lua', phone: '11999990002', rating: 4.7, reviews: 150, website: 'https://lua.com.br', instagram: 'https://instagram.com/lua', is_whatsapp: true },
+      ];
+      todosLeads = leads.slice(); _leadsBase = leads.slice(); renderPagina(1); atualizarAcoesBusca();
+      const antes = document.getElementById('ps-btn-melhores').textContent;
+      [...document.getElementById('ps-dores').querySelectorAll('button')].find(b => b.textContent.includes('Sem site')).click();
+      const botao = document.getElementById('ps-btn-melhores').textContent;
+      campanhaComMelhores();
+      await new Promise(r => setTimeout(r, 400));
+      const sel = [...iaLeadsSelecionados].map(i => todosLeads[i].title);
+      const comDor = comDorDaCampanha(leads);
+      const prompt = iaPromptServidor(comDor[0], 'Vendo sites', 'A', 'curiosidade');
+      const promptSem = iaPromptServidor(comDor[1], 'Vendo sites', 'A', 'curiosidade');
+      return { antes, botao, sel, campanhaDor: _campanhaDor, dor0: comDor[0].dor, dor1: comDor[1].dor, prompt, promptSem };
+    });
+    assert.match(r.antes, /Criar campanha com os 2 melhores/);
+    assert.match(r.botao, /Campanha pela dor "Sem site" com os 1 melhores/);
+    assert.deepStrictEqual(r.sel, ['Padaria Sol']);
+    assert.strictEqual(r.campanhaDor, 'semsite');
+    assert.match(r.dor0, /Não tem site.*Solução que eu ofereço: Site simples/);
+    assert.strictEqual(r.dor1, undefined, 'quem não tem a dor vai sem ela');
+    assert.match(r.prompt, /Dor que o Google mostra: Não tem site/);
+    assert.match(r.prompt, /SOBRE A DOR/);
+    assert.ok(!/SOBRE A DOR/.test(r.promptSem));
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
