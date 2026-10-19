@@ -1416,6 +1416,16 @@
 .ps-aviso { margin:2px 0 8px; padding:8px 12px; border-radius:10px; background:#FFF7ED; border:1px solid #fed7aa; color:#9a3412; font-family:'Inter',sans-serif; font-size:0.72rem; line-height:1.45; }
 .ps-chip { font-family:'Inter',sans-serif; font-size:0.6rem; font-weight:700; padding:4px 10px; border-radius:20px; border:1.5px solid #d1d5db; background:#fff; color:#6b7280; cursor:pointer; white-space:nowrap; }
 .ps-chip[aria-pressed="true"] { border-color:#165DFF; background:#EBF0FF; color:#165DFF; }
+/* seletor com cara de chip: o select nativo fica invisível por cima (abre a lista do celular sem dar zoom) */
+.ps-selwrap { position:relative; display:inline-flex; align-items:center; gap:3px; max-width:100%; }
+.ps-selwrap > span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ps-selwrap select { position:absolute; inset:0; width:100% !important; height:100%; opacity:0; cursor:pointer; padding:0 !important; margin:0; border:0; }
+.ps-selwrap.ativo { border-color:#165DFF; background:#EBF0FF; color:#165DFF; }
+.ps-selwrap[hidden], .ps-painel[hidden] { display:none !important; }
+.ps-painel { display:flex; flex-direction:column; gap:10px; padding:12px; margin:0 0 10px; border:1.5px solid var(--border); border-radius:12px; background:#fff; font-family:'Inter',sans-serif; }
+.ps-grupo { display:flex; flex-wrap:wrap; align-items:center; gap:6px; }
+.ps-grupo-rot { width:100%; font-size:0.56rem; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+.ps-limpar { align-self:flex-start; font-family:'Inter',sans-serif; font-size:0.62rem; font-weight:700; color:#6b7280; background:none; border:none; padding:0; cursor:pointer; text-decoration:underline; }
 .ps-acoes { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:-4px 0 14px; }
 .ps-acao { font-family:'Inter',sans-serif; font-size:0.7rem; font-weight:700; padding:8px 14px; border-radius:10px; border:1.5px solid var(--border); background:var(--surface); color:var(--text); cursor:pointer; }
 .ps-acao:hover { border-color:#FF6A00; color:#C2410C; }
@@ -2381,14 +2391,8 @@ function iniciarAppPosLogin() {
                     <button id="filter-hot"  onclick="filtrarClassificacao('hot')"  style="font-family:'Inter',sans-serif;font-size:0.6rem;padding:4px 10px;border-radius:20px;border:1.5px solid #fca5a5;background:#fff;color:#dc2626;cursor:pointer;font-weight:700;transition:all .15s;">🔥 HOT</button>
                     <button id="filter-warm" onclick="filtrarClassificacao('warm')" style="font-family:'Inter',sans-serif;font-size:0.6rem;padding:4px 10px;border-radius:20px;border:1.5px solid #fde68a;background:#fff;color:#d97706;cursor:pointer;font-weight:700;transition:all .15s;">⚡ WARM</button>
                     <button id="filter-cold" onclick="filtrarClassificacao('cold')" style="font-family:'Inter',sans-serif;font-size:0.6rem;padding:4px 10px;border-radius:20px;border:1.5px solid #C2D8FF;background:#fff;color:#165DFF;cursor:pointer;font-weight:700;transition:all .15s;">❄️ COLD</button>
-                    <button id="filter-site" onclick="toggleFiltroSite()" title="Clique para alternar: todos → com site → sem site (só com WhatsApp)" style="font-family:'Inter',sans-serif;font-size:0.6rem;padding:4px 10px;border-radius:20px;border:1.5px solid #d1d5db;background:#fff;color:#6b7280;cursor:pointer;font-weight:700;transition:all .15s;">🌐 Com/sem site</button>
-                    <button type="button" class="ps-chip" id="pf-novos" aria-pressed="false" onclick="alternarFiltroExtra('novos')" title="Esconde quem já recebeu mensagem sua">✉️ Nunca contatados</button>
-                    <button type="button" class="ps-chip" id="pf-aberta" aria-pressed="false" onclick="alternarFiltroExtra('aberta')" title="Poucas avaliações, todas recentes: empresa que abriu há pouco">🌱 Abertas há pouco</button>
-                    <button type="button" class="ps-chip" id="pf-novidade" aria-pressed="false" onclick="alternarFiltroExtra('novidade')" title="Empresas que não apareciam na última vez que você fez esta mesma busca" hidden>✨ Novidades</button>
-                    <button type="button" class="ps-chip" id="pf-celular" aria-pressed="false" onclick="alternarFiltroExtra('celular')" title="Celular costuma ser o próprio dono">📱 Só celular</button>
-                    <button type="button" class="ps-chip" id="pf-whats" aria-pressed="false" onclick="alternarFiltroExtra('whats')" title="Só quem tem WhatsApp confirmado">✅ WhatsApp confirmado</button>
-                    <button type="button" class="ps-chip" id="pf-insta" aria-pressed="false" onclick="alternarFiltroExtra('insta')" title="Tem Instagram e não tem WhatsApp: hoje ficam de fora das campanhas">Só Instagram (sem WhatsApp)</button>
-                    <button type="button" class="ps-chip" id="pf-negativa" aria-pressed="false" onclick="alternarFiltroExtra('negativa')" title="Tem avaliação de 1 ou 2 estrelas: dor visível, bom gancho para a conversa">⭐ Avaliação negativa</button>
+                    <button type="button" class="ps-chip ps-btn-filtros" id="ps-btn-filtros" aria-expanded="false" aria-pressed="false" onclick="psFiltrosAbrir()">⚙️ Filtros <span id="ps-filtros-n"></span></button>
+                    <label class="ps-chip ps-selwrap" id="ps-dor-box" title="Empresas com a mesma dor: veja a solução no detalhe do lead" hidden><span id="ps-dor-lbl">🩺 Dor e solução</span> ▾<select id="ps-dor-sel" onchange="psDorEscolher(this.value)" aria-label="Dor e solução"></select></label>
                 </div>
                 <div class="stats-right">
                     <button id="btn-verificar-whats" onclick="verificarWhatsAppLote()" style="font-family:'Inter',sans-serif;font-size:0.62rem;padding:6px 12px;border-radius:8px;border:1.5px solid #16a34a;background:#dcfce7;color:#16a34a;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:5px;">
@@ -2402,6 +2406,22 @@ function iniciarAppPosLogin() {
                     <span class="count-badge" id="count-badge"></span>
                 </div>
             </div>
+            <div id="ps-filtros-painel" class="ps-painel" hidden>
+                <div class="ps-grupo"><span class="ps-grupo-rot">Contato</span>
+                    <button id="filter-site" onclick="toggleFiltroSite()" title="Clique para alternar: todos → com site → sem site (só com WhatsApp)" style="font-family:'Inter',sans-serif;font-size:0.6rem;padding:4px 10px;border-radius:20px;border:1.5px solid #d1d5db;background:#fff;color:#6b7280;cursor:pointer;font-weight:700;transition:all .15s;">🌐 Com/sem site</button>
+                    <button type="button" class="ps-chip" id="pf-novos" aria-pressed="false" onclick="alternarFiltroExtra('novos')" title="Esconde quem já recebeu mensagem sua">✉️ Nunca contatados</button>
+                    <button type="button" class="ps-chip" id="pf-celular" aria-pressed="false" onclick="alternarFiltroExtra('celular')" title="Celular costuma ser o próprio dono">📱 Só celular</button>
+                    <button type="button" class="ps-chip" id="pf-whats" aria-pressed="false" onclick="alternarFiltroExtra('whats')" title="Só quem tem WhatsApp confirmado">✅ WhatsApp confirmado</button>
+                    <button type="button" class="ps-chip" id="pf-insta" aria-pressed="false" onclick="alternarFiltroExtra('insta')" title="Tem Instagram e não tem WhatsApp: hoje ficam de fora das campanhas">Só Instagram (sem WhatsApp)</button>
+                </div>
+                <div class="ps-grupo"><span class="ps-grupo-rot">Empresa</span>
+                    <button type="button" class="ps-chip" id="pf-aberta" aria-pressed="false" onclick="alternarFiltroExtra('aberta')" title="Poucas avaliações, todas recentes: empresa que abriu há pouco">🌱 Abertas há pouco</button>
+                    <button type="button" class="ps-chip" id="pf-novidade" aria-pressed="false" onclick="alternarFiltroExtra('novidade')" title="Empresas que não apareciam na última vez que você fez esta mesma busca" hidden>✨ Novidades</button>
+                    <button type="button" class="ps-chip" id="pf-negativa" aria-pressed="false" onclick="alternarFiltroExtra('negativa')" title="Tem avaliação de 1 ou 2 estrelas: dor visível, bom gancho para a conversa">⭐ Avaliação negativa</button>
+                    <label class="ps-chip ps-selwrap" id="ps-bairro-box" hidden><span id="ps-bairro-lbl">📍 Bairro</span> ▾<select id="ps-bairro-sel" onchange="psBairroEscolher(this.value)" aria-label="Bairro"></select></label>
+                </div>
+                <button type="button" class="ps-limpar" onclick="psFiltrosLimpar()">Limpar filtros</button>
+            </div>
             <div id="ps-acoes" class="ps-acoes" hidden>
                 <button type="button" class="ps-acao principal" id="ps-btn-melhores" onclick="campanhaComMelhores()"></button>
                 <button type="button" class="ps-acao" id="ps-btn-cidade" onclick="mesmaBuscaOutraCidade()">🔁 Mesma busca em outra cidade</button>
@@ -2412,8 +2432,6 @@ function iniciarAppPosLogin() {
                 <button type="button" class="ps-acao" id="ps-btn-grupos" onclick="abrirGrupos('leads')">👥 Leads de grupos</button>
                 <span class="ps-acoes-dica" id="ps-acoes-dica"></span>
             </div>
-            <div id="ps-dores" class="ps-sugestoes ps-dores" hidden></div>
-            <div id="ps-bairros" class="ps-sugestoes ps-bairros" hidden></div>
 
             <div class="table-wrap">
                 <table>
@@ -7868,12 +7886,13 @@ function aplicarFiltroOrdem() {
 
     todosLeads = lista;
     paginaAtual = 1;
+    try { psFiltrosContar(); } catch (e) {}
 
     // Atualizar count-badge com contexto
     const badge = document.getElementById('count-badge');
     if (badge) {
         const total = _leadsBase.length || lista.length;
-        if (_filtroClass !== 'all' || termo || _filtroSite !== 'all' || _soComWhats) {
+        if (_filtroClass !== 'all' || termo || _filtroSite !== 'all' || _soComWhats || lista.length !== total) {
             const labels = { hot:'🔥 HOT', warm:'⚡ WARM', cold:'❄️ COLD' };
             const siteLabels = { com: ' · 🌐 Com site', sem: ' · 🚫 Sem site' };
             const part = (_filtroClass !== 'all' ? ` · ${labels[_filtroClass]}` : '') + (siteLabels[_filtroSite] || '') + (_soComWhats ? ' · ✅ Só com WA' : '');
@@ -14222,7 +14241,7 @@ const MANUAL = {
                     texto: 'O próprio Google Maps mostra o que falta em cada empresa. O app mostra a dor e a solução que combina. A mensagem da campanha continua vindo do produto escolhido no topo.',
                     blocos: [
                         { t: 'As dores que o app reconhece', l: ['🌐 **Sem site** → site simples com WhatsApp, cardápio ou agendamento.', '⭐ **Nota baixa ou reclamações** → gestão de reputação.', '**Do que reclamam** (o app lê as avaliações de 1 e 2 estrelas): ⏳ demora no atendimento → atendimento automático no WhatsApp · 📅 agenda e espera → agendamento online · 💳 pagamento → maquininha e Pix · 📦 entrega ou pedido → sistema de pedidos · 🏷️ preço → cortar custos.', '📉 **Poucas avaliações** → otimizar o perfil do Google.', '💬 **Sem WhatsApp** → WhatsApp Business com atendimento automático.', '📸 **Sem Instagram** → gestão de redes sociais.', '💰 **Movimentados** (100+ avaliações, nota 4,3+) → cortar custo: maquininha, energia, sistema de gestão.'] },
-                        { t: 'Onde aparece', l: ['**Depois da busca**: a linha "🩺 Oportunidades" conta quantas empresas têm cada dor. Toque numa para filtrar a tabela.', '**No detalhe do lead** (▼ ao lado do Score): o cartão "Dor e solução". Quando a solução combina com o produto do topo, aparece "✅ combina com" o produto.', '**Para vender**: escolha no topo o produto que resolve a dor, filtre a dor na busca e crie a campanha com os melhores.'] }
+                        { t: 'Onde aparece', l: ['**Depois da busca**: o seletor "🩺 Dor e solução" (ao lado de Filtros) mostra quantas empresas têm cada dor. Escolha uma para filtrar a tabela.', '**No detalhe do lead** (▼ ao lado do Score): o cartão "Dor e solução". Quando a solução combina com o produto do topo, aparece "✅ combina com" o produto.', '**Para vender**: escolha no topo o produto que resolve a dor, filtre a dor na busca e crie a campanha com os melhores.'] }
                     ],
                     dicas: ['Use palavras claras no nome ou nas instruções do produto (ex.: "site", "energia", "maquininha"): é assim que o app sabe que a dor combina com ele.']
                 },
@@ -18091,7 +18110,7 @@ function atualizarAcoesBusca() {
     box.hidden = false;
     const n = melhoresParaCampanha().length;
     const bt = document.getElementById('ps-btn-melhores');
-    bt.textContent = n ? `🚀 Criar campanha com os ${n} melhores` : '🚀 Nenhum lead novo bom para campanha';
+    bt.textContent = n === 1 ? '🚀 Criar campanha com o melhor lead' : n ? `🚀 Criar campanha com os ${n} melhores` : '🚀 Nenhum lead novo bom para campanha';
     bt.disabled = !n;
     const fundo = document.getElementById('ps-btn-fundo');
     fundo.hidden = !(_ultimaQtdBruta >= 100 && !_ultimaBuscaGrade);
@@ -18514,46 +18533,58 @@ function blocoDor(l) {
                 </div>`; }).join('')}
             </div>`;
 }
-// Oportunidades da busca: quantas empresas têm cada dor. Tocar filtra a tabela.
+// Dor e solução da busca: um seletor só, com quantas empresas têm cada dor.
 function pintarDores() {
-    const box = document.getElementById('ps-dores');
-    if (!box) return;
+    const sel = document.getElementById('ps-dor-sel');
+    if (!sel) return;
     const base = (_leadsBase && _leadsBase.length) ? _leadsBase : todosLeads;
     const cont = {};
     (base || []).forEach(l => doresLead(l).forEach(d => { cont[d.id] = (cont[d.id] || 0) + 1; }));
-    box.innerHTML = '';
     const ativos = DORES.filter(d => cont[d.id]);
-    if (!ativos.length) { box.hidden = true; return; }
-    box.appendChild(prEl('span', 'ps-rot', '🩺 Oportunidades:'));
-    ativos.forEach(d => {
-        const b = prEl('button', 'ps-sug sin', d.ic + ' ' + d.curto); b.type = 'button';
-        b.appendChild(prEl('small', '', String(cont[d.id])));
-        const p = dorCombinaProduto(d);
-        b.title = d.sol + (p ? ' · combina com ' + p.nome : '');
-        b.setAttribute('aria-pressed', String(_filtroDor === d.id));
-        b.addEventListener('click', () => { _filtroDor = _filtroDor === d.id ? null : d.id; aplicarFiltroOrdem(); atualizarAcoesBusca(); });
-        box.appendChild(b);
-    });
-    box.hidden = false;
+    const box = document.getElementById('ps-dor-box'), lbl = document.getElementById('ps-dor-lbl');
+    if (!ativos.length) { if (box) box.hidden = true; sel.innerHTML = ''; return; }
+    sel.innerHTML = '';
+    const o0 = document.createElement('option'); o0.value = ''; o0.textContent = '🩺 Dor e solução: todas'; sel.appendChild(o0);
+    ativos.forEach(d => { const o = document.createElement('option'); o.value = d.id; o.textContent = `${d.ic} ${d.curto} (${cont[d.id]})`; sel.appendChild(o); });
+    sel.value = ativos.some(d => d.id === _filtroDor) ? _filtroDor : '';
+    if (lbl) lbl.textContent = sel.value ? sel.options[sel.selectedIndex].textContent : '🩺 Dor e solução';
+    if (box) { box.classList.toggle('ativo', !!sel.value); box.hidden = false; }
+}
+function psDorEscolher(v) { _filtroDor = v || null; aplicarFiltroOrdem(); atualizarAcoesBusca(); }
+function psBairroEscolher(v) { _filtroBairro = v || null; aplicarFiltroOrdem(); atualizarAcoesBusca(); }
+function psFiltrosAbrir(abrir) {
+    const p = document.getElementById('ps-filtros-painel'), b = document.getElementById('ps-btn-filtros');
+    if (!p) return;
+    p.hidden = typeof abrir === 'boolean' ? !abrir : !p.hidden;
+    if (b) b.setAttribute('aria-expanded', String(!p.hidden));
+}
+// Quantos filtros do painel estão ligados (aparece no botão "Filtros")
+function psFiltrosContar() {
+    const n = Object.keys(_filtrosExtra || {}).filter(k => _filtrosExtra[k]).length + (_filtroSite !== 'all' ? 1 : 0) + (_filtroBairro ? 1 : 0);
+    const el = document.getElementById('ps-filtros-n'), b = document.getElementById('ps-btn-filtros');
+    if (el) el.textContent = n ? `(${n})` : '';
+    if (b) b.setAttribute('aria-pressed', String(n > 0));
+}
+function psFiltrosLimpar() {
+    _filtrosExtra = {}; _filtroBairro = null; _filtroDor = null; _soComWhats = false;
+    if (_filtroSite !== 'all') { _filtroSite = 'sem'; toggleFiltroSite(); }
+    pintarFiltrosExtra(); aplicarFiltroOrdem(); atualizarAcoesBusca();
 }
 function pintarBairros() {
-    const box = document.getElementById('ps-bairros');
-    if (!box) return;
+    const sel = document.getElementById('ps-bairro-sel');
+    if (!sel) return;
     const base = (_leadsBase && _leadsBase.length) ? _leadsBase : todosLeads;
     const cont = {};
     (base || []).forEach(l => { const b = String(l.bairro || '').trim(); if (b) { const k = _normNicho(b); (cont[k] = cont[k] || { nome: b, n: 0 }).n++; } });
-    const top = Object.entries(cont).filter(([, v]) => v.n >= 2).sort((a, b) => b[1].n - a[1].n).slice(0, 8);
-    box.innerHTML = '';
-    if (top.length < 2) { box.hidden = true; return; }
-    box.appendChild(prEl('span', 'ps-rot', 'Bairros:'));
-    top.forEach(([k, v]) => {
-        const b = prEl('button', 'ps-sug sin', v.nome); b.type = 'button';
-        b.appendChild(prEl('small', '', String(v.n)));
-        b.setAttribute('aria-pressed', String(_filtroBairro === k));
-        b.addEventListener('click', () => { _filtroBairro = _filtroBairro === k ? null : k; aplicarFiltroOrdem(); });
-        box.appendChild(b);
-    });
-    box.hidden = false;
+    const top = Object.entries(cont).filter(([, v]) => v.n >= 2).sort((a, b) => b[1].n - a[1].n).slice(0, 15);
+    const box = document.getElementById('ps-bairro-box'), lbl = document.getElementById('ps-bairro-lbl');
+    if (top.length < 2) { if (box) box.hidden = true; sel.innerHTML = ''; return; }
+    sel.innerHTML = '';
+    const o0 = document.createElement('option'); o0.value = ''; o0.textContent = '📍 Bairro: todos'; sel.appendChild(o0);
+    top.forEach(([k, v]) => { const o = document.createElement('option'); o.value = k; o.textContent = `📍 ${v.nome} (${v.n})`; sel.appendChild(o); });
+    sel.value = top.some(([k]) => k === _filtroBairro) ? _filtroBairro : '';
+    if (lbl) lbl.textContent = sel.value ? sel.options[sel.selectedIndex].textContent : '📍 Bairro';
+    if (box) { box.classList.toggle('ativo', !!sel.value); box.hidden = false; }
 }
 (function () {
     const original = atualizarAcoesBusca;
