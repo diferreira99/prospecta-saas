@@ -1270,7 +1270,8 @@ test('lista com telefone repetido: a campanha vai para a nuvem com um lead por t
       const orig = supabaseClient.from.bind(supabaseClient);
       supabaseClient.from = t => { const q = orig(t); if (t === 'leads') { const up = q.upsert.bind(q); q.upsert = (rows, o) => { enviados.push(...rows); return up(rows, o); }; } return q; };
       await sincronizarCampanhaComTabelas({ id: 'x1', nome: 'Facilities', nicho: 'Facilities', local: 'São Paulo', leads: [
-        { title: 'A', phone: '11999990001' }, { title: 'A filial', phone: '(11) 99999-0001' }, { title: 'B', phone: '11999990002' } ] });
+        { title: 'A', phone: '11999990001' }, { title: 'A filial', phone: '(11) 99999-0001' }, { title: 'B', phone: '11999990002' },
+        { title: 'Só Instagram 1', phone: '' }, { title: 'Só Instagram 2' } ] });
       const L = (n, tel, id) => ({ title: n, phone: tel, place_id: id, is_whatsapp: true });
       _histBuscas = [{ id: 'b1', nicho: 'Facilities', local: 'São Paulo', origem: 'maps', total: 3, criado_em: new Date().toISOString(),
         leads: [L('A', '11999990001', 'p1'), L('A filial', '11999990001', 'p2'), L('B', '11999990002', 'p3')] }];
@@ -1279,6 +1280,25 @@ test('lista com telefone repetido: a campanha vai para a nuvem com um lead por t
     });
     assert.strictEqual(r.tels.length, 2, r.tels.join(','));
     assert.deepStrictEqual(r.faltam, ['A', 'B']);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('Ouvir antes: pede MP3 (o iPhone não toca OGG) e prepara o player no próprio toque', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      const pedidos = [], tocados = []; config.uazapi = Object.assign({}, config.uazapi, { url: 'https://srv.test', token: 't' });
+      _audioReq = async (c, corpo) => { pedidos.push({ c, corpo }); await new Promise(r => setTimeout(r, 50)); return new Response(new Blob([new Uint8Array([1, 2, 3])], { type: 'audio/mpeg' }), { status: 200 }); };
+      const Orig = window.Audio;
+      window.Audio = function () { const el = { src: '', play() { tocados.push(this.src.slice(0, 15)); return Promise.resolve(); }, pause() {} }; return el; };
+      await audioOuvir('Oi, tudo bem? Aqui é do Prospecta.', null);
+      window.Audio = Orig;
+      return { pedidos, tocados };
+    });
+    assert.strictEqual(r.pedidos[0].c, '/tts');
+    assert.strictEqual(r.pedidos[0].corpo.formato, 'mp3');
+    assert.deepStrictEqual(r.tocados.map(s => s.slice(0, 5)), ['data:', 'blob:'], 'destrava no toque e depois toca o áudio');
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });

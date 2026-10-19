@@ -8437,10 +8437,10 @@ async function sincronizarCampanhaComTabelas(camp) {
             instagram: igUrl(l) || null,
             linkedin: liUrl(l) || null
         }));
-        // Um telefone só uma vez por campanha: a chave da tabela é campanha + telefone, e um repetido no mesmo
-        // lote derruba o lote inteiro (a campanha ficava sem nenhum lead na nuvem).
+        // Um telefone só uma vez por campanha: a chave da tabela é campanha + telefone, e um repetido (ou dois
+        // sem telefone, que dão a mesma chave) derruba o lote inteiro. Sem telefone não vai: campanha é por WhatsApp.
         const vistos = new Set();
-        const unicos = leadsRows.filter(r => { const k = r.phone || ''; if (!k) return true; if (vistos.has(k)) return false; vistos.add(k); return true; });
+        const unicos = leadsRows.filter(r => { const k = r.phone || ''; if (!k || vistos.has(k)) return false; vistos.add(k); return true; });
         if (unicos.length) {
             // upsert em lotes de 500 pra não estourar payload
             for (let i = 0; i < unicos.length; i += 500) {
@@ -13928,18 +13928,30 @@ function _audioReq(caminho, corpo) {
     return fetch(config.uazapi.url.replace(/\/+$/, '') + caminho, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-token': config.uazapi.token }, body: JSON.stringify(corpo) });
 }
 var _audioTocando = null;
+// Um silêncio curtinho para "destravar" o player no próprio toque: o iPhone só deixa tocar som que começou num toque,
+// e o áudio da IA chega segundos depois.
+var AUDIO_SILENCIO = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
 async function audioOuvir(texto, btn) {
     const t = audioTexto(texto); if (!audioChecar(t)) return;
     const antes = btn ? btn.textContent : '';
+    try { _audioTocando && _audioTocando.pause(); } catch (e) {}
+    const player = new Audio();
+    try { player.src = AUDIO_SILENCIO; const p = player.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+    _audioTocando = player;
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Gerando…'; }
     try {
-        const r = await _audioReq('/tts', { texto: t, voz: audioVoz() });
+        // mp3 para ouvir aqui (o iPhone não toca OGG no navegador); o áudio enviado no WhatsApp continua no formato de voz
+        const r = await _audioReq('/tts', { texto: t, voz: audioVoz(), formato: 'mp3' });
         if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || (r.status === 404 ? 'o servidor do WhatsApp ainda não tem áudio (precisa atualizar)' : 'HTTP ' + r.status)); }
         const url = URL.createObjectURL(await r.blob());
-        try { _audioTocando && _audioTocando.pause(); } catch (e) {}
-        _audioTocando = new Audio(url); _audioTocando.onended = () => URL.revokeObjectURL(url);
-        await _audioTocando.play();
-    } catch (e) { showToast('❌ Não consegui gerar o áudio: ' + (e && e.message), 'err'); }
+        if (_audioTocando !== player) return;   // tocou outro enquanto este gerava
+        player.onended = () => URL.revokeObjectURL(url);
+        player.src = url;
+        await player.play();
+    } catch (e) {
+        const formato = e && (e.name === 'NotSupportedError' || /not supported|no supported source/i.test(e.message || ''));
+        showToast(formato ? '❌ Este aparelho não tocou o áudio. Tente de novo em instantes (o servidor do WhatsApp pode estar atualizando).' : '❌ Não consegui gerar o áudio: ' + (e && e.message), 'err');
+    }
     finally { if (btn) { btn.disabled = false; btn.textContent = antes; } }
 }
 async function audioEnviar(phone, texto) {
