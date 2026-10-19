@@ -1128,86 +1128,46 @@ test('Áudio com a voz da IA (respostas, follow-up e Inbox) e ligação marcada 
   } finally { await a.fechar(); }
 });
 
-test('Dor e solução: o Maps mostra a dor, a busca conta as oportunidades e a IA monta a abordagem', async () => {
+test('Dor e solução: o Maps mostra a dor e a solução, a busca filtra por dor e a mensagem segue o produto do topo', async () => {
   const a = await abrirApp({ largura: 1280 });
   try {
     const r = await a.pagina.evaluate(async () => {
       trocarAba('prospeccao', document.querySelector(`.nav-item[onclick*="'prospeccao'"]`));
-      _produtos = [{ id: 'p1', nome: 'Site Express', instrucoes: 'Criamos sites com botão de WhatsApp', padrao: true }, { id: 'p2', nome: 'Kaizen Connect', instrucoes: 'LinkedIn' }];
+      _produtos = [{ id: 'p1', nome: 'Maquininha Stone', instrucoes: '', padrao: true }, { id: 'p2', nome: 'Site Express', instrucoes: 'Criamos sites' }];
       const leads = [
-        { title: 'Padaria <b>Sol</b>', phone: '11999990001', rating: 4.8, reviews: 230, category: 'Padaria' },
-        { title: 'Oficina Lua', phone: '11999990002', rating: 3.6, reviews: 12, website: 'https://lua.com.br', instagram: 'https://instagram.com/lua' },
-        { title: 'Clínica Mar', phone: '11999990003', rating: 4.9, reviews: 40, website: 'https://mar.com.br', instagram: 'https://instagram.com/mar' },
+        { title: 'Padaria <b>Sol</b>', phone: '11999990001', rating: 4.8, reviews: 230, category: 'Padaria', is_whatsapp: true },
+        { title: 'Oficina Lua', phone: '11999990002', rating: 3.6, reviews: 12, website: 'https://lua.com.br', instagram: 'https://instagram.com/lua', is_whatsapp: true },
+        { title: 'Clínica Mar', phone: '11999990003', rating: 4.9, reviews: 40, website: 'https://mar.com.br', instagram: 'https://instagram.com/mar', is_whatsapp: true },
       ];
       todosLeads = leads.slice(); _leadsBase = leads.slice(); renderPagina(1); atualizarAcoesBusca();
-      const barra = document.getElementById('ps-dores');
-      const chips = [...barra.querySelectorAll('button')].map(b => b.textContent);
-      [...barra.querySelectorAll('button')].find(b => b.textContent.includes('Sem site')).click();
+      const chips = [...document.getElementById('ps-dores').querySelectorAll('button')].map(b => b.textContent);
+      [...document.getElementById('ps-dores').querySelectorAll('button')].find(b => b.textContent.includes('Sem site')).click();
       const filtrados = todosLeads.map(l => l.title);
+      const botao = document.getElementById('ps-btn-melhores').textContent;
       [...document.getElementById('ps-dores').querySelectorAll('button')].find(b => b.textContent.includes('Sem site')).click();
       const voltou = todosLeads.length;
       const padaria = todosLeads.findIndex(l => l.title.startsWith('Padaria'));
       renderPagina(1);
-      const btn = document.getElementById('lead-row-' + padaria).querySelector('[onclick^="toggleExpandScore("]');
-      toggleExpandScore(padaria, btn);
+      toggleExpandScore(padaria, document.getElementById('lead-row-' + padaria).querySelector('[onclick^="toggleExpandScore("]'));
       const box = document.querySelector('#expand-' + padaria + ' .dor-box');
-      const txt = box.innerText;
-      config.openai = { key: '••••abcd' }; config.iaProvider = 'openai';
-      window._promptIA = '';
-      iaServidor = async (p) => { window._promptIA = p; return 'Claro: {"dor":"Sem site","solucao":"Site com WhatsApp","produto":"Site Express","porque":"Muito movimento e nenhum site","mensagem":"Oi! Vi a Padaria Sol com 230 avaliações no Google. Já pensaram em ter um site?"}'; };
-      await doresIA(padaria);
-      return { chips, filtrados, voltou, txt, html: box.innerHTML, ia: document.getElementById('dor-ia-' + padaria).innerText, prompt: window._promptIA };
+      const prompt = iaPromptServidor(leads[0], 'Vendo maquininha', 'A', 'curiosidade');
+      return { chips, filtrados, botao, voltou, txt: box.innerText, html: box.innerHTML, botoes: box.querySelectorAll('button').length, prompt };
     });
-    assert.ok(r.chips.some(c => /Sem site\s*1/.test(c)), 'conta 1 sem site: ' + r.chips.join(' | '));
+    assert.ok(r.chips.some(c => /Sem site\s*1/.test(c)), r.chips.join(' | '));
     assert.ok(r.chips.some(c => /Nota baixa ou reclamações\s*1/.test(c)));
     assert.ok(r.chips.some(c => /Poucas avaliações\s*1/.test(c)));
     assert.ok(r.chips.some(c => /Movimentados\s*1/.test(c)));
     assert.deepStrictEqual(r.filtrados, ['Padaria <b>Sol</b>']);
+    assert.match(r.botao, /Criar campanha com os 1 melhores/);
     assert.strictEqual(r.voltou, 3);
     assert.match(r.txt, /DOR E SOLUÇÃO/i);
     assert.match(r.txt, /Não tem site/);
-    assert.match(r.txt, /Seu produto: Site Express/);
-    assert.match(r.txt, /230 avaliações/);
+    assert.match(r.txt, /Movimentado: 230 avaliações/);
+    assert.match(r.txt, /Cortar custo fixo.*✅ combina com Maquininha Stone/s, 'combina com o produto do topo');
+    assert.ok(!/combina com Site Express/.test(r.txt), 'só o produto do topo');
+    assert.strictEqual(r.botoes, 0, 'sem frase pronta nem IA: limpo');
     assert.ok(!r.html.includes('<b>Sol</b>'), 'nome do lead escapado');
-    assert.match(r.ia, /Dor principal:\s*Sem site/);
-    assert.match(r.ia, /Seu produto: Site Express/);
-    assert.match(r.ia, /Já pensaram em ter um site\?/);
-    assert.match(r.prompt, /PRODUTOS QUE EU VENDO[\s\S]*Site Express/);
-    assert.match(r.prompt, /Nunca cite avaliações negativas/);
-    assert.deepStrictEqual(a.errosReais(), []);
-  } finally { await a.fechar(); }
-});
-
-test('campanha pela dor: filtro de dor vira campanha só com esses leads e a IA abre cada mensagem pela dor', async () => {
-  const a = await abrirApp({ largura: 1280 });
-  try {
-    const r = await a.pagina.evaluate(async () => {
-      trocarAba('prospeccao', document.querySelector(`.nav-item[onclick*="'prospeccao'"]`));
-      const leads = [
-        { title: 'Padaria Sol', phone: '11999990001', rating: 4.8, reviews: 230, category: 'Padaria', is_whatsapp: true },
-        { title: 'Mercado Lua', phone: '11999990002', rating: 4.7, reviews: 150, website: 'https://lua.com.br', instagram: 'https://instagram.com/lua', is_whatsapp: true },
-      ];
-      todosLeads = leads.slice(); _leadsBase = leads.slice(); renderPagina(1); atualizarAcoesBusca();
-      const antes = document.getElementById('ps-btn-melhores').textContent;
-      [...document.getElementById('ps-dores').querySelectorAll('button')].find(b => b.textContent.includes('Sem site')).click();
-      const botao = document.getElementById('ps-btn-melhores').textContent;
-      campanhaComMelhores();
-      await new Promise(r => setTimeout(r, 400));
-      const sel = [...iaLeadsSelecionados].map(i => todosLeads[i].title);
-      const comDor = comDorDaCampanha(leads);
-      const prompt = iaPromptServidor(comDor[0], 'Vendo sites', 'A', 'curiosidade');
-      const promptSem = iaPromptServidor(comDor[1], 'Vendo sites', 'A', 'curiosidade');
-      return { antes, botao, sel, campanhaDor: _campanhaDor, dor0: comDor[0].dor, dor1: comDor[1].dor, prompt, promptSem };
-    });
-    assert.match(r.antes, /Criar campanha com os 2 melhores/);
-    assert.match(r.botao, /Campanha pela dor "Sem site" com os 1 melhores/);
-    assert.deepStrictEqual(r.sel, ['Padaria Sol']);
-    assert.strictEqual(r.campanhaDor, 'semsite');
-    assert.match(r.dor0, /Não tem site.*Solução que eu ofereço: Site simples/);
-    assert.strictEqual(r.dor1, undefined, 'quem não tem a dor vai sem ela');
-    assert.match(r.prompt, /Dor que o Google mostra: Não tem site/);
-    assert.match(r.prompt, /SOBRE A DOR/);
-    assert.ok(!/SOBRE A DOR/.test(r.promptSem));
+    assert.ok(!/SOBRE A DOR|Dor que o Google/.test(r.prompt), 'mensagem segue só o produto');
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
