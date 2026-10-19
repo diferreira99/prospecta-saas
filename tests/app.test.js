@@ -1250,11 +1250,11 @@ test('Histórico é só o registro das buscas; quem falta contatar continua no c
     });
     const sp = r.cards.find(c => c.includes('Facilities')), pd = r.cards.find(c => c.includes('Padaria'));
     assert.match(sp, /Virou campanha · 1 contatadas · 2 ainda sem mensagem/);
-    assert.match(sp, /Ver na campanha/);
+    assert.match(sp, /Abordar as 2 que faltam/);
     assert.ok(!/Continuar|Carregar todas|Planilha/.test(sp), 'resto fica no ⋯');
     assert.match(pd, /Ainda não virou campanha · 2 prontas para abordar/);
     assert.match(pd, /Abordar as 2 empresas/);
-    assert.strictEqual(r.temFunil, false); assert.strictEqual(r.temRanking, false);
+    assert.strictEqual(r.temFunil, false); assert.strictEqual(r.temRanking, true);
     assert.strictEqual(r.btTxt, '▶ Enviar para os 2 que faltam');
     assert.deepStrictEqual(r.carregados, ['B', 'C']);
     assert.strictEqual(r.aba, 'tab-prospeccao');

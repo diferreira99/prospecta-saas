@@ -5205,7 +5205,10 @@ document.addEventListener('DOMContentLoaded', () => {
             .hist-det { margin-top:10px; font-size:0.74rem; }
             .hist-det summary { cursor:pointer; color:var(--muted); font-weight:600; }
             .hist-run { padding:5px 0 5px 14px; border-left:2px solid var(--border); margin-left:4px; color:#475569; }
-            .hist-rank { background:linear-gradient(135deg,#fff7ed,#fff); border:1.5px solid #fed7aa; border-radius:14px; padding:14px 16px; }
+            .hist-rank { background:linear-gradient(135deg,#fff7ed,#fff); border:1.5px solid #fed7aa; border-radius:14px; padding:10px 14px; margin-bottom:12px; }
+            .hist-rank .hist-rank-linha { padding:4px 0; gap:8px; }
+            .hist-rank-nome { flex:1; min-width:0; font-size:0.76rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+            .hist-rank-taxa { font-size:0.7rem; font-weight:700; color:#c2410c; white-space:nowrap; }
             .hist-rank-tit { font-size:0.9rem; font-weight:800; color:#9a3412; }
             .hist-rank-sub { font-size:0.7rem; color:var(--muted); margin-bottom:8px; }
             .hist-rank-linha { display:flex; align-items:center; gap:10px; padding:7px 0; border-top:1px solid #ffedd5; }
@@ -5692,13 +5695,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="hist-cab">
                     <div>
                         <div class="hist-cab-tit">🕓 Histórico de buscas</div>
-                        <div class="hist-cab-sub">Todas as buscas que você já fez. Quem ainda falta contatar continua na campanha.</div>
+                        <div class="hist-cab-sub">Todas as buscas que você já fez e quem de cada uma ainda não recebeu mensagem</div>
                     </div>
                     <div class="hist-cab-bts">
                         <button type="button" class="hist-bt" onclick="histAtualizar()">🔄 Atualizar</button>
                         <button type="button" class="hist-bt perigo" onclick="limparHistorico()">🗑️ Limpar</button>
                     </div>
                 </div>
+                <div id="hist-ranking"></div>
                 <div class="hist-ferr">
                     <input type="search" id="hist-busca" placeholder="🔎 Buscar nicho ou cidade" oninput="histFiltrar(this.value)">
                     <select id="hist-ordem" onchange="histOrdenar(this.value)">
@@ -10366,9 +10370,9 @@ function renderHistorico() {
     histPintar();
 }
 function histPintar() {
-    const lista = document.getElementById('historico-lista');
+    const lista = document.getElementById('historico-lista'), rank = document.getElementById('hist-ranking');
     if (!lista) return;
-    lista.innerHTML = '';
+    lista.innerHTML = ''; if (rank) rank.innerHTML = '';
     let grupos = histGrupos();
     if (!grupos.length) {
         const v = prEl('div', 'hist-vazio');
@@ -10377,6 +10381,7 @@ function histPintar() {
         lista.appendChild(v);
         return;
     }
+    if (rank) histPintarRanking(rank, grupos);
     const q = _normNicho(_histFiltro);
     if (q) grupos = grupos.filter(g => _normNicho(g.titulo).includes(q));
     const ord = { recentes: (a, b) => b.ultima - a.ultima, esperando: (a, b) => b.faltam.length - a.faltam.length };
@@ -10384,8 +10389,23 @@ function histPintar() {
     if (!grupos.length) { lista.appendChild(prEl('div', 'ph-mudo', 'Nenhuma busca com esse nome ou cidade.')); return; }
     grupos.forEach(g => lista.appendChild(histCard(g)));
 }
-// Histórico = o registro das buscas (passado). O que falta contatar de uma busca que já virou campanha
-// aparece no card da campanha ("Enviar para os N que faltam").
+// Resumo pequeno no topo: as buscas que mais trouxeram resposta (a partir de 5 envios), para escolher a próxima.
+function histPintarRanking(box, grupos) {
+    const top = grupos.filter(g => g.enviados >= 5).sort((a, b) => b.taxa - a.taxa || b.responderam - a.responderam).slice(0, 3);
+    if (!top.length) return;
+    const c = prEl('div', 'hist-rank');
+    c.appendChild(prEl('div', 'hist-rank-tit', '🏆 Onde vale buscar'));
+    top.forEach((g, i) => {
+        const r = prEl('div', 'hist-rank-linha');
+        r.appendChild(prEl('span', 'hist-rank-pos', (i + 1) + 'º'));
+        r.appendChild(prEl('b', 'hist-rank-nome', g.titulo));
+        r.appendChild(prEl('span', 'hist-rank-taxa', `${g.taxa}% responderam`));
+        c.appendChild(r);
+    });
+    box.appendChild(c);
+}
+// Histórico = o registro das buscas. Um botão: abordar quem ainda não recebeu mensagem; o resto fica no ⋯.
+// Resultado (respostas, Pipeline, ganhos) é da campanha e fica no Painel.
 function histCard(g) {
     const card = prEl('div', 'hist-card');
     const topo = prEl('div', 'hist-topo');
@@ -10404,12 +10424,12 @@ function histCard(g) {
     else st.textContent = g.faltam.length ? `Ainda não virou campanha · ${g.faltam.length} prontas para abordar` : 'Ainda não virou campanha';
     card.appendChild(st);
     const acoes = prEl('div', 'hist-acoes');
-    if (g.enviados && g.origem !== 'grupo') {
-        const b = prEl('button', 'hist-bt prim', '📣 Ver na campanha'); b.type = 'button'; b.onclick = () => histIrCampanha(g); acoes.appendChild(b);
-    } else if (g.faltam.length) {
-        const b = prEl('button', 'hist-bt prim', `▶ Abordar as ${g.faltam.length} empresas`); b.type = 'button';
-        b.title = 'Leva para a Prospecção só quem pode receber mensagem (sem Não contatar e sem quem não tem WhatsApp)';
+    if (g.faltam.length) {
+        const b = prEl('button', 'hist-bt prim', g.enviados ? `▶ Abordar as ${g.faltam.length} que faltam` : `▶ Abordar as ${g.faltam.length} empresas`); b.type = 'button';
+        b.title = 'Leva para a Prospecção só quem ainda não recebeu mensagem (sem Não contatar e sem quem não tem WhatsApp)';
         b.onclick = () => histContinuar(g); acoes.appendChild(b);
+    } else if (g.enviados && g.origem !== 'grupo') {
+        const b = prEl('button', 'hist-bt', '📣 Ver na campanha'); b.type = 'button'; b.onclick = () => histIrCampanha(g); acoes.appendChild(b);
     }
     if (acoes.childNodes.length) card.appendChild(acoes);
     return card;
@@ -10426,6 +10446,7 @@ function histMenuMais(ev, g) {
     document.getElementById('hist-menu-cid')?.remove();
     const menu = prEl('div', 'ib-menu-autor hist-menu'); menu.id = 'hist-menu-cid';
     const item = (txt, fn) => { const b = prEl('button', '', txt); b.type = 'button'; b.onclick = e2 => { menu.remove(); fn(e2); }; menu.appendChild(b); };
+    if (g.enviados && g.origem !== 'grupo') item('📣 Ver na campanha', () => histIrCampanha(g));
     item(`↩ Carregar as ${g.encontrados} empresas`, () => histCarregarLeads(g, [...g.leads.values()], 'todas'));
     if (g.origem !== 'grupo') {
         item('🔁 Buscar de novo (só novas)', () => histBuscarDeNovo(g));
@@ -14306,8 +14327,8 @@ const MANUAL = {
             itens: [
                 {
                     titulo: 'Histórico', resumo: 'Todas as buscas que você já fez', aba: 'historico',
-                    texto: 'O registro das suas buscas (buscas iguais ficam juntas). Cada uma diz se já virou campanha e quantas empresas ainda não receberam mensagem.',
-                    blocos: [{ t: 'Botões', l: ['**📣 Ver na campanha**: abre a campanha dessa busca. Lá, **▶ Enviar para os N que faltam** continua de onde parou.', '**▶ Abordar as N empresas**: para busca que ainda não virou campanha.', '**⋯**: carregar todas, buscar de novo (só novas), mesma busca em outra cidade, planilha e apagar (apaga só o registro).'] }]
+                    texto: 'O registro das suas buscas (buscas iguais ficam juntas). Cada uma diz se já virou campanha e quantas empresas ainda não receberam mensagem. No topo, **🏆 Onde vale buscar**: as 3 buscas que mais trouxeram resposta.',
+                    blocos: [{ t: 'Botões', l: ['**▶ Abordar as N que faltam**: leva para a Prospecção só quem ainda não recebeu mensagem. O mesmo botão aparece no card da campanha ("Enviar para os N que faltam").', '**⋯**: ver na campanha, carregar todas, buscar de novo (só novas), mesma busca em outra cidade, planilha e apagar (apaga só o registro).', 'Respostas, Pipeline e ganhos ficam na campanha (aba Campanhas).'] }]
                 }
             ]
         },
