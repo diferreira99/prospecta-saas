@@ -1401,6 +1401,20 @@
 /* Fonte dos leads: API oficial ou backup Serper */
 .ps-sugestoes { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin:2px 0 10px; font-family:'Inter',sans-serif; font-size:0.68rem; color:var(--muted); }
 .ps-sugestoes .ps-rot { font-weight:600; margin-right:2px; }
+.dor-box { margin-top:14px; padding:12px; border:1.5px solid #FFD6B0; background:#FFF8F1; border-radius:12px; font-family:'Inter',sans-serif; }
+.dor-tit { font-size:0.6rem; color:#FF6A00; letter-spacing:0.5px; text-transform:uppercase; font-weight:800; margin-bottom:8px; }
+.dor-item { padding:8px 0; border-top:1px dashed #FFD6B0; }
+.dor-item:first-of-type { border-top:none; padding-top:0; }
+.dor-linha { font-size:0.72rem; line-height:1.45; color:var(--text); }
+.dor-sol { font-size:0.7rem; line-height:1.45; color:#16a34a; font-weight:600; margin-top:2px; }
+.dor-prod { display:inline-block; font-size:0.58rem; font-weight:800; background:#EBF0FF; color:#165DFF; border-radius:6px; padding:1px 7px; margin-left:4px; }
+.dor-gancho { font-size:0.68rem; line-height:1.5; color:#4b5563; font-style:italic; margin-top:4px; overflow-wrap:anywhere; }
+.dor-btn { font-family:'Inter',sans-serif; font-size:0.6rem; font-weight:700; padding:4px 10px; border-radius:8px; border:1.5px solid #d1d5db; background:#fff; color:#374151; cursor:pointer; margin-top:5px; }
+.dor-btn.ia { border-color:#7C3AED; background:#7C3AED; color:#fff; padding:7px 12px; font-size:0.66rem; }
+.dor-btn:disabled { opacity:.6; cursor:wait; }
+.dor-ia { margin-top:10px; padding:10px; border-radius:10px; background:#fff; border:1.5px solid #E9D5FF; font-size:0.7rem; line-height:1.5; color:var(--text); }
+.dor-ia[hidden] { display:none; }
+.dor-ia .dor-msg { margin-top:6px; padding:8px 10px; border-radius:8px; background:#F5F3FF; white-space:pre-wrap; overflow-wrap:anywhere; }
 .ps-sug { font-family:'Inter',sans-serif; font-size:0.68rem; font-weight:700; padding:5px 10px; border-radius:99px; border:1.5px solid #bbf7d0; background:#f0fdf4; color:#166534; cursor:pointer; }
 .ps-sug:hover, .ps-sug:focus-visible { border-color:#16a34a; outline:none; }
 .ps-sug small { font-weight:600; opacity:.8; margin-left:4px; }
@@ -2405,6 +2419,7 @@ function iniciarAppPosLogin() {
                 <button type="button" class="ps-acao" id="ps-btn-grupos" onclick="abrirGrupos('leads')">👥 Leads de grupos</button>
                 <span class="ps-acoes-dica" id="ps-acoes-dica"></span>
             </div>
+            <div id="ps-dores" class="ps-sugestoes ps-dores" hidden></div>
             <div id="ps-bairros" class="ps-sugestoes ps-bairros" hidden></div>
 
             <div class="table-wrap">
@@ -6444,6 +6459,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // ── ESTADO ──
 // Produtos: declarados aqui no topo porque telas desenhadas na abertura do app (antes do fim deste script) já usam
 var _produtos = [];
+var _filtroDor = null;
 var _prodCampanhas = {};          // campanha_id -> produto_id
 var _enviosPorTel = new Map();    // telefone -> envios que já recebeu (campanha e quando)
 var PROD_INTERVALO_DIAS = 30;     // outro produto só fala com a mesma empresa depois disso
@@ -7359,7 +7375,7 @@ async function buscar() {
         _filtroClass = 'all';
         _filtroSite = 'all';
         _soComWhats = false;
-        _filtrosExtra = {}; _filtroBairro = null; pintarFiltrosExtra();
+        _filtrosExtra = {}; _filtroBairro = null; _filtroDor = null; pintarFiltrosExtra();
         _sortCol = null;
         _sortDir = -1;
         _expandAberto = null;
@@ -7844,6 +7860,7 @@ function aplicarFiltroOrdem() {
     if (_filtrosExtra.novidade) lista = lista.filter(l => !!l._novidade);
     if (_filtrosExtra.insta)    lista = lista.filter(l => igHandle(l.instagram) && (!l.phone || l.is_whatsapp === false));
     if (_filtroBairro)          lista = lista.filter(l => _normNicho(l.bairro) === _filtroBairro);
+    if (_filtroDor)             lista = lista.filter(l => doresLead(l).some(d => d.id === _filtroDor));
 
     // Ordenação
     if (_sortCol) {
@@ -8020,6 +8037,7 @@ function toggleExpandScore(realIdx, btn) {
                     </div>
                 </div>
             </div>
+            ${blocoDor(l, realIdx)}
             ${blocoSinais(l)}
             ${blocoContatosExtras(l)}
             ${blocoAvaliacoes(l)}
@@ -14117,7 +14135,7 @@ function manualAbrir() {
     });
 }
 const MANUAL = {
-    versao: '17/10/2026',
+    versao: '19/10/2026',
     intro: 'O Prospecta+ encontra empresas para você vender, faz o primeiro contato pelo WhatsApp, Instagram ou LinkedIn com texto escrito por IA e organiza quem respondeu até o fechamento. Você aprova o que importa; o resto roda sozinho, dentro de limites que protegem o seu número. O menu segue a trilha do cliente: **Encontre → Conecte → Converta → Cresça**.',
     secoes: [
         {
@@ -14201,6 +14219,16 @@ const MANUAL = {
                         { t: 'Filtros e botões', l: ['Filtros: HOT/WARM/COLD, com/sem site, Nunca contatados, Abertas há pouco, Novidades, Só celular, WhatsApp confirmado, Só Instagram (sem WhatsApp), Avaliação negativa, Bairros e "Verificar WhatsApp (N)".', '**Criar campanha com os N melhores**: separa quem tem WhatsApp, é HOT/WARM, nunca foi contatado (celular primeiro) e leva para a Prospecção WhatsApp.', '**Mesma busca em outra cidade**. **Buscar mais nesta cidade** aparece quando a busca trouxe 100: refaz em 9 regiões e traz até 1.000 empresas (20 a 40 minutos).', '**Não contatar**: quem nunca recebe campanha. Quem pede para sair entra sozinho.', '**Leads de grupos**: importa os números visíveis dos seus grupos de WhatsApp.', '**Abordar no Instagram (N)** e **Abordar no LinkedIn (N)** levam direto à abordagem por esses canais.'] }
                     ],
                     alertas: ['Leads de grupo: mensagem para quem não te conhece é o que mais gera denúncia. Use com moderação.']
+                },
+                {
+                    titulo: 'Dor e solução', resumo: 'O Google mostra o que falta; o app diz o que vender', aba: 'prospeccao',
+                    texto: 'O próprio Google Maps mostra o que falta em cada empresa. O app lê isso e te diz qual solução vender, qual dos seus produtos resolve e qual frase usar.',
+                    blocos: [
+                        { t: 'As dores que o app reconhece', l: ['🌐 **Sem site** → site simples com WhatsApp, cardápio ou agendamento.', '⭐ **Nota baixa ou reclamações** → gestão de reputação.', '📉 **Poucas avaliações** → otimizar o perfil do Google.', '💬 **Sem WhatsApp** → WhatsApp Business com atendimento automático.', '📸 **Sem Instagram** → gestão de redes sociais.', '💰 **Movimentados** (100+ avaliações, nota 4,3+) → cortar custo: maquininha, energia, sistema de gestão.'] },
+                        { t: 'Onde aparece', l: ['**Depois da busca**: a linha "🩺 Oportunidades" conta quantas empresas têm cada dor. Toque numa para filtrar a tabela.', '**No detalhe do lead** (▼ ao lado do Score): o cartão "Dor e solução", com a frase pronta e "Copiar frase".', '**"✨ IA: escolher a dor principal e montar a abordagem"**: a IA lê os dados e as avaliações, escolhe a dor mais forte, indica o seu produto e escreve a primeira mensagem.'] }
+                    ],
+                    dicas: ['Cadastre o que você vende em Produtos com palavras claras nas instruções (ex.: "site", "energia", "maquininha"): é assim que o app liga a dor ao seu produto.'],
+                    alertas: ['A mensagem nunca cita avaliação negativa nem critica a empresa: fala da solução, não do problema.']
                 },
                 {
                     titulo: 'Meus Leads', resumo: 'Todo mundo que já recebeu campanha', aba: 'meusleads',
@@ -18402,6 +18430,160 @@ function linkGoogleMaps(l) {
 }
 
 // ── Bairros: atalhos com os que mais aparecem na busca ──
+// ── Dor e solução ──
+// O próprio Google Maps mostra o que falta na empresa (site, avaliações, nota, WhatsApp). Cada dor vem com a solução
+// para vender, o seu produto que resolve (se tiver) e uma primeira frase com o dado real do lead.
+// Regra de sempre: nunca citar avaliação negativa nem criticar a empresa na mensagem.
+var DORES = [
+    { id: 'semsite', ic: '🌐', curto: 'Sem site', chave: /\bsites?\b|landing|p[aá]gina de vendas|card[aá]pio digital/i,
+      tem: l => !(l.website && String(l.website).trim()),
+      rot: () => 'Não tem site: só aparece no Google Maps',
+      sol: 'Site simples com botão de WhatsApp, cardápio ou agendamento',
+      gancho: l => `Vi a ${dorNome(l)} no Google${dorNotaTxt(l)}. Quem pesquisa vocês lá não encontra um site pra ver os serviços e chamar no WhatsApp, e acaba indo no concorrente que tem. Já pensaram em ter um?` },
+    { id: 'reputacao', ic: '⭐', curto: 'Nota baixa ou reclamações', chave: /reputa|avalia[cç]/i,
+      tem: l => (parseFloat(l.rating) > 0 && parseFloat(l.rating) < 4.2 && (parseInt(l.reviews) || 0) >= 5) || (Number(l.avaliacoes_negativas) || 0) > 0,
+      rot: l => { const r = parseFloat(l.rating), neg = Number(l.avaliacoes_negativas) || 0;
+          return r > 0 && r < 4.2 ? `Nota ${String(r).replace('.', ',')} no Google: abaixo de quem está do lado` : `${neg} ${neg === 1 ? 'avaliação negativa' : 'avaliações negativas'} recentes no Google`; },
+      sol: 'Gestão de reputação: pedir avaliação aos clientes satisfeitos e responder as do Google',
+      gancho: l => `Vi a ${dorNome(l)} no Google. Tem um jeito simples de fazer os clientes que saem satisfeitos deixarem avaliação, e isso pesa muito pra quem está escolhendo onde ir. Posso te mostrar como funciona?` },
+    { id: 'poucas', ic: '📉', curto: 'Poucas avaliações', chave: /google meu neg[oó]cio|perfil (da empresa )?no google|perfil do google|seo local|avalia[cç]/i,
+      tem: l => { const r = parseInt(l.reviews) || 0; return r > 0 && r < 20; },
+      rot: l => `Só ${parseInt(l.reviews) || 0} avaliações: aparece pouco nas buscas`,
+      sol: 'Otimizar o perfil do Google (fotos, posts e avaliações) para aparecer primeiro nas buscas',
+      gancho: l => `Vi a ${dorNome(l)} no Google com ${parseInt(l.reviews) || 0} avaliações. Quem busca "${dorCategoria(l)} perto de mim" acaba vendo primeiro quem tem mais. Dá pra mudar isso rápido. Quer que eu te mostre?` },
+    { id: 'semwhats', ic: '💬', curto: 'Sem WhatsApp', chave: /whats|atendimento autom|chatbot|rob[oô]/i,
+      tem: l => l.is_whatsapp === false,
+      rot: () => 'O telefone do Google não tem WhatsApp',
+      sol: 'WhatsApp Business com atendimento automático: não perde quem chama fora do horário',
+      gancho: l => `Procurei a ${dorNome(l)} no WhatsApp pelo número do Google e não encontrei. Hoje a maioria dos clientes prefere chamar por lá. Já pensaram em atender pelo WhatsApp?` },
+    { id: 'seminsta', ic: '📸', curto: 'Sem Instagram', chave: /instagram|redes sociais|social media/i,
+      tem: l => !l.instagram && !!l.website,
+      rot: () => 'Não achei Instagram no site nem no Google',
+      sol: 'Gestão de Instagram e redes sociais',
+      gancho: l => `Vi a ${dorNome(l)} no Google e procurei o Instagram de vocês, mas não achei. Hoje muita gente confere o Instagram antes de comprar. Vocês cuidam disso?` },
+    { id: 'movimentado', ic: '💰', curto: 'Movimentados', chave: /maquin|stone|cart[aã]o|energia|solar|conta de luz|erp|sistema de gest|gest[aã]o financeira|omie|conta azul|bling/i,
+      tem: l => (parseInt(l.reviews) || 0) >= 100 && parseFloat(l.rating) >= 4.3,
+      rot: l => `Movimentado: ${parseInt(l.reviews)} avaliações e nota ${String(l.rating).replace('.', ',')}`,
+      sol: 'Cortar custo fixo: taxa de cartão menor, conta de luz mais barata, sistema de gestão',
+      gancho: l => `A ${dorNome(l)} é bem avaliada e movimentada, ${parseInt(l.reviews)} avaliações no Google. Negócio nesse ritmo costuma pagar caro em taxa de cartão e conta de luz. Posso te mostrar quanto dá pra economizar?` },
+];
+function dorNome(l) { return String(l.title || 'empresa').trim(); }
+function dorCategoria(l) { return String(l.category || l.type || 'empresa').toLowerCase().trim(); }
+function dorNotaTxt(l) { const r = parseFloat(l.rating); return r >= 4.3 ? `, com nota ${String(r).replace('.', ',')}` : ''; }
+function doresLead(l) {
+    if (!l) return [];
+    return DORES.filter(d => { try { return d.tem(l); } catch (e) { return false; } });
+}
+// O seu produto (cadastrado em Produtos) que resolve essa dor, pelo nome ou pelas instruções da IA.
+function dorProduto(d) {
+    return (_produtos || []).find(p => d.chave.test((p.nome || '') + ' ' + (p.instrucoes || ''))) || null;
+}
+var _doresLeads = {};
+function blocoDor(l, idx) {
+    const dores = doresLead(l);
+    if (!dores.length) return '';
+    _doresLeads[idx] = l;
+    return `
+            <div class="dor-box">
+                <div class="dor-tit">🩺 Dor e solução</div>
+                ${dores.map(d => { const p = dorProduto(d); return `
+                <div class="dor-item">
+                    <div class="dor-linha">${d.ic} <b>${escapeHtml(d.rot(l))}</b></div>
+                    <div class="dor-sol">→ ${escapeHtml(d.sol)}${p ? `<span class="dor-prod">Seu produto: ${escapeHtml(p.nome)}</span>` : ''}</div>
+                    <div class="dor-gancho">"${escapeHtml(d.gancho(l))}"</div>
+                    <button type="button" class="dor-btn" onclick="dorCopiar(${idx}, '${d.id}')">📋 Copiar frase</button>
+                </div>`; }).join('')}
+                <button type="button" class="dor-btn ia" id="dor-ia-btn-${idx}" onclick="doresIA(${idx})">✨ IA: escolher a dor principal e montar a abordagem</button>
+                <div class="dor-ia" id="dor-ia-${idx}" hidden></div>
+            </div>`;
+}
+function dorCopiarTexto(t) {
+    try { navigator.clipboard.writeText(t).then(() => showToast('📋 Copiado', 'ok'), () => showToast('Não deu para copiar', 'err')); }
+    catch (e) { showToast('Não deu para copiar', 'err'); }
+}
+function dorCopiar(idx, id) {
+    const l = _doresLeads[idx], d = DORES.find(x => x.id === id);
+    if (l && d) dorCopiarTexto(d.gancho(l));
+}
+function doresPrompt(l) {
+    const dores = doresLead(l);
+    const prods = (_produtos || []).filter(p => p && p.nome);
+    const avs = textoAvaliacoes(l).slice(0, 1200);
+    return `Você é um SDR experiente. Com os dados públicos do Google Maps desta empresa, escolha a dor mais forte e a solução para vender.
+
+EMPRESA
+- Nome: ${dorNome(l)}
+- Categoria: ${l.category || '-'}
+- Endereço: ${l.address || '-'}
+- Nota no Google: ${l.rating || '-'} (${parseInt(l.reviews) || 0} avaliações)
+- Site: ${l.website ? 'tem' : 'não tem'}
+- Instagram: ${l.instagram ? 'tem' : 'não encontrado'}
+- WhatsApp no número do Google: ${l.is_whatsapp === true ? 'sim' : l.is_whatsapp === false ? 'não' : 'não conferido'}
+- Avaliações negativas (1-2 estrelas): ${Number(l.avaliacoes_negativas) || 0}
+${avs ? '- Últimas avaliações: ' + avs : ''}
+
+DORES QUE O APP JÁ VIU
+${dores.map(d => '- ' + d.rot(l) + ' → ' + d.sol).join('\n') || '- nenhuma óbvia'}
+
+PRODUTOS QUE EU VENDO
+${prods.map(p => '- ' + p.nome + (p.instrucoes ? ': ' + String(p.instrucoes).replace(/\s+/g, ' ').slice(0, 300) : '')).join('\n') || '- nenhum cadastrado (sugira o tipo de serviço)'}
+
+Responda SÓ com um JSON, sem nada antes ou depois:
+{"dor":"a dor principal em 1 frase","solucao":"o que vender para resolver, em 1 frase","produto":"o nome exato de um dos meus produtos que resolve, ou vazio se nenhum serve","porque":"por que essa dor e não outra, em 1 frase","mensagem":"primeira mensagem de WhatsApp"}
+
+REGRAS DA MENSAGEM: até 320 caracteres, humana e curta, cite um dado real do Google (nota, nº de avaliações, falta de site), sem link, no máximo 1 emoji, termine com uma pergunta. Nunca cite avaliações negativas nem critique a empresa.`;
+}
+function doresLerJSON(t) {
+    const m = String(t || '').match(/\{[\s\S]*\}/);
+    if (!m) throw new Error('A IA não devolveu o formato esperado. Tente de novo.');
+    return JSON.parse(m[0]);
+}
+var _doresIAMsg = {};
+async function doresIA(idx) {
+    const l = _doresLeads[idx];
+    const box = document.getElementById('dor-ia-' + idx), btn = document.getElementById('dor-ia-btn-' + idx);
+    if (!l || !box) return;
+    const provider = config.iaProvider || 'openai';
+    if (!(provider === 'gemini' ? config.gemini?.key : config.openai?.key)) { showToast('Configure a IA em Integrações', 'err'); return; }
+    if (btn) { btn.disabled = true; btn.textContent = '✨ Analisando…'; }
+    try {
+        const r = doresLerJSON(await iaServidor(doresPrompt(l), 500, provider));
+        const msg = String(r.mensagem || '').trim();
+        _doresIAMsg[idx] = msg;
+        box.innerHTML = `
+            <div><b>🎯 Dor principal:</b> ${escapeHtml(r.dor || '-')}</div>
+            <div><b>💡 Solução:</b> ${escapeHtml(r.solucao || '-')}${r.produto ? `<span class="dor-prod">Seu produto: ${escapeHtml(r.produto)}</span>` : ''}</div>
+            ${r.porque ? `<div style="color:var(--muted);">${escapeHtml(r.porque)}</div>` : ''}
+            ${msg ? `<div class="dor-msg">${escapeHtml(msg)}</div><button type="button" class="dor-btn" onclick="dorCopiarTexto(_doresIAMsg[${idx}])">📋 Copiar mensagem</button>` : ''}`;
+        box.hidden = false;
+    } catch (e) {
+        showToast('IA: ' + (e.message || e), 'err');
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '✨ IA: escolher a dor principal e montar a abordagem'; }
+    }
+}
+// Oportunidades da busca: quantas empresas têm cada dor. Tocar filtra a tabela.
+function pintarDores() {
+    const box = document.getElementById('ps-dores');
+    if (!box) return;
+    const base = (_leadsBase && _leadsBase.length) ? _leadsBase : todosLeads;
+    const cont = {};
+    (base || []).forEach(l => doresLead(l).forEach(d => { cont[d.id] = (cont[d.id] || 0) + 1; }));
+    box.innerHTML = '';
+    const ativos = DORES.filter(d => cont[d.id]);
+    if (!ativos.length) { box.hidden = true; return; }
+    box.appendChild(prEl('span', 'ps-rot', '🩺 Oportunidades:'));
+    ativos.forEach(d => {
+        const b = prEl('button', 'ps-sug sin', d.ic + ' ' + d.curto); b.type = 'button';
+        b.appendChild(prEl('small', '', String(cont[d.id])));
+        const p = dorProduto(d);
+        b.title = d.sol + (p ? ' · seu produto: ' + p.nome : '');
+        b.setAttribute('aria-pressed', String(_filtroDor === d.id));
+        b.addEventListener('click', () => { _filtroDor = _filtroDor === d.id ? null : d.id; aplicarFiltroOrdem(); pintarDores(); });
+        box.appendChild(b);
+    });
+    box.hidden = false;
+}
 function pintarBairros() {
     const box = document.getElementById('ps-bairros');
     if (!box) return;
@@ -18426,6 +18608,7 @@ function pintarBairros() {
     atualizarAcoesBusca = function () {
         original.apply(this, arguments);
         try { pintarBairros(); } catch (e) {}
+        try { pintarDores(); } catch (e) {}
         const bt = document.getElementById('ps-btn-bloq');
         if (bt) { const n = _naoContatar.length + _optOutTels.size; bt.textContent = '🚫 Não contatar' + (n ? ` (${n})` : ''); }
     };
