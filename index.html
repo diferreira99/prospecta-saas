@@ -10176,12 +10176,16 @@ async function _verificarWhatsAppLote(auto, todosLeads) {
 }
 
 // ===================== HISTÓRICO DE BUSCAS: o que cada busca virou =====================
-// Cada busca vai para a nuvem (tabela buscas), sem as avaliações do Google (pesadas) e sem limite de 10.
+// Cada busca vai para a nuvem (tabela buscas), sem limite de 10. Das avaliações do Google ficam só as 3 mais recentes,
+// com o texto cortado: dá para ler no detalhe do lead e a IA usa na mensagem, sem pesar o histórico.
 // No aparelho fica só um resumo (nicho, cidade, data) para o Plano de Prospecção.
 var _buscaAtualId = null, _histBuscas = [], _histRes = null, _histSoNovos = null, _histFiltro = '', _histOrdem = 'recentes', _histAbertos = {};
 function _histSlim(l) {
     const r = {};
     Object.keys(l || {}).forEach(k => { if (k !== 'ultimas_avaliacoes' && k !== 'hours' && k.charAt(0) !== '_') r[k] = l[k]; });
+    const revs = (Array.isArray(l && l.ultimas_avaliacoes) ? l.ultimas_avaliacoes : []).filter(x => x && (x.texto || x.nota)).slice(0, 3)
+        .map(x => ({ nota: x.nota || null, data: x.data || '', texto: String(x.texto || '').slice(0, 240) }));
+    if (revs.length) r.ultimas_avaliacoes = revs;
     return r;
 }
 function histIdLead(l) { return l.place_id || pkTel(l.phone) || _normNicho(l.title || l.name || ''); }

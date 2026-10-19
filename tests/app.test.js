@@ -1171,3 +1171,20 @@ test('Dor e solução: o Maps mostra a dor e a solução, a busca filtra por dor
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('histórico guarda as 3 avaliações escritas mais recentes (para ler e para a IA), com texto curto', async () => {
+  const a = await abrirApp({ largura: 1280 });
+  try {
+    const r = await a.pagina.evaluate(() => {
+      const revs = [1, 2, 3, 4, 5].map(i => ({ nota: 5, data: '2026-10-0' + i, quando: 'x', texto: 'Ótimo atendimento '.repeat(30), autor: 'Fulano' }));
+      const s = _histSlim({ title: 'Padaria', hours: 'seg', _tmp: 1, ultimas_avaliacoes: revs });
+      const vazio = _histSlim({ title: 'Sem avaliações', ultimas_avaliacoes: [] });
+      return { s, vazio };
+    });
+    assert.strictEqual(r.s.ultimas_avaliacoes.length, 3);
+    assert.ok(r.s.ultimas_avaliacoes.every(x => x.texto.length <= 240 && !('autor' in x) && x.nota === 5));
+    assert.ok(!('hours' in r.s) && !('_tmp' in r.s));
+    assert.ok(!('ultimas_avaliacoes' in r.vazio));
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
