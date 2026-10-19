@@ -1224,3 +1224,40 @@ test('Dor e solução lê do que as avaliações negativas reclamam (só para vo
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('Histórico é só o registro das buscas; quem falta contatar continua no card da campanha', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      const agora = new Date().toISOString();
+      const L = (n, tel) => ({ title: n, phone: tel, place_id: 'p' + tel, is_whatsapp: true });
+      _histBuscas = [
+        { id: 'b1', nicho: 'Facilities, limpeza', local: 'São Paulo', origem: 'maps', total: 3, criado_em: agora, leads: [L('A', '11999990001'), L('B', '11999990002'), L('C', '11999990003')] },
+        { id: 'b2', nicho: 'Padaria', local: 'Campinas', origem: 'maps', total: 2, criado_em: agora, leads: [L('D', '19999990004'), L('E', '19999990005')] },
+      ];
+      _histRes = { ld: { [pkTel('11999990001')]: { env: true } }, pk: {}, wa: {} };
+      trocarAba('historico', document.querySelector(`.nav-item[onclick*="'historico'"]`) || document.body);
+      histPintar();
+      const cards = [...document.querySelectorAll('#historico-lista .hist-card')].map(c => c.innerText.replace(/\s+/g, ' '));
+      const temFunil = !!document.querySelector('#historico-lista .hist-funil'), temRanking = !!document.getElementById('hist-ranking');
+      _cpDados = { leads: [{ campanha_id: 'c1', phone: '11999990001', title: 'A', enviado_em: agora }], camps: [{ id: 'c1', nicho: 'Facilities', local: 'São Paulo' }], interesses: [], pipeline: [], fila: [], fuEnv: [] };
+      cpMontarGrupos(); cpRender();
+      const bt = [...document.querySelectorAll('#cp-lista button')].find(b => /que faltam/.test(b.textContent));
+      const btTxt = bt && bt.textContent;
+      bt.click();
+      await new Promise(r => setTimeout(r, 300));
+      return { cards, temFunil, temRanking, btTxt, carregados: todosLeads.map(l => l.title).sort(), aba: document.querySelector('.tab-content.active')?.id };
+    });
+    const sp = r.cards.find(c => c.includes('Facilities')), pd = r.cards.find(c => c.includes('Padaria'));
+    assert.match(sp, /Virou campanha · 1 contatadas · 2 ainda sem mensagem/);
+    assert.match(sp, /Ver na campanha/);
+    assert.ok(!/Continuar|Carregar todas|Planilha/.test(sp), 'resto fica no ⋯');
+    assert.match(pd, /Ainda não virou campanha · 2 prontas para abordar/);
+    assert.match(pd, /Abordar as 2 empresas/);
+    assert.strictEqual(r.temFunil, false); assert.strictEqual(r.temRanking, false);
+    assert.strictEqual(r.btTxt, '▶ Enviar para os 2 que faltam');
+    assert.deepStrictEqual(r.carregados, ['B', 'C']);
+    assert.strictEqual(r.aba, 'tab-prospeccao');
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});

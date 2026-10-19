@@ -5199,6 +5199,8 @@ document.addEventListener('DOMContentLoaded', () => {
             .hist-et.mudo b { color:#cbd5e1; }
             .hist-et.ganho { background:#f0fdf4; border-color:#bbf7d0; }
             .hist-acoes { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+            .hist-status { font-size:0.74rem; color:var(--muted); margin:8px 0 10px; line-height:1.45; }
+            .hist-mais { margin-left:auto; font-size:1rem; line-height:1; padding:4px 10px; }
             .hist-ok { font-size:0.72rem; color:#166534; font-weight:600; margin-right:4px; }
             .hist-det { margin-top:10px; font-size:0.74rem; }
             .hist-det summary { cursor:pointer; color:var(--muted); font-weight:600; }
@@ -5690,20 +5692,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="hist-cab">
                     <div>
                         <div class="hist-cab-tit">🕓 Histórico de buscas</div>
-                        <div class="hist-cab-sub">O que cada busca virou: enviadas, respostas, Pipeline e quem ainda está esperando contato</div>
+                        <div class="hist-cab-sub">Todas as buscas que você já fez. Quem ainda falta contatar continua na campanha.</div>
                     </div>
                     <div class="hist-cab-bts">
                         <button type="button" class="hist-bt" onclick="histAtualizar()">🔄 Atualizar</button>
                         <button type="button" class="hist-bt perigo" onclick="limparHistorico()">🗑️ Limpar</button>
                     </div>
                 </div>
-                <div id="hist-ranking"></div>
                 <div class="hist-ferr">
                     <input type="search" id="hist-busca" placeholder="🔎 Buscar nicho ou cidade" oninput="histFiltrar(this.value)">
                     <select id="hist-ordem" onchange="histOrdenar(this.value)">
                         <option value="recentes">Mais recentes</option>
-                        <option value="taxa">Mais respondem</option>
-                        <option value="esperando">Mais esperando contato</option>
+                        <option value="esperando">Mais empresas sem mensagem</option>
                     </select>
                 </div>
                 <div id="historico-lista" class="hist-lista"></div>
@@ -10366,9 +10366,9 @@ function renderHistorico() {
     histPintar();
 }
 function histPintar() {
-    const lista = document.getElementById('historico-lista'), rank = document.getElementById('hist-ranking');
+    const lista = document.getElementById('historico-lista');
     if (!lista) return;
-    lista.innerHTML = ''; if (rank) rank.innerHTML = '';
+    lista.innerHTML = '';
     let grupos = histGrupos();
     if (!grupos.length) {
         const v = prEl('div', 'hist-vazio');
@@ -10377,42 +10377,15 @@ function histPintar() {
         lista.appendChild(v);
         return;
     }
-    if (rank) histPintarRanking(rank, grupos);
     const q = _normNicho(_histFiltro);
     if (q) grupos = grupos.filter(g => _normNicho(g.titulo).includes(q));
-    const ord = { recentes: (a, b) => b.ultima - a.ultima, taxa: (a, b) => (b.taxa ?? -1) - (a.taxa ?? -1) || b.responderam - a.responderam, esperando: (a, b) => b.faltam.length - a.faltam.length };
+    const ord = { recentes: (a, b) => b.ultima - a.ultima, esperando: (a, b) => b.faltam.length - a.faltam.length };
     grupos.sort(ord[_histOrdem] || ord.recentes);
     if (!grupos.length) { lista.appendChild(prEl('div', 'ph-mudo', 'Nenhuma busca com esse nome ou cidade.')); return; }
     grupos.forEach(g => lista.appendChild(histCard(g)));
 }
-function histPintarRanking(box, grupos) {
-    const testados = grupos.filter(g => g.enviados >= 5).sort((a, b) => b.taxa - a.taxa || b.responderam - a.responderam).slice(0, 5);
-    const parados = grupos.filter(g => !g.enviados && g.faltam.length).sort((a, b) => b.faltam.length - a.faltam.length).slice(0, 3);
-    if (!testados.length && !parados.length) return;
-    const c = prEl('div', 'hist-rank');
-    c.appendChild(prEl('div', 'hist-rank-tit', '🏆 Onde vale buscar'));
-    c.appendChild(prEl('div', 'hist-rank-sub', 'Quantas pessoas de verdade responderam (sem contar resposta automática), a partir de 5 mensagens enviadas'));
-    const max = Math.max(1, ...testados.map(g => g.taxa));
-    testados.forEach((g, i) => {
-        const r = prEl('div', 'hist-rank-linha');
-        r.appendChild(prEl('span', 'hist-rank-pos', (i + 1) + 'º'));
-        const meio = prEl('div', 'hist-rank-meio');
-        meio.appendChild(prEl('b', '', g.titulo));
-        const barra = prEl('div', 'hist-rank-barra'); const f = prEl('i', ''); f.style.width = Math.max(4, g.taxa / max * 100) + '%'; barra.appendChild(f); meio.appendChild(barra);
-        meio.appendChild(prEl('small', '', `${g.taxa}% responderam · ${g.responderam} de ${g.enviados}` + (g.pipeline ? ` · ${g.pipeline} no Pipeline` : '')));
-        r.appendChild(meio);
-        if (g.faltam.length) { const b = prEl('button', 'hist-bt prim', `▶ Continuar · ${g.faltam.length} esperando`); b.type = 'button'; b.title = 'Levar para a Prospecção quem ainda não recebeu mensagem'; b.onclick = () => histContinuar(g); r.appendChild(b); }
-        else if (g.origem !== 'grupo') { const b = prEl('button', 'hist-bt', '📍 Cidade vizinha'); b.type = 'button'; b.onclick = e => histMenuCidade(e, g); r.appendChild(b); }
-        c.appendChild(r);
-    });
-    if (parados.length) {
-        const p = prEl('div', 'hist-rank-parados');
-        p.appendChild(prEl('span', '', '🧪 Ainda sem nenhum envio: '));
-        parados.forEach(g => { const b = prEl('button', 'hist-chip', `${g.titulo} (${g.faltam.length})`); b.type = 'button'; b.title = 'Levar para a Prospecção'; b.onclick = () => histContinuar(g); p.appendChild(b); });
-        c.appendChild(p);
-    }
-    box.appendChild(c);
-}
+// Histórico = o registro das buscas (passado). O que falta contatar de uma busca que já virou campanha
+// aparece no card da campanha ("Enviar para os N que faltam").
 function histCard(g) {
     const card = prEl('div', 'hist-card');
     const topo = prEl('div', 'hist-topo');
@@ -10420,44 +10393,50 @@ function histCard(g) {
     const tt = prEl('div', 'hist-tt');
     tt.appendChild(prEl('b', '', g.titulo));
     const n = g.buscas.length;
-    tt.appendChild(prEl('small', '', (n > 1 ? `buscado ${n}× · ` : '') + 'última ' + _histQuando(g.ultima) + ` · ${g.encontrados} empresas`));
+    tt.appendChild(prEl('small', '', (n > 1 ? `buscado ${n}× · ` : '') + _histQuando(g.ultima) + ` · ${g.encontrados} empresas`));
     topo.appendChild(tt);
-    if (g.taxa !== null) topo.appendChild(prEl('span', 'hist-taxa' + (g.taxa >= 15 ? ' boa' : g.taxa < 8 ? ' fraca' : ''), g.taxa + '% resp.'));
+    const mais = prEl('button', 'hist-bt mudo hist-mais', '⋯'); mais.type = 'button'; mais.title = 'Mais opções'; mais.setAttribute('aria-label', 'Mais opções');
+    mais.onclick = e => histMenuMais(e, g);
+    topo.appendChild(mais);
     card.appendChild(topo);
-    // funil
-    const fun = prEl('div', 'hist-funil');
-    const etapa = (num, txt, cls) => { const e = prEl('div', 'hist-et' + (cls ? ' ' + cls : '')); e.appendChild(prEl('b', '', String(num))); e.appendChild(prEl('span', '', txt)); fun.appendChild(e); };
-    etapa(g.encontrados, 'encontradas');
-    const verif = g.comWa + g.semWa;
-    if (verif && verif >= g.encontrados * 0.5) etapa(g.comWa, 'com WhatsApp');
-    else etapa('—', verif ? `WhatsApp: só ${verif} verificadas` : 'WhatsApp não verificado', 'mudo');
-    etapa(g.enviados, 'enviadas');
-    etapa(g.responderam, g.robos ? `pessoas responderam (+${g.robos} robô)` : 'pessoas responderam');
-    etapa(g.pipeline, 'no Pipeline');
-    etapa(g.ganhos, g.valor ? 'ganhos · R$ ' + g.valor.toLocaleString('pt-BR') : 'ganhos', g.ganhos ? 'ganho' : '');
-    card.appendChild(fun);
+    const st = prEl('div', 'hist-status');
+    if (g.enviados) st.textContent = `📣 Virou campanha · ${g.enviados} contatadas` + (g.faltam.length ? ` · ${g.faltam.length} ainda sem mensagem` : ' · todas contatadas');
+    else st.textContent = g.faltam.length ? `Ainda não virou campanha · ${g.faltam.length} prontas para abordar` : 'Ainda não virou campanha';
+    card.appendChild(st);
     const acoes = prEl('div', 'hist-acoes');
-    if (g.faltam.length) {
-        const c = prEl('button', 'hist-bt prim', `▶ Continuar · ${g.faltam.length} esperando`); c.type = 'button';
-        c.title = 'Leva para a Prospecção só quem ainda não recebeu mensagem (sem Não contatar, sem quem já está no Pipeline e sem quem não tem WhatsApp)';
-        c.onclick = () => histContinuar(g); acoes.appendChild(c);
-    } else acoes.appendChild(prEl('span', 'hist-ok', '✓ Todo mundo desta busca já foi contatado'));
-    const car = prEl('button', 'hist-bt', '↩ Carregar todas'); car.type = 'button'; car.onclick = () => histCarregarLeads(g, [...g.leads.values()], 'todas'); acoes.appendChild(car);
-    if (g.origem !== 'grupo') {
-        const nv = prEl('button', 'hist-bt', '🔁 Buscar de novo (só novas)'); nv.type = 'button'; nv.onclick = () => histBuscarDeNovo(g); acoes.appendChild(nv);
-        const cv = prEl('button', 'hist-bt', '📍 Cidade vizinha'); cv.type = 'button'; cv.onclick = e => histMenuCidade(e, g); acoes.appendChild(cv);
+    if (g.enviados && g.origem !== 'grupo') {
+        const b = prEl('button', 'hist-bt prim', '📣 Ver na campanha'); b.type = 'button'; b.onclick = () => histIrCampanha(g); acoes.appendChild(b);
+    } else if (g.faltam.length) {
+        const b = prEl('button', 'hist-bt prim', `▶ Abordar as ${g.faltam.length} empresas`); b.type = 'button';
+        b.title = 'Leva para a Prospecção só quem pode receber mensagem (sem Não contatar e sem quem não tem WhatsApp)';
+        b.onclick = () => histContinuar(g); acoes.appendChild(b);
     }
-    const xl = prEl('button', 'hist-bt', '📥 Planilha'); xl.type = 'button'; xl.title = 'Planilha com o resultado de cada empresa'; xl.onclick = () => histExportar(g); acoes.appendChild(xl);
-    const rm = prEl('button', 'hist-bt mudo', '🗑'); rm.type = 'button'; rm.title = 'Apagar esta busca do histórico'; rm.onclick = () => histApagar(g); acoes.appendChild(rm);
-    card.appendChild(acoes);
-    if (n > 1) {
-        const det = document.createElement('details'); det.className = 'hist-det'; det.open = !!_histAbertos[g.chave];
-        det.ontoggle = () => { _histAbertos[g.chave] = det.open; };
-        det.appendChild(prEl('summary', '', `Ver as ${n} buscas`));
-        g.buscas.slice().reverse().forEach((b, i) => det.appendChild(prEl('div', 'hist-run', `${_histQuando(b.em)} · ${b.total} empresas` + (i === n - 1 ? ' · primeira vez' : b.novos ? ` · ✨ ${b.novos} novas` : ' · nenhuma nova'))));
-        card.appendChild(det);
-    }
+    if (acoes.childNodes.length) card.appendChild(acoes);
     return card;
+}
+// Chave da campanha (nicho + cidade) que corresponde a esta busca
+function histChaveCampanha(g) { return _normNicho(String(g.nicho || '').split(',')[0].trim()) + '|' + _normNicho(g.local || ''); }
+function histIrCampanha(g) {
+    _cpAberto = histChaveCampanha(g); _cpAba = 'leads';
+    trocarAba('campanhas', document.querySelector(`.nav-item[onclick*="'campanhas'"]`) || document.body);
+    setTimeout(() => { try { cpRender(); document.querySelector('#cp-lista .cp-card.aberto')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {} }, 700);
+}
+function histMenuMais(ev, g) {
+    ev.stopPropagation();
+    document.getElementById('hist-menu-cid')?.remove();
+    const menu = prEl('div', 'ib-menu-autor hist-menu'); menu.id = 'hist-menu-cid';
+    const item = (txt, fn) => { const b = prEl('button', '', txt); b.type = 'button'; b.onclick = e2 => { menu.remove(); fn(e2); }; menu.appendChild(b); };
+    item(`↩ Carregar as ${g.encontrados} empresas`, () => histCarregarLeads(g, [...g.leads.values()], 'todas'));
+    if (g.origem !== 'grupo') {
+        item('🔁 Buscar de novo (só novas)', () => histBuscarDeNovo(g));
+        item('📍 Mesma busca em outra cidade', () => histMenuCidade({ stopPropagation() {}, currentTarget: ev.currentTarget }, g));
+    }
+    item('📥 Planilha', () => histExportar(g));
+    item('🗑 Apagar do histórico', () => histApagar(g));
+    const r = ev.currentTarget.getBoundingClientRect();
+    menu.style.top = Math.min(r.bottom + 4, innerHeight - 260) + 'px'; menu.style.left = Math.max(8, Math.min(r.right - 230, innerWidth - 240)) + 'px';
+    document.body.appendChild(menu);
+    setTimeout(() => document.addEventListener('click', () => menu.remove(), { once: true }), 0);
 }
 
 // Leva leads do histórico para a Prospecção (de lá vai para a Prospecção IA)
@@ -14326,9 +14305,9 @@ const MANUAL = {
             titulo: 'Cresça', cor: '#165DFF', sub: 'O que já fez.',
             itens: [
                 {
-                    titulo: 'Histórico', resumo: 'O que cada busca virou', aba: 'historico',
-                    texto: 'Cada busca com empresas, WhatsApp, enviadas, respostas, Pipeline e ganhos. Buscas iguais ficam juntas. No topo, **Onde vale buscar**: as 5 que mais trouxeram resposta (15% ou mais é bom; abaixo de 8% é fraco).',
-                    blocos: [{ t: 'Botões', l: ['**Continuar de onde parou** (só quem ainda não recebeu), Carregar todas, **Buscar de novo (só novas)**, **Cidade vizinha**, Planilha e Lixeira (apaga só o registro).'] }]
+                    titulo: 'Histórico', resumo: 'Todas as buscas que você já fez', aba: 'historico',
+                    texto: 'O registro das suas buscas (buscas iguais ficam juntas). Cada uma diz se já virou campanha e quantas empresas ainda não receberam mensagem.',
+                    blocos: [{ t: 'Botões', l: ['**📣 Ver na campanha**: abre a campanha dessa busca. Lá, **▶ Enviar para os N que faltam** continua de onde parou.', '**▶ Abordar as N empresas**: para busca que ainda não virou campanha.', '**⋯**: carregar todas, buscar de novo (só novas), mesma busca em outra cidade, planilha e apagar (apaga só o registro).'] }]
                 }
             ]
         },
@@ -18931,6 +18910,19 @@ async function salvarPlanoMontado() {
 // ====================================================================
 var _cpIdsComEnvio = new Set();
 var _cpGrupos = [];
+var _cpFaltamMapa = null;
+// Quem das buscas de cada campanha (mesmo nicho + cidade) ainda não recebeu mensagem: { chave: { grupo, leads } }
+function cpMapaFaltam() {
+    if (!_histRes || typeof histGrupos !== 'function') return {};
+    const m = {};
+    histGrupos().forEach(h => {
+        if (h.origem === 'grupo') return;
+        const k = histChaveCampanha(h);
+        const x = m[k] || (m[k] = { grupo: h, leads: [], vistos: new Set() });
+        h.faltam.forEach(l => { const t = pkTel(l.phone); if (t && !x.vistos.has(t)) { x.vistos.add(t); x.leads.push(l); } });
+    });
+    return m;
+}
 var _cpDados = null;
 var _cpAberto = null, _cpAba = 'leads', _cpFiltroLead = 'todos';
 var _cpCarregadoEm = 0, _cpAoVivoTimer = null;
@@ -18956,6 +18948,7 @@ async function cpCarregar(forcar) {
         ]);
         _cpDados = { leads, camps, interesses, pipeline, fila, fuEnv };
         cpMontarGrupos();
+        if (typeof histCarregar === 'function' && (forcar || !_histRes)) histCarregar().then(() => cpRender()).catch(() => {});
     } catch (e) {
         console.warn('[CAMPANHAS]', e && e.message);
         const r = document.getElementById('cp-resumo'); if (r) r.textContent = 'Não consegui carregar agora. Clique em Atualizar.';
@@ -19025,6 +19018,7 @@ function cpRender() {
     lista.innerHTML = '';
     if (!lst.length) { lista.appendChild(prEl('div', 'ph-mudo', _cpDados ? 'Nenhuma campanha disparada ainda.' : 'Carregando…')); return; }
     const vivo = (userGet('campanhaAtiva', null) || {}).campanhaId;
+    _cpFaltamMapa = cpMapaFaltam();
     lst.forEach(g => lista.appendChild(cpCard(g, media, vivo)));
 }
 function cpCard(g, media, vivo) {
@@ -19048,12 +19042,18 @@ function cpCard(g, media, vivo) {
     card.appendChild(barra);
     const acoes = prEl('div', 'cp-acoes');
     const bt = (txt, fn, cls) => { const b = prEl('button', 'ps-acao' + (cls ? ' ' + cls : ''), txt); b.type = 'button'; b.addEventListener('click', fn); acoes.appendChild(b); return b; };
-    bt(_cpAberto === g.k ? 'Fechar' : '👥 Ver leads e mensagens', () => { _cpAberto = _cpAberto === g.k ? null : g.k; _cpAba = 'leads'; cpRender(); }, _cpAberto === g.k ? '' : 'principal');
+    const temFalta = !g.semCampanha && ((_cpFaltamMapa || {})[g.k] || { leads: [] }).leads.length > 0;
+    bt(_cpAberto === g.k ? 'Fechar' : '👥 Ver leads e mensagens', () => { _cpAberto = _cpAberto === g.k ? null : g.k; _cpAba = 'leads'; cpRender(); }, _cpAberto === g.k || temFalta ? '' : 'principal');
     if (g.semCampanha) {
         card.appendChild(acoes);
         card.appendChild(prEl('div', 'ph-linha', 'Envios antigos sem campanha registrada: dá para ver os leads, mas não dá para ter cadência nem repescagem.'));
         if (_cpAberto === g.k) card.appendChild(cpDetalhe(g));
         return card;
+    }
+    const falta = (_cpFaltamMapa || {})[g.k];
+    if (falta && falta.leads.length) {
+        const bf = bt(`▶ Enviar para os ${falta.leads.length} que faltam`, () => histCarregarLeads(falta.grupo, falta.leads, 'faltam'), 'principal');
+        bf.title = 'Empresas das buscas desta campanha que ainda não receberam mensagem';
     }
     const eleg = cpElegiveisRepescagem(g).length;
     const br = bt(`🔁 Retomar quem não respondeu${eleg ? ` (${eleg})` : ''}`, () => cpRepescar(g));
