@@ -1815,3 +1815,34 @@ test('telefone da Receita: mostra o celular do cadastro e "Usar no WhatsApp" tro
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('recuperação judicial vira aviso no card e no decisor, e o fim da busca avisa com o resumo', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      const avisos = []; _notificarSistema = async (t, c, aba) => { avisos.push({ t, c, aba }); };
+      const c = { cnpj: '00605377000174', situacao: 'ATIVA', porte: 'DEMAIS', razao_social: 'VIBELPLAST EMBALAGENS PLASTICAS LTDA - EM RECUPERACAO JUDICIAL', socios: [{ nome: 'VITOR COSTA', qualificacao: 'Sócio-Administrador' }] };
+      const leads = [
+        { title: 'Vibelplast', phone: '11999990001', place_id: 'v1', decisores: [{ nome: 'Vitor Costa', cargo: 'Sócio-Administrador', linkedin: 'https://br.linkedin.com/in/vitorcosta' }] },
+        { title: 'Outra', phone: '11999990002', place_id: 'v2' },
+      ];
+      pesqSalvar(leads[0], { parcial: true, cnpj: c, decisor: { nome: 'Vitor Costa' } });
+      todosLeads = leads.slice(); _leadsBase = leads.slice();
+      buscaFinalizadaAvisar(leads);
+      return {
+        chip: decisorChip(leads[0], 0), card: pesqHtml(pesqDe(leads[0]), 0),
+        inapta: cnpjAlerta({ situacao: 'INAPTA', razao_social: 'X LTDA' }), ok: cnpjAlerta({ situacao: 'ATIVA', razao_social: 'X LTDA' }),
+        avisos,
+      };
+    });
+    assert.match(r.chip, /in ✓.*⚠️ Em recuperação judicial/);
+    assert.match(r.card, /⚠️ <b>Em recuperação judicial<\/b>/);
+    assert.strictEqual(r.inapta, 'CNPJ inapta na Receita');
+    assert.strictEqual(r.ok, '');
+    assert.strictEqual(r.avisos.length, 1);
+    assert.match(r.avisos[0].t, /Busca finalizada/);
+    assert.match(r.avisos[0].c, /2 empresas · 1 com CNPJ · 1 decisor \(1 com LinkedIn ✓\) · ⚠️ 1 com problema na Receita/);
+    assert.strictEqual(r.avisos[0].aba, 'prospeccao');
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});

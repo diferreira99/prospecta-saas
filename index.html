@@ -1419,6 +1419,8 @@
 .pend { margin-bottom:16px; }
 .dec-chip { display:inline-flex; align-items:center; gap:4px; margin-top:4px; max-width:100%; font-family:'Inter',sans-serif; font-size:0.62rem; font-weight:600; color:#0A66C2; background:#EFF6FF; border:1px solid #BFDBFE; border-radius:8px; padding:3px 8px; cursor:pointer; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .dec-chip.ok { background:#DBEAFE; border-color:#93C5FD; }
+.dec-alerta { color:#B91C1C; }
+.pq-alerta { background:#FEE2E2; color:#991B1B; border-radius:6px; padding:4px 8px; }
 .dec-chip b { font-weight:800; }
 .dec-chip.dec-busca { color:var(--muted); background:#f8fafc; border-color:#e5e7eb; cursor:default; }
 .prod-cargo-linha { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 10px; }
@@ -7368,7 +7370,8 @@ async function buscarRedesEmFundo(buscaId, leads) {
             if (d.enriquecimento === 'pronto' && u && _leadsBase.includes(leads[0])) userSet('ultimosLeads', { ...u, leads: _leadsBase, redesOk: true });
             if (_leadsBase.includes(leads[0])) histAtualizarRedes(leads);
             completarRedesPeloGoogle(leads);
-            cnpjAutoMelhores(leads);
+            await cnpjAutoMelhores(leads);
+            buscaFinalizadaAvisar(leads);
             return;
         }
         await _esperar(8000);
@@ -19583,14 +19586,25 @@ async function decisorPerfil(l) {
     } catch (e) {}
     return null;
 }
+// Situação que torna a empresa um mau alvo: CNPJ não ativo, ou recuperação judicial/falência/liquidação no nome da Receita
+function cnpjAlerta(c) {
+    if (!c) return '';
+    const nome = String(c.razao_social || '').toUpperCase();
+    if (/RECUPERA[CÇ][AÃ]O\s+JUDICIAL/.test(nome)) return 'Em recuperação judicial';
+    if (/FAL[EÊ]NCIA|MASSA\s+FALIDA|FALID[AO]\b/.test(nome)) return 'Em falência';
+    if (/EM\s+LIQUIDA[CÇ][AÃ]O/.test(nome)) return 'Em liquidação';
+    if (c.situacao && c.situacao !== 'ATIVA') return 'CNPJ ' + String(c.situacao).toLowerCase() + ' na Receita';
+    return '';
+}
 // Na lista da busca: quem decide (e se o perfil do LinkedIn foi achado). Um toque abre a abordagem pelo LinkedIn.
 function decisorChip(l, idx) {
     const d = Array.isArray(l && l.decisores) ? l.decisores.find(x => x && x.nome) : null;
     const p = pesqDe(l), c = p && p.cnpj;
     if (!d) return l && l._cnpjBuscando ? '<div class="dec-chip dec-busca">🧾 procurando CNPJ e decisor…</div>' : '';
     const ok = liPerfilOk(d.linkedin);
+    const alerta = cnpjAlerta(c);
     const celDono = c && (c.telefones || []).some(t => telCelularBR(t) && pkTel(t) !== pkTel(l.phone));
-    return `<button type="button" class="dec-chip${ok ? ' ok' : ''}" onclick="event.stopPropagation(); liAbordarLead(${idx})" title="Abordar ${escapeHtml(d.nome)} pelo LinkedIn">👔 ${escapeHtml(d.nome)}${d.cargo ? ' · ' + escapeHtml(String(d.cargo).slice(0, 30)) : ''}${ok ? ' · <b>in ✓</b>' : ' · <b>in</b>'}${celDono ? ' · 📱' : ''}${c && c.porte ? ' · ' + escapeHtml(String(c.porte).replace('EMPRESA DE PEQUENO PORTE', 'EPP').replace('MICRO EMPRESA', 'ME')) : ''}</button>`;
+    return `<button type="button" class="dec-chip${ok ? ' ok' : ''}" onclick="event.stopPropagation(); liAbordarLead(${idx})" title="Abordar ${escapeHtml(d.nome)} pelo LinkedIn">👔 ${escapeHtml(d.nome)}${d.cargo ? ' · ' + escapeHtml(String(d.cargo).slice(0, 30)) : ''}${ok ? ' · <b>in ✓</b>' : ' · <b>in</b>'}${celDono ? ' · 📱' : ''}${c && c.porte ? ' · ' + escapeHtml(String(c.porte).replace('EMPRESA DE PEQUENO PORTE', 'EPP').replace('MICRO EMPRESA', 'ME')) : ''}${alerta ? ` · <b class="dec-alerta">⚠️ ${escapeHtml(alerta)}</b>` : ''}</button>`;
 }
 async function cnpjAutoMelhores(leads) {
     if (_cnpjAutoRodando || !currentUser || !config?.uazapi?.url) return;
@@ -19623,6 +19637,25 @@ async function cnpjAutoMelhores(leads) {
     } finally { _cnpjAutoRodando = false; alvo.forEach(l => { l._cnpjBuscando = false; }); repintar(); }
     if (alvo.length >= 3 && achou < alvo.length / 3) registrarErroApp(`CNPJ automático: achou ${achou} de ${alvo.length}`, Object.entries(contaMotivo).sort((a, b) => b[1] - a[1]).map(([k, v]) => v + '× ' + k).join(' | '));
     if (achou) showToast(`🧾 CNPJ de ${achou} empresa${achou === 1 ? '' : 's'} encontrado` + (perfis ? ` · 👔 ${perfis} decisor${perfis === 1 ? '' : 'es'} com perfil do LinkedIn` : '') + ': no detalhe do lead e na aba LinkedIn', 'ok');
+}
+// Quando tudo termina (busca + redes + CNPJ/decisor), avisa com o resumo: na tela e como notificação do celular
+function buscaFinalizadaAvisar(leads) {
+    if (!leads || !leads.length || !_leadsBase.includes(leads[0])) return;   // já fez outra busca: não avisa da antiga
+    let cnpj = 0, dec = 0, perfil = 0, alerta = 0;
+    leads.forEach(l => {
+        const p = pesqDe(l), c = p && p.cnpj;
+        if (c) cnpj++;
+        if (c && cnpjAlerta(c)) alerta++;
+        const d = Array.isArray(l.decisores) ? l.decisores.find(x => x && x.nome) : null;
+        if (d) { dec++; if (liPerfilOk(d.linkedin)) perfil++; }
+    });
+    const partes = [`${leads.length} empresa${leads.length === 1 ? '' : 's'}`];
+    if (cnpj) partes.push(`${cnpj} com CNPJ`);
+    if (dec) partes.push(`${dec} decisor${dec === 1 ? '' : 'es'}` + (perfil ? ` (${perfil} com LinkedIn ✓)` : ''));
+    if (alerta) partes.push(`⚠️ ${alerta} com problema na Receita`);
+    const txt = partes.join(' · ');
+    try { showToast('✅ Busca finalizada: ' + txt, 'ok'); } catch (e) {}
+    try { _notificarSistema('✅ Busca finalizada · Prospecta+', txt + '. Toque para ver.', 'prospeccao'); } catch (e) {}
 }
 var _pesqLeads = {};
 function blocoPesquisa(l, idx) {
@@ -19667,9 +19700,10 @@ function pesqUsarTelefone(idx, tel) {
 function pesqHtml(p, idx) {
     const lin = (ic, rot, v) => v ? `<div class="pq-lin"><b>${ic} ${rot}:</b> ${escapeHtml(v)}</div>` : '';
     const c = p.cnpj, anos = c && anosDesde(c.abertura);
-    const rec = c ? [c.cnpj && c.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5'), anos != null ? `aberta há ${anos} ano${anos === 1 ? '' : 's'}` : '', c.porte, c.atividade, c.situacao && c.situacao !== 'ATIVA' ? '⚠️ ' + c.situacao : ''].filter(Boolean).join(' · ') : '';
+    const rec = c ? [c.cnpj && c.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5'), anos != null ? `aberta há ${anos} ano${anos === 1 ? '' : 's'}` : '', c.porte, c.atividade].filter(Boolean).join(' · ') : '';
+    const alerta = cnpjAlerta(c);
     const socios = c && c.socios && c.socios.length ? c.socios.slice(0, 3).map(s => nomeProprio(s.nome)).join(', ') : '';
-    return lin('🏢', 'O que faz', p.oque_faz) + lin('👥', 'Para quem', p.publico) +
+    return (alerta ? `<div class="pq-lin pq-alerta">⚠️ <b>${escapeHtml(alerta)}</b>: pagamento arriscado, melhor não priorizar</div>` : '') + lin('🏢', 'O que faz', p.oque_faz) + lin('👥', 'Para quem', p.publico) +
         lin('👤', 'Quem decide', p.decisor ? p.decisor.nome + (p.decisor.cargo ? ' (' + p.decisor.cargo + ')' : '') : '') +
         (p.decisor && p.decisor.linkedin ? `<div class="pq-lin"><a class="pq-perfil" href="${escapeHtml(p.decisor.linkedin)}" target="_blank" rel="noopener">🔗 Perfil do LinkedIn confirmado</a></div>` : '') +
         lin('🎯', 'Dor provável', p.dor) + lin('🧾', 'Receita', rec ? rec + (c.fonte === 'Google' ? ' (achado no Google pelo nome)' : '') : '') +
