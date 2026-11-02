@@ -1417,6 +1417,10 @@
 .ps-chip { font-family:'Inter',sans-serif; font-size:0.6rem; font-weight:700; padding:4px 10px; border-radius:20px; border:1.5px solid #d1d5db; background:#fff; color:#6b7280; cursor:pointer; white-space:nowrap; }
 .ps-chip[aria-pressed="true"] { border-color:#165DFF; background:#EBF0FF; color:#165DFF; }
 .pend { margin-bottom:16px; }
+.dec-chip { display:inline-flex; align-items:center; gap:4px; margin-top:4px; max-width:100%; font-family:'Inter',sans-serif; font-size:0.62rem; font-weight:600; color:#0A66C2; background:#EFF6FF; border:1px solid #BFDBFE; border-radius:8px; padding:3px 8px; cursor:pointer; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.dec-chip.ok { background:#DBEAFE; border-color:#93C5FD; }
+.dec-chip b { font-weight:800; }
+.dec-chip.dec-busca { color:var(--muted); background:#f8fafc; border-color:#e5e7eb; cursor:default; }
 .prod-cargo-linha { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 10px; }
 .prod-cargo-linha select { width:auto; padding:5px 8px; font-size:0.72rem; }
 .prod-cargo-dica { font-family:'Inter',sans-serif; font-size:0.6rem; color:var(--muted); }
@@ -7951,6 +7955,7 @@ function renderPagina(pagina) {
                 </div>
                 ${l.address?`<div class="lead-addr">${escapeHtml(l.address)}</div>`:''}
                 ${l.category?`<div style="font-family:'Inter',sans-serif;font-size:0.6rem;color:var(--muted);margin-top:1px;">${escapeHtml(l.category)}</div>`:''}
+                ${decisorChip(l, realIdx)}
             </td>
             <td>
                 <span class="lead-phone">${l.phone||'-'}</span>
@@ -13474,11 +13479,13 @@ async function liCarregarFeitos(forcar) {
 // O LinkedIn conta convites por semana (por volta de 100): passar disso restringe a conta
 var _liSemana = 0;
 function liLimiteSemana() { const n = Number(userGet('li_limite_semana', 100)); return n >= 10 && n <= 300 ? n : 100; }
+function liTemDecisor(l) { return Array.isArray(l && l.decisores) && l.decisores.some(d => d && d.nome); }
+function liTemAlvo(l) { return !!(liUrl(l) || liTemDecisor(l)); }
 function liJaAbordado(l) { const k = liChave(l); return !!k && !!_liFeitos && _liFeitos.has(k); }
 function liFila() {
     const base = (_leadsBase && _leadsBase.length) ? _leadsBase : todosLeads;
-    return (base || []).filter(l => l && liUrl(l) && !liJaAbordado(l) && !bloqueadoLead(l) && !aqAquecendo('li', l))
-        .map(l => ({ l, pronto: aqPronto('li', l) ? 1 : 0, sc: calcScore(l) })).sort((a, b) => (b.pronto - a.pronto) || (b.sc - a.sc)).map(x => x.l);
+    return (base || []).filter(l => l && liTemAlvo(l) && !liJaAbordado(l) && !bloqueadoLead(l) && !aqAquecendo('li', l))
+        .map(l => ({ l, pronto: aqPronto('li', l) ? 1 : 0, dec: liTemDecisor(l) ? 1 : 0, sc: calcScore(l) })).sort((a, b) => (b.pronto - a.pronto) || (b.dec - a.dec) || (b.sc - a.sc)).map(x => x.l);
 }
 function liBotaoHtml(onclick) {
     return `<button type="button" class="tag-rede tag-lidm" onclick="${onclick}" title="Abordar pelo LinkedIn: ache o dono, a IA escreve o convite" aria-label="Abordar pelo LinkedIn">${_LI_GLIFO}</button>`;
@@ -13676,7 +13683,7 @@ const CANAIS = {
     linkedin: {
         nome: 'LinkedIn', tabela: 'abordagens_linkedin', canal: 'linkedin', glifo: () => _LI_GLIFO,
         limite: () => liLimite(), hoje: () => _liHoje, limiteChave: 'li_limite', limiteMax: 100, recomendado: 'até 15',
-        carregar: (f) => liCarregarFeitos(f), tem: l => !!liUrl(l), chave: l => liChave(l), feito: l => liJaAbordado(l),
+        carregar: (f) => liCarregarFeitos(f), tem: l => liTemAlvo(l), chave: l => liChave(l), feito: l => liJaAbordado(l),
         entra: () => true,
         abrir: (fila, op) => liAbordar(fila, op), verbo: 'convites', unidade: 'convite',
         dicas: ['Mande o convite para a pessoa (sócio, dono, diretor), não para a página da empresa.', 'Até 15 convites por dia. Conta grátis tem poucos convites com nota por mês.', 'Em 3 dias o Pipeline lembra de ver quem aceitou; a mensagem já fica pronta no card.', 'O provável decisor aparece sozinho quando a gente acha no site ou no Google.']
@@ -19034,7 +19041,8 @@ function atualizarAcoesBusca() {
         const nLi = liFila().length;
         btLi.hidden = !nLi;
         btLi.innerHTML = _LI_GLIFO + ' <span></span>';
-        btLi.querySelector('span').textContent = `Abordar no LinkedIn (${nLi})`;
+        const nDec = liFila().filter(liTemDecisor).length;
+        btLi.querySelector('span').textContent = nDec ? `Decisores no LinkedIn (${nDec})` : `Abordar no LinkedIn (${nLi})`;
         if (!_liFeitos) liCarregarFeitos().then(() => atualizarAcoesBusca());
     }
 }
@@ -19547,6 +19555,14 @@ async function decisorPerfil(l) {
     } catch (e) {}
     return null;
 }
+// Na lista da busca: quem decide (e se o perfil do LinkedIn foi achado). Um toque abre a abordagem pelo LinkedIn.
+function decisorChip(l, idx) {
+    const d = Array.isArray(l && l.decisores) ? l.decisores.find(x => x && x.nome) : null;
+    const p = pesqDe(l), c = p && p.cnpj;
+    if (!d) return l && l._cnpjBuscando ? '<div class="dec-chip dec-busca">🧾 procurando CNPJ e decisor…</div>' : '';
+    const ok = liPerfilOk(d.linkedin);
+    return `<button type="button" class="dec-chip${ok ? ' ok' : ''}" onclick="event.stopPropagation(); liAbordarLead(${idx})" title="Abordar ${escapeHtml(d.nome)} pelo LinkedIn">👔 ${escapeHtml(d.nome)}${d.cargo ? ' · ' + escapeHtml(String(d.cargo).slice(0, 30)) : ''}${ok ? ' · <b>in ✓</b>' : ' · <b>in</b>'}${c && c.porte ? ' · ' + escapeHtml(String(c.porte).replace('EMPRESA DE PEQUENO PORTE', 'EPP').replace('MICRO EMPRESA', 'ME')) : ''}</button>`;
+}
 async function cnpjAutoMelhores(leads) {
     if (_cnpjAutoRodando || !currentUser || !config?.uazapi?.url) return;
     const alvo = (leads || []).filter(l => l && (l.title || l.name) && !l._cnpjTentado && !bloqueadoLead(l) && !(pesqDe(l) && (pesqDe(l).cnpj || pesqDe(l).semCnpj)))
@@ -19554,18 +19570,24 @@ async function cnpjAutoMelhores(leads) {
     if (!alvo.length) return;
     _cnpjAutoRodando = true;
     let achou = 0, perfis = 0;
+    const repintar = () => { try { renderPagina(paginaAtual || 1); atualizarAcoesBusca(); } catch (e) {} };
+    alvo.forEach(l => { l._cnpjBuscando = true; });
+    repintar();
+    showToast(`🧾 Procurando CNPJ, sócios e o decisor no LinkedIn das ${alvo.length} melhores…`, 'ok');
     try {
         for (const l of alvo) {
             l._cnpjTentado = true;
             try {
+                l._cnpjBuscando = false;
                 const { cnpj } = await cnpjBuscar(l);
                 const ant = pesqDe(l);
                 const p = Object.assign({}, ant || {}, { parcial: !ant || !!ant.parcial, cnpj, semCnpj: !cnpj, decisor: socioPrincipal(cnpj) || (ant || {}).decisor || null, em: (ant || {}).em || Date.now() });
                 pesqSalvar(l, p);
                 if (cnpj) { achou++; cnpjDecisorNoLead(l, p.decisor, cnpj); if (await decisorPerfil(l)) perfis++; }
             } catch (e) { if (/precisa atualizar/.test(e.message || '')) break; }
+            repintar();
         }
-    } finally { _cnpjAutoRodando = false; }
+    } finally { _cnpjAutoRodando = false; alvo.forEach(l => { l._cnpjBuscando = false; }); repintar(); }
     if (achou) showToast(`🧾 CNPJ de ${achou} empresa${achou === 1 ? '' : 's'} encontrado` + (perfis ? ` · 👔 ${perfis} decisor${perfis === 1 ? '' : 'es'} com perfil do LinkedIn` : '') + ': no detalhe do lead e na aba LinkedIn', 'ok');
 }
 var _pesqLeads = {};

@@ -1736,3 +1736,23 @@ test('decisor no LinkedIn: perfil do sócio confirmado, nome indicado no WhatsAp
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('na lista da busca aparece quem decide (com LinkedIn) e o botão "Decisores no LinkedIn"', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      config.uazapi = Object.assign({}, config.uazapi, { url: 'https://srv.test', token: 't' });
+      _srv = async c => c === '/site-texto' ? { cnpjs: ['11222333000181'] } : { cnpj: '11222333000181', porte: 'MICRO EMPRESA', abertura: '2012-01-01', atividade: 'x', situacao: 'ATIVA', socios: [{ nome: 'JOSE PAO', qualificacao: 'Sócio-Administrador' }] };
+      _apiOficial = async c => c === '/leads/decisor-perfil' ? { linkedin: 'https://www.linkedin.com/in/josepao/' } : { cnpj: null };
+      _liFeitos = new Set();
+      const leads = [{ title: 'Padaria Sol', phone: '11999990001', website: 'https://sol.com.br', rating: 4.9, reviews: 120, is_whatsapp: true, place_id: 'z1' }];
+      todosLeads = leads.slice(); _leadsBase = leads.slice();
+      trocarAba('prospeccao', document.querySelector(`.nav-item[onclick*="'prospeccao'"]`)); renderPagina(1); atualizarAcoesBusca();
+      await cnpjAutoMelhores(leads);
+      return { chip: document.querySelector('#lead-row-0 .dec-chip')?.textContent || '', botao: document.getElementById('ps-btn-li')?.textContent || '', visivel: !document.getElementById('ps-btn-li')?.hidden };
+    });
+    assert.match(r.chip, /👔 Jose Pao · Sócio-Administrador · in ✓ · ME/);
+    assert.match(r.botao, /Decisores no LinkedIn \(1\)/); assert.strictEqual(r.visivel, true);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
