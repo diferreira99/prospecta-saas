@@ -1771,3 +1771,24 @@ test('busca de pessoas no LinkedIn sem aspas nem OR (o LinkedIn dava "Nenhum res
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('abordagem no LinkedIn acha o perfil do decisor e "Abrir perfil" vai direto nele', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      _apiOficial = async (c, o) => c === '/leads/decisor-perfil' ? { linkedin: 'https://www.linkedin.com/in/lucas-martins-lmc/', cargo: 'Sócio' } : {};
+      iaServidor = async () => 'CONVITE: Olá!\nMENSAGEM: Oi';
+      window._abertos = []; window.open = u => { window._abertos.push(u); return null; };
+      _liFeitos = new Set(); _liHoje = 0;
+      liAbordar([{ title: 'LMC Facilities', phone: '11999990001', decisores: [{ nome: 'Lucas Martins Costa', fonte: 'receita' }] }]);
+      await new Promise(r => setTimeout(r, 400));
+      const bt = [...document.querySelectorAll('.li-modal button')].find(b => /Abrir perfil/.test(b.textContent));
+      bt && bt.click();
+      return { texto: bt && bt.textContent, aberto: window._abertos[0], perfil: document.querySelector('.li-modal .li-perfil').value };
+    });
+    assert.strictEqual(r.texto, 'Abrir perfil');
+    assert.strictEqual(r.aberto, 'https://www.linkedin.com/in/lucas-martins-lmc/');
+    assert.strictEqual(r.perfil, 'https://www.linkedin.com/in/lucas-martins-lmc/');
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});

@@ -13627,7 +13627,20 @@ async function liAbordar(fila, opcoes) {
             if (auto && !pessoa.value) usar(lista[0]);
         };
         const jaTem = Array.isArray(l.decisores) && l.decisores.length;
-        if (jaTem) pintarSug(l.decisores, true);
+        if (jaTem) {
+            pintarSug(l.decisores, true);
+            // sabemos o nome mas não o perfil: procura o perfil certo (nome + empresa) para abrir direto nele
+            const d0 = l.decisores.find(d => d && d.nome);
+            if (d0 && !liPerfilOk(d0.linkedin) && !d0.perfilBuscado) {
+                const eraI = i;
+                achar.textContent = 'Procurando o perfil de ' + d0.nome.split(' ')[0] + '…';
+                decisorPerfil(l).then(url => {
+                    if (i !== eraI || !m.isConnected) return;
+                    if (url) { pintarSug(l.decisores, false); usar(d0); showToast('🔗 Perfil de ' + d0.nome + ' encontrado: "Abrir perfil" vai direto nele', 'ok'); }
+                    else achar.textContent = liPerfilOk(perfil.value) ? 'Abrir perfil' : 'Procurar ' + d0.nome.split(' ')[0] + ' no LinkedIn';
+                }).catch(() => {});
+            }
+        }
         else if (!l.decisoresBuscados) {
             sug.appendChild(prEl('span', 'li-sug-rot', 'Procurando quem decide no Google…'));
             const eraI = i;
