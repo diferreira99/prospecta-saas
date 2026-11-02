@@ -1465,10 +1465,15 @@
 .ig-story { background:#FDF2F8; border:1px solid #FBCFE8; border-radius:10px; padding:8px 10px; font-size:0.72rem; margin:6px 0; }
 .ig-funil-passos { grid-template-columns:repeat(3, minmax(0,1fr)); }
 .li-resp-bts { display:flex; gap:6px; flex-wrap:wrap; }
-.canal-subs { display:flex; gap:6px; overflow-x:auto; padding:2px 0 10px; margin-bottom:6px; border-bottom:1.5px solid var(--border); scrollbar-width:none; }
-.canal-subs::-webkit-scrollbar { display:none; }
-.canal-sub { flex:none; padding:7px 13px; border-radius:20px; border:1.5px solid var(--border); background:var(--surface); color:var(--text); font-family:'Inter',sans-serif; font-size:0.74rem; font-weight:700; cursor:pointer; white-space:nowrap; }
+.canal-subs { display:flex; flex-wrap:wrap; gap:6px; padding:2px 0 10px; margin-bottom:6px; border-bottom:1.5px solid var(--border); }
+.canal-sub { flex:1 1 0; min-width:max-content; text-align:center; padding:8px 10px; border-radius:20px; border:1.5px solid var(--border); background:var(--surface); color:var(--text); font-family:'Inter',sans-serif; font-size:0.74rem; font-weight:700; cursor:pointer; white-space:nowrap; }
 .canal-sub[aria-selected="true"] { background:#0D1330; border-color:#0D1330; color:#fff; }
+.canal-sub .cs-ic { margin-right:5px; }
+@media (max-width: 600px) {
+  .canal-subs { flex-wrap:nowrap; gap:4px; }
+  .canal-sub { min-width:0; display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 2px; font-size:0.62rem; border-radius:12px; }
+  .canal-sub .cs-ic { margin:0; font-size:0.95rem; line-height:1; }
+}
 .canal-sub-painel { display:flex; flex-direction:column; gap:14px; }
 .canal-sub-painel[hidden] { display:none; }
 .canal-lista li .ps-acao.principal, .canal-lista li .ps-acao { flex:0 0 auto; width:auto; }
@@ -14882,7 +14887,7 @@ function liFunilEl(rows, wa) {
     passo(d.convites, 'convites');
     passo(d.aceitos, 'aceitaram', d.maduros ? prPctTxt(d.aceitosMaduros, d.maduros) + ' de aceite' : '');
     passo(d.respostas, 'responderam', d.aceitos ? prPctTxt(d.respostas, d.aceitos) + ' de quem aceitou' : '');
-    passo(d.reunioes, 'reuniões/negociações');
+    passo(d.reunioes, 'reuniões');
     s.appendChild(passos);
     if (wa && wa.env) s.appendChild(prEl('div', 'ph-linha li-funil-wa', `No WhatsApp, no mesmo período: ${wa.env} mensagens · ${prPctTxt(wa.resp, wa.env)} responderam. No LinkedIn: ${d.convites ? prPctTxt(d.respostas, d.convites) : '—'} dos convites viraram resposta.`));
     const comAb = Object.values(d.ab).some(x => x.n);
@@ -15249,7 +15254,7 @@ function liDoresResumo() {
     return Object.entries(conta).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => `${k} (${v} empresas)`).join('; ');
 }
 function liConteudoSecao() {
-    const d = document.createElement('details'); d.className = 'ph-card li-conteudo';
+    const d = document.createElement('details'); d.className = 'ph-card li-conteudo'; d.open = true;
     const sm = document.createElement('summary'); const sem = liPostsSemana(), feitos = sem.posts.filter(p => p.postado).length;
     sm.textContent = `✍️ Seu perfil e seus posts · ${feitos} de 3 posts esta semana`; d.appendChild(sm);
     d.appendChild(prEl('div', 'ph-linha', 'Antes de aceitar, a pessoa olha o seu perfil. Um título claro e 3 posts por semana sobre as dores que o app encontra nos leads fazem mais gente aceitar e responder.'));
@@ -15420,7 +15425,7 @@ function igFunilEl(rows) {
     const s = prEl('div', 'li-funil');
     const passos = prEl('div', 'li-funil-passos ig-funil-passos');
     const passo = (v, rot, pct) => { const x = prEl('div', 'li-funil-p'); x.append(prEl('b', '', String(v)), prEl('span', '', rot)); if (pct) x.appendChild(prEl('em', '', pct)); passos.appendChild(x); };
-    passo(rs.length, 'DMs e stories'); passo(resp, 'responderam', rs.length ? prPctTxt(resp, rs.length) : ''); passo(reun, 'reuniões/negociações');
+    passo(rs.length, 'DMs e stories'); passo(resp, 'responderam', rs.length ? prPctTxt(resp, rs.length) : ''); passo(reun, 'reuniões');
     s.appendChild(passos);
     const ab = igAbStats(rows);
     if (Object.values(ab).some(x => x.n)) {
@@ -15541,8 +15546,8 @@ function pesqTabSalvar(k, p) {
 
 // ---- Abas do LinkedIn e do Instagram: cada coisa no seu lugar (Hoje · Fila · Achar mais · Resultados · Perfil e posts) ----
 var CANAL_SUBS = {
-    linkedin: [['hoje', '▶ Hoje'], ['fila', '👔 Decisores e fila'], ['achar', '🔎 Achar mais'], ['resultados', '📊 Resultados'], ['ferramentas', '✍️ Perfil e posts']],
-    insta: [['hoje', '▶ Hoje'], ['fila', '📸 Fila'], ['achar', '🔎 Completar redes'], ['resultados', '📊 Resultados']],
+    linkedin: [['hoje', '▶ Hoje'], ['fila', '👔 Fila'], ['achar', '🔎 Achar'], ['resultados', '📊 Números'], ['ferramentas', '✍️ Perfil']],
+    insta: [['hoje', '▶ Hoje'], ['fila', '📸 Fila'], ['achar', '🔎 Redes'], ['resultados', '📊 Números']],
 };
 function canalSubDe(el) {
     const c = el.classList;
@@ -15566,7 +15571,8 @@ function canalSeparar(aba) {
         nav.querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.sub === k)));
     };
     subs.forEach(([k, t]) => {
-        const b = prEl('button', 'canal-sub', t); b.type = 'button'; b.dataset.sub = k; b.setAttribute('role', 'tab');
+        const b = prEl('button', 'canal-sub'); b.type = 'button'; b.dataset.sub = k; b.setAttribute('role', 'tab');
+        const [ic, ...rot] = t.split(' '); b.append(prEl('span', 'cs-ic', ic), prEl('span', 'cs-rot', rot.join(' ')));
         b.hidden = !paineis[k].childElementCount; b.onclick = () => mostrar(k); nav.appendChild(b);
     });
     box.replaceChildren(nav, ...subs.map(([k]) => paineis[k]));
