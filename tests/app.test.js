@@ -1792,3 +1792,26 @@ test('abordagem no LinkedIn acha o perfil do decisor e "Abrir perfil" vai direto
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('telefone da Receita: mostra o celular do cadastro e "Usar no WhatsApp" troca o número da campanha', async () => {
+  const a = await abrirApp({ largura: 1280 });
+  try {
+    const r = await a.pagina.evaluate(() => {
+      const l = { title: 'LMC Facilities', phone: '551133334444', place_id: 'lmc', decisores: [{ nome: 'Lucas Martins', fonte: 'receita' }] };
+      pesqSalvar(l, { parcial: true, cnpj: { cnpj: '11222333000181', porte: 'ME', telefones: ['11987654321', '1133334444'], email: 'contato@lmc.com.br', socios: [] }, decisor: { nome: 'Lucas Martins' }, em: Date.now() });
+      todosLeads = [l]; _leadsBase = [l];
+      trocarAba('prospeccao', document.querySelector(`.nav-item[onclick*="'prospeccao'"]`)); renderPagina(1);
+      const chip = document.querySelector('#lead-row-0 .dec-chip').textContent;
+      toggleExpandScore(0, document.getElementById('lead-row-0').querySelector('[onclick^="toggleExpandScore("]'));
+      const card = document.getElementById('pq-0').innerText;
+      [...document.querySelectorAll('#pq-0 button')].find(b => /Usar no WhatsApp/.test(b.textContent)).click();
+      return { chip, card, phone: l.phone, antigo: l.telefone_maps, wa: l.is_whatsapp };
+    });
+    assert.match(r.chip, /📱/);
+    assert.match(r.card, /Na Receita: \(11\) 98765-4321 · celular, costuma ser do dono/);
+    assert.match(r.card, /Na Receita: \(11\) 3333-4444 · fixo/);
+    assert.match(r.card, /E-mail na Receita: contato@lmc\.com\.br/);
+    assert.strictEqual(r.phone, '5511987654321'); assert.strictEqual(r.antigo, '551133334444'); assert.strictEqual(r.wa, null);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});

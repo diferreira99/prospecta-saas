@@ -19587,7 +19587,8 @@ function decisorChip(l, idx) {
     const p = pesqDe(l), c = p && p.cnpj;
     if (!d) return l && l._cnpjBuscando ? '<div class="dec-chip dec-busca">🧾 procurando CNPJ e decisor…</div>' : '';
     const ok = liPerfilOk(d.linkedin);
-    return `<button type="button" class="dec-chip${ok ? ' ok' : ''}" onclick="event.stopPropagation(); liAbordarLead(${idx})" title="Abordar ${escapeHtml(d.nome)} pelo LinkedIn">👔 ${escapeHtml(d.nome)}${d.cargo ? ' · ' + escapeHtml(String(d.cargo).slice(0, 30)) : ''}${ok ? ' · <b>in ✓</b>' : ' · <b>in</b>'}${c && c.porte ? ' · ' + escapeHtml(String(c.porte).replace('EMPRESA DE PEQUENO PORTE', 'EPP').replace('MICRO EMPRESA', 'ME')) : ''}</button>`;
+    const celDono = c && (c.telefones || []).some(t => telCelularBR(t) && pkTel(t) !== pkTel(l.phone));
+    return `<button type="button" class="dec-chip${ok ? ' ok' : ''}" onclick="event.stopPropagation(); liAbordarLead(${idx})" title="Abordar ${escapeHtml(d.nome)} pelo LinkedIn">👔 ${escapeHtml(d.nome)}${d.cargo ? ' · ' + escapeHtml(String(d.cargo).slice(0, 30)) : ''}${ok ? ' · <b>in ✓</b>' : ' · <b>in</b>'}${celDono ? ' · 📱' : ''}${c && c.porte ? ' · ' + escapeHtml(String(c.porte).replace('EMPRESA DE PEQUENO PORTE', 'EPP').replace('MICRO EMPRESA', 'ME')) : ''}</button>`;
 }
 async function cnpjAutoMelhores(leads) {
     if (_cnpjAutoRodando || !currentUser || !config?.uazapi?.url) return;
@@ -19620,7 +19621,7 @@ var _pesqLeads = {};
 function blocoPesquisa(l, idx) {
     _pesqLeads[idx] = l;
     const p = pesqDe(l);
-    const corpo = p ? pesqHtml(p) : `<div class="pq-vazio">A IA lê o site e o Instagram, acha o CNPJ sozinha (no site ou no Google), puxa sócios, porte e idade da empresa e sugere um gancho real para a primeira mensagem.</div>`;
+    const corpo = p ? pesqHtml(p, idx) : `<div class="pq-vazio">A IA lê o site e o Instagram, acha o CNPJ sozinha (no site ou no Google), puxa sócios, porte e idade da empresa e sugere um gancho real para a primeira mensagem.</div>`;
     return `
             <div class="pq-box" id="pq-${idx}">
                 <div class="dor-tit pq-tit">🔎 Pesquisa da empresa</div>
@@ -19631,7 +19632,32 @@ function blocoPesquisa(l, idx) {
                 </div>
             </div>`;
 }
-function pesqHtml(p) {
+// Telefone e e-mail que a empresa declarou na Receita: em empresa pequena costuma ser o celular do dono.
+function telCelularBR(t) { const d = String(t || '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, ''); return d.length === 11 && d[2] === '9'; }
+function telBonito(t) { const d = String(t || '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, ''); return d.length === 11 ? `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}` : d.length === 10 ? `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}` : d; }
+function pesqTelefonesHtml(p, idx) {
+    const c = p && p.cnpj; if (!c) return '';
+    const l = _pesqLeads[idx];
+    const atual = l ? pkTel(l.phone) : '';
+    const linhas = (c.telefones || []).map(t => {
+        const igual = atual && pkTel(t) === atual;
+        const cel = telCelularBR(t);
+        const usar = !igual && cel && idx != null ? ` <button type="button" class="dor-btn" onclick="pesqUsarTelefone(${idx}, '${String(t).replace(/\D/g, '')}')">📲 Usar no WhatsApp</button>` : '';
+        return `<div class="pq-lin"><b>📞 Na Receita:</b> ${escapeHtml(telBonito(t))}${cel ? ' · celular' + (igual ? ' (o mesmo da busca)' : ', costuma ser do dono') : ' · fixo'}${usar}</div>`;
+    }).join('');
+    const em = c.email ? `<div class="pq-lin"><b>✉️ E-mail na Receita:</b> ${escapeHtml(c.email)}</div>` : '';
+    return linhas + em;
+}
+// Troca o número da campanha pelo celular declarado na Receita (o da busca fica guardado)
+function pesqUsarTelefone(idx, tel) {
+    const l = _pesqLeads[idx]; if (!l || !tel) return;
+    if (!l.telefone_maps) l.telefone_maps = l.phone || '';
+    l.phone = '55' + String(tel).replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
+    l.is_whatsapp = null; l.telDaReceita = true;
+    try { renderPagina(paginaAtual || 1); atualizarAcoesBusca(); } catch (e) {}
+    showToast('📲 Celular da Receita vai ser usado no WhatsApp desta empresa. Toque em "Verificar WhatsApp" antes de criar a campanha.', 'ok');
+}
+function pesqHtml(p, idx) {
     const lin = (ic, rot, v) => v ? `<div class="pq-lin"><b>${ic} ${rot}:</b> ${escapeHtml(v)}</div>` : '';
     const c = p.cnpj, anos = c && anosDesde(c.abertura);
     const rec = c ? [c.cnpj && c.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5'), anos != null ? `aberta há ${anos} ano${anos === 1 ? '' : 's'}` : '', c.porte, c.atividade, c.situacao && c.situacao !== 'ATIVA' ? '⚠️ ' + c.situacao : ''].filter(Boolean).join(' · ') : '';
@@ -19640,6 +19666,7 @@ function pesqHtml(p) {
         lin('👤', 'Quem decide', p.decisor ? p.decisor.nome + (p.decisor.cargo ? ' (' + p.decisor.cargo + ')' : '') : '') +
         (p.decisor && p.decisor.linkedin ? `<div class="pq-lin"><a class="pq-perfil" href="${escapeHtml(p.decisor.linkedin)}" target="_blank" rel="noopener">🔗 Perfil do LinkedIn confirmado</a></div>` : '') +
         lin('🎯', 'Dor provável', p.dor) + lin('🧾', 'Receita', rec ? rec + (c.fonte === 'Google' ? ' (achado no Google pelo nome)' : '') : '') +
+        pesqTelefonesHtml(p, idx) +
         (p.semCnpj ? '<div class="pq-vazio">🧾 CNPJ não apareceu no site nem no Google. Se você souber, digite abaixo e pesquise de novo.</div>' : '') + (socios && (!p.decisor || c.socios.length > 1) ? lin('🤝', 'Sócios', socios) : '') +
         (p.gancho ? `<div class="pq-gancho">💬 "${escapeHtml(p.gancho)}" <button type="button" class="dor-btn" onclick="dorCopiarTexto(${JSON.stringify(p.gancho).replace(/"/g, '&quot;')})">📋 Copiar</button></div>` : '') +
         (p.avisoSite ? `<div class="pq-vazio">Site: ${escapeHtml(p.avisoSite)}</div>` : '') +
@@ -19653,7 +19680,7 @@ async function pesqClicar(idx) {
     const bt = box.querySelector('.pq-btn'); const cn = (document.getElementById('pq-cnpj-' + idx)?.value || '').replace(/\D/g, '');
     if (!(config.iaProvider === 'gemini' ? config.gemini?.key : config.openai?.key)) { showToast('Configure a IA em Integrações', 'err'); return; }
     bt.disabled = true; bt.textContent = '🔎 Lendo site e CNPJ…';
-    try { const p = await pesquisarLead(l, cn.length === 14 ? cn : ''); box.querySelector('.pq-corpo').innerHTML = pesqHtml(p); bt.textContent = '🔄 Pesquisar de novo'; }
+    try { const p = await pesquisarLead(l, cn.length === 14 ? cn : ''); box.querySelector('.pq-corpo').innerHTML = pesqHtml(p, idx); bt.textContent = '🔄 Pesquisar de novo'; }
     catch (e) { showToast('Pesquisa: ' + (e.message || e), 'err'); bt.textContent = '🔎 Pesquisar com IA'; }
     finally { bt.disabled = false; }
 }
