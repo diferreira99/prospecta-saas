@@ -1565,3 +1565,81 @@ test('aquecer antes da DM: seguir e curtir hoje, DM amanhã (quem está aquecend
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('Pipeline diz o próximo passo: prioridades do dia e o passo em cada negócio', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(() => {
+      const agora = Date.now(), dia = 86400000;
+      const L = (id, o) => Object.assign({ id, name: 'L' + id, phone: '1199999000' + id, col: 'respondeu', movedAt: agora, valor: null }, o);
+      const casos = {
+        reuniao: L(1, { col: 'negociando', reuniaoEm: agora + 3 * 3600000 }),
+        resultado: L(2, { col: 'negociando', reuniaoEm: agora - dia, movedAt: agora - 2 * dia }),
+        ligar: L(3, { col: 'negociando', movedAt: agora - 9 * dia, valor: 500 }),
+        proposta: L(4, { col: 'negociando', movedAt: agora - dia }),
+        quente: L(5, { ultimaClassificacao: 'quente', movedAt: agora - dia }),
+        frio: L(6, { movedAt: agora - 20 * dia }),
+        ganho: L(7, { col: 'fechado' }),
+      };
+      const passos = Object.fromEntries(Object.entries(casos).map(([k, l]) => [k, (pkProximoPasso(l) || {}).txt || null]));
+      pkLeads = Object.values(casos); pkSave(); trocarAba('pipeline', document.querySelector(`.nav-item[onclick*="'pipeline'"]`) || document.body); pkRender();
+      const prio = [...document.querySelectorAll('#pk-prioridades .pk-prio-item b')].map(b => b.textContent);
+      return { passos, prio };
+    });
+    assert.match(r.passos.reuniao, /Confirmar a reunião/);
+    assert.match(r.passos.resultado, /registre o resultado/);
+    assert.match(r.passos.ligar, /Ligar: negociação parada há 9 dias/);
+    assert.match(r.passos.proposta, /Mandar a proposta/);
+    assert.match(r.passos.quente, /Propor reunião/);
+    assert.match(r.passos.frio, /Último toque ou Perdido/);
+    assert.strictEqual(r.passos.ganho, null);
+    assert.deepStrictEqual(r.prio, ['L1', 'L2', 'L3', 'L4', 'L5']);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('proposta pelo WhatsApp: IA escreve, envia e o card vai para Negociando com valor e lembrete', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      _produtos = [{ id: 'p1', nome: 'Kaizen Connect', instrucoes: 'Automação de LinkedIn', padrao: true }];
+      pkLeads = [{ id: 'x1', name: 'Padaria Sol', phone: '11999990001', col: 'respondeu', movedAt: Date.now(), nota: 'quer mais clientes' }]; pkSave();
+      let promptIA = ''; iaServidor = async p => { promptIA = p; return '*Proposta Kaizen*\n• Item\n*Investimento*: 497/mês'; };
+      const env = []; _srv = async (c, corpo) => { env.push({ c, corpo }); return { success: true }; };
+      pkProposta('x1');
+      const m = document.getElementById('pk-prop-modal');
+      m.querySelector('input[inputmode="decimal"]').value = '497';
+      await [...m.querySelectorAll('button')].find(b => /Escrever com IA/.test(b.textContent)).onclick();
+      const texto = m.querySelector('textarea').value;
+      await [...m.querySelectorAll('button')].find(b => /Enviar no WhatsApp/.test(b.textContent)).onclick();
+      pkLoad(); const l = pkLeads.find(x => x.id === 'x1');
+      return { promptIA, texto, env, col: l.col, valor: l.valor, prox: l.proximaAcaoTxt, nota: l.nota, fechado: m.hidden };
+    });
+    assert.match(r.promptIA, /Investimento\*: 497[\s\S]*quer mais clientes[\s\S]*Kaizen Connect/);
+    assert.match(r.texto, /Proposta Kaizen/);
+    assert.strictEqual(r.env[0].c, '/send-message'); assert.match(r.env[0].corpo.message, /Proposta Kaizen/);
+    assert.strictEqual(r.col, 'negociando'); assert.strictEqual(r.valor, 497);
+    assert.strictEqual(r.prox, 'Cobrar o retorno da proposta'); assert.match(r.nota, /Proposta enviada: 497/);
+    assert.strictEqual(r.fechado, true);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('Painel do time: ranking por vendedor com tempo de resposta e o que está ficando para trás', async () => {
+  const a = await abrirApp({ largura: 1280 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      const ontem = new Date(Date.now() - 86400000).toISOString(), velho = new Date(Date.now() - 12 * 86400000).toISOString();
+      supabaseClient.rpc = async (nome, args) => nome === 'painel_equipe' ? { data: [
+        { nome: 'Você', envios: 272, responderam: 38, interessados: 14, interessados_esperando: 0, minutos_resposta: 149, reunioes: 0, ganhos: 0, valor_ganho: 0, fu_vencidos: 95, ultimo_envio: velho },
+        { nome: 'Gustavo', envios: 42, responderam: 11, interessados: 15, interessados_esperando: 0, minutos_resposta: 54, reunioes: 1, ganhos: 1, valor_ganho: 1500, fu_vencidos: 0, ultimo_envio: ontem },
+      ], error: null } : { data: null, error: null };
+      await ptCarregar();
+      return { visivel: !document.getElementById('pt-time').hidden, linhas: [...document.querySelectorAll('#pt-corpo tr')].map(t => t.innerText.replace(/\s+/g, ' ').trim()) };
+    });
+    assert.strictEqual(r.visivel, true);
+    assert.match(r.linhas[1], /🏆 Gustavo 42 26,2% 15 54 min 1 1 · R\$ 1\.500 ✅ em dia/);
+    assert.match(r.linhas[2], /Você 272 14% 14 2,5 h 0 0 ⌛ 95 follow-ups vencidos · ⏸ 12 dias sem envio/);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});

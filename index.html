@@ -1417,6 +1417,22 @@
 .ps-chip { font-family:'Inter',sans-serif; font-size:0.6rem; font-weight:700; padding:4px 10px; border-radius:20px; border:1.5px solid #d1d5db; background:#fff; color:#6b7280; cursor:pointer; white-space:nowrap; }
 .ps-chip[aria-pressed="true"] { border-color:#165DFF; background:#EBF0FF; color:#165DFF; }
 .pend { margin-bottom:16px; }
+.pk-prioridades { display:flex; gap:8px; overflow-x:auto; padding:10px 14px; background:#FFFBEB; border-bottom:1px solid #FDE68A; font-family:'Inter',sans-serif; }
+.pk-prioridades[hidden] { display:none; }
+.pk-prio-tit { flex-shrink:0; align-self:center; font-size:0.7rem; font-weight:800; color:#92400e; white-space:nowrap; }
+.pk-prio-item { flex-shrink:0; display:flex; flex-direction:column; align-items:flex-start; gap:2px; max-width:240px; text-align:left; padding:7px 10px; border-radius:10px; border:1.5px solid #FDE68A; background:#fff; cursor:pointer; font-family:'Inter',sans-serif; }
+.pk-prio-item b { font-size:0.72rem; color:var(--text); max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pk-prio-item span { font-size:0.64rem; color:#92400e; line-height:1.35; }
+.pk-pp { background:#FFFBEB; border:1.5px solid #FDE68A; border-radius:10px; padding:10px 12px; }
+.pk-pp-txt { font-family:'Inter',sans-serif; font-size:0.78rem; font-weight:700; color:#92400e; margin:2px 0 8px; line-height:1.4; }
+.pk-pp-btn { font-family:'Inter',sans-serif; font-size:0.7rem; font-weight:700; padding:7px 12px; border-radius:8px; border:none; background:#FF6A00; color:#fff; cursor:pointer; }
+.pk-prop-btn { background:#7C3AED !important; margin-top:6px; }
+.pk-prop { max-width:520px; }
+.pk-prop-lin { display:flex; flex-direction:column; gap:3px; margin:6px 0; font-family:'Inter',sans-serif; font-size:0.7rem; font-weight:700; color:var(--muted); }
+.pk-prop textarea { margin-top:8px; }
+.pt-wrap { overflow-x:auto; }
+.pt-tab td.pt-ruim { color:#b91c1c; font-weight:700; }
+#pt-dias { margin-left:8px; font-size:0.7rem; padding:3px 6px; width:auto; }
 .dor-btn { font-family:'Inter',sans-serif; font-size:0.6rem; font-weight:700; padding:4px 10px; border-radius:8px; border:1.5px solid #d1d5db; background:#fff; color:#374151; cursor:pointer; }
 .dor-btn.ia { border-color:#7C3AED; background:#7C3AED; color:#fff; padding:7px 12px; font-size:0.66rem; }
 .dor-btn:disabled { opacity:.6; cursor:wait; }
@@ -2663,6 +2679,7 @@ function iniciarAppPosLogin() {
     </div>
     <div id="pk-funil-painel" style="display:none;padding:14px 16px;background:var(--surface);border-bottom:1px solid var(--border);"></div>
     <div id="pk-resumo" class="pk-resumo" aria-live="polite"></div>
+    <div id="pk-prioridades" class="pk-prioridades" hidden></div>
     <div id="pk-esfriando-alerta" style="display:none;"></div>
     <div class="pk-board-wrap" id="pk-board-wrap">
         <!-- colunas geradas por JS -->
@@ -4307,6 +4324,7 @@ function pkRender() {
     if (painelFunil && painelFunil.style.display !== 'none') renderizarFunilConversao();
 
     pkPintarResumo();
+    try { pkPintarPrioridades(); } catch (e) {}
     PK_COLS.forEach(col => {
         const colLeads = pkOrdenar(pkLeads.filter(l => l.col === col.id && pkPassaFiltro(l)));
 
@@ -4474,6 +4492,7 @@ function pkAbrirDetail(id) {
             <select class="pk-stage-select" onchange="pkMoverEtapa(${id},this.value)">${opts}</select>
         </div>
         ${pkBlocoMotivo(lead)}
+        ${pkBlocoProximoPasso(lead)}
         ${pkBlocoProximaAcao(lead)}
         ${pkBlocoConversa(lead)}
         ${pkBlocoLinkedin(lead)}
@@ -4488,6 +4507,7 @@ function pkAbrirDetail(id) {
         <div>
             <div class="pk-detail-section">Ações</div>
             ${lead.phone?'<button class="pk-wa-btn" onclick="pkOpenWA('+id+')">💬 Abrir no WhatsApp</button>':''}
+            ${lead.col !== 'descartado' ? '<button class="pk-wa-btn pk-prop-btn" onclick="pkProposta('+JSON.stringify(String(id)).replace(/"/g, '&quot;')+')">📄 Montar proposta</button>' : ''}
             ${pkBlocoReuniao(lead)}
         </div>
         <div>
@@ -4746,6 +4766,67 @@ async function pkLimparColuna(colId) {
 }
 
 function pkRemoverLead(id) { if(!confirm('Remover este lead?')) return; pkLoad(); pkLeads=pkLeads.filter(l=>String(l.id)!==String(id)); pkSave(); pkFecharDetail(); pkRender(); }
+// ── Proposta pelo WhatsApp ──
+// A partir do card: escolhe o produto e o valor, a IA monta a proposta em texto de WhatsApp (entendimento, solução,
+// investimento, próximo passo), você revisa e envia. O card vai para Negociando com o valor e o lembrete de cobrar retorno.
+function pkProposta(id) {
+    pkLoad();
+    const l = pkLeads.find(x => String(x.id) === String(id)); if (!l) return;
+    let m = document.getElementById('pk-prop-modal');
+    if (!m) { m = document.createElement('div'); m.id = 'pk-prop-modal'; m.className = 'nc-modal'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true'); document.body.appendChild(m); }
+    m.innerHTML = '';
+    const cx = prEl('div', 'nc-caixa pk-prop');
+    cx.appendChild(prEl('h3', '', '📄 Proposta para ' + (l.name || 'o lead')));
+    const prods = (_produtos || []).filter(p => p && p.nome);
+    const sel = document.createElement('select'); sel.className = 'pk-sel';
+    prods.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.textContent = p.nome; sel.appendChild(o); });
+    sel.value = l.produtoId || (prodAtual() || {}).id || (prods[0] || {}).id || '';
+    const valor = document.createElement('input'); valor.type = 'text'; valor.inputMode = 'decimal'; valor.placeholder = 'Valor (ex.: 497 por mês ou 3.500)'; valor.value = l.valor ? String(l.valor).replace('.', ',') : '';
+    const cond = document.createElement('input'); cond.type = 'text'; cond.placeholder = 'Condições (opcional): 12x, desconto à vista, teste grátis…';
+    const ta = document.createElement('textarea'); ta.className = 'rs-texto'; ta.rows = 9; ta.placeholder = 'Toque em "Escrever com IA" ou escreva a proposta.';
+    const lin = (rot, el) => { const w = prEl('label', 'pk-prop-lin'); w.appendChild(prEl('span', '', rot)); w.appendChild(el); cx.appendChild(w); };
+    if (prods.length) lin('Produto', sel);
+    lin('Investimento', valor); lin('Condições', cond);
+    const bia = prEl('button', 'dor-btn ia', '✨ Escrever com IA'); bia.type = 'button'; cx.appendChild(bia); cx.appendChild(ta);
+    const bts = prEl('div', 'nf-bts');
+    const env = prEl('button', 'ps-acao principal', '📤 Enviar no WhatsApp'); env.type = 'button';
+    const cop = prEl('button', 'ps-acao', '📋 Copiar'); cop.type = 'button';
+    const can = prEl('button', 'ps-acao', 'Fechar'); can.type = 'button';
+    bts.append(env, cop, can); cx.appendChild(bts);
+    m.appendChild(cx); m.hidden = false;
+    can.onclick = () => { m.hidden = true; };
+    m.onclick = e => { if (e.target === m) m.hidden = true; };
+    cop.onclick = () => dorCopiarTexto(ta.value);
+    bia.onclick = async () => {
+        const prod = prods.find(p => p.id === sel.value) || prodAtual();
+        bia.disabled = true; bia.textContent = '✨ Escrevendo…';
+        try {
+            const conv = (_pkConversas[pkTel(l.phone)] || []).slice(-8).map(x => (x.direcao === 'enviada' ? 'Eu: ' : 'Cliente: ') + String(x.mensagem || '').slice(0, 200)).join('\n');
+            const t = await iaServidor('Escreva uma PROPOSTA COMERCIAL curta para mandar pelo WhatsApp. Use *negrito* do WhatsApp nos títulos, sem markdown de outro tipo, no máximo 900 caracteres, tom profissional e próximo.\n' +
+                'Estrutura: 1) uma frase retomando o que o cliente precisa (use a conversa e as notas); 2) *O que está incluso* em 3 a 4 itens curtos com •; 3) *Investimento*: ' + (valor.value || '[valor]') + (cond.value ? ' (' + cond.value + ')' : '') + '; 4) *Próximo passo*: uma pergunta simples para fechar (ex.: começar na segunda?). Validade de 7 dias no fim.\n\n' +
+                'CLIENTE: ' + (l.name || '') + ' · ' + (l.cat || '') + '\nNOTAS: ' + String(l.nota || '').slice(-600) + '\nCONVERSA:\n' + (conv || '(sem conversa registrada)') +
+                '\nPRODUTO: ' + ((prod && prod.nome) || '') + ' — ' + String((prod && prod.instrucoes) || '').slice(0, 700) + '\n\nNão invente preço, prazo ou número que não esteja acima. Retorne só o texto.', 700, config.iaProvider || undefined);
+            ta.value = String(t).trim();
+        } catch (e) { showToast('IA: ' + (e.message || e), 'err'); }
+        bia.disabled = false; bia.textContent = '✨ Escrever com IA';
+    };
+    env.onclick = async () => {
+        const texto = ta.value.trim();
+        if (!texto) { showToast('Escreva a proposta antes', 'err'); return; }
+        if (/\[[^\]\n]{1,40}\]/.test(texto)) { showToast('Preencha o trecho entre [colchetes] antes', 'err'); return; }
+        if (!l.phone) { showToast('Este lead não tem telefone', 'err'); return; }
+        env.disabled = true; env.textContent = 'Enviando…';
+        try {
+            await _srv('/send-message', { phone: formatPhoneBR(l.phone), message: texto });
+            try { await supabaseClient.from('respostas_historico').insert({ user_id: currentUser.id, phone: formatPhoneBR(l.phone), lead_nome: l.name || '', direcao: 'enviada', mensagem: texto, criado_em: new Date().toISOString() }); } catch (e) {}
+            const v = Number(String(valor.value).replace(/[^\d,.]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.'));
+            const q = new Date(); q.setDate(q.getDate() + 2); q.setHours(10, 0, 0, 0);
+            pkLoad(); const x = pkLeads.find(y => String(y.id) === String(id));
+            if (x) { if (v > 0) x.valor = v; if (sel.value) x.produtoId = sel.value; if (['novo', 'contatado', 'respondeu'].includes(x.col)) { x.col = 'negociando'; x.movedAt = Date.now(); } x.proximaAcaoEm = q.getTime(); x.proximaAcaoTxt = 'Cobrar o retorno da proposta'; x.nota = ((x.nota ? x.nota + '\n' : '') + '[' + new Date().toLocaleDateString('pt-BR') + '] Proposta enviada' + (valor.value ? ': ' + valor.value : '')).slice(-4000); pkSave(); }
+            m.hidden = true; pkRender(); showToast('📄 Proposta enviada. Lembrete para cobrar o retorno em 2 dias.', 'ok');
+        } catch (e) { showToast('Não enviou: ' + (e.message || e), 'err'); env.disabled = false; env.textContent = '📤 Enviar no WhatsApp'; }
+    };
+}
 function pkOpenWA(id) { const l=pkLeads.find(x=>String(x.id)===String(id)); const wa=formatPhoneBR(l&&l.phone); if(wa) window.open('https://wa.me/'+wa,'_blank'); }
 
 // ===================== PIPELINE: conversa, próxima ação, reunião, filtros, motivo e previsão =====================
@@ -4756,6 +4837,47 @@ let _pkFiltro = { q: '', nicho: '', camp: '', ordem: 'quente' };
 let _pkPerdidoAberto = false;
 const PK_MOTIVOS = [['sem_interesse', 'Sem interesse'], ['tem_fornecedor', 'Já tem fornecedor'], ['preco', 'Preço'], ['nao_responde', 'Não responde'], ['robo', 'Só robô'], ['momento', 'Não é o momento'], ['outro', 'Outro']];
 const PK_CLASSIF = { quente: ['🔥 Quente', '#fee2e2', '#b91c1c'], duvida: ['❓ Dúvida', '#fef3c7', '#92400e'], morno: ['🙂 Morno', '#e0f2fe', '#075985'], frio: ['❄️ Frio', '#f1f5f9', '#475569'], menu: ['🤖 Robô', '#f1f5f9', '#475569'], pare: ['🛑 Pediu para parar', '#fee2e2', '#991b1b'] };
+// ── Próxima melhor ação ──
+// Para cada negócio aberto, o passo que mais aproxima do fechamento agora, com peso (o que vem primeiro hoje).
+function pkProximoPasso(l, agora) {
+    if (!l || l.col === 'fechado' || l.col === 'descartado') return null;
+    const now = agora || Date.now(), dia = 86400000, d = pkDiasNaEtapa(l);
+    const quando = t => new Date(t).toLocaleString('pt-BR', { weekday: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    const bonus = Math.min(15, (Number(l.valor) || 0) / 1000);
+    const r = (ic, txt, peso, acao) => ({ ic, txt, peso: peso + bonus, acao: acao || '' });
+    if (l.reuniaoEm && l.reuniaoEm > now && l.reuniaoEm - now < 2 * dia) return r('📅', 'Confirmar a reunião de ' + quando(l.reuniaoEm), 100, 'whats');
+    if (l.reuniaoEm && l.reuniaoEm <= now && now - l.reuniaoEm < 4 * dia && l.col === 'negociando') return r('🤝', 'A reunião foi ' + quando(l.reuniaoEm) + ': registre o resultado (proposta, ganho ou perdido)', 95, 'proposta');
+    if (l.proximaAcaoEm && l.proximaAcaoEm <= _pkFimDoDia(now)) return r('⏰', l.proximaAcaoTxt || 'Retomar a conversa', 90, 'whats');
+    if (l.col === 'negociando' && d >= 7) return r('📞', `Ligar: negociação parada há ${d} dias`, 85, 'whats');
+    if (l.col === 'negociando' && !(Number(l.valor) > 0)) return r('📄', 'Mandar a proposta com o valor', 80, 'proposta');
+    if (l.col === 'negociando') return r('💬', 'Cobrar o retorno da proposta', 60, 'whats');
+    if (l.col === 'respondeu' && ['quente', 'duvida'].includes(l.ultimaClassificacao) && d <= 3) return r('🔥', `Propor reunião: respondeu com interesse há ${d} dia${d === 1 ? '' : 's'}`, 75, 'whats');
+    if (l.col === 'respondeu' && d <= 14) return r('💬', `Retomar a conversa (respondeu há ${d} dias)`, 50, 'whats');
+    if (l.col === 'respondeu') return r('🧊', `Último toque ou Perdido: parado há ${d} dias`, 30, 'whats');
+    if (l.col === 'contatado' && d >= 3) return r('📤', `Sem resposta há ${d} dias: follow-up ou outro canal`, 20, 'whats');
+    return null;
+}
+function pkBlocoProximoPasso(l) {
+    const p = pkProximoPasso(l); if (!p) return '';
+    const id = JSON.stringify(String(l.id)).replace(/"/g, '&quot;');
+    const bt = p.acao === 'proposta' ? `<button class="pk-pp-btn" onclick="pkProposta(${id})">📄 Montar proposta</button>` : (l.phone ? `<button class="pk-pp-btn" onclick="pkOpenWA(${id})">💬 Abrir conversa</button>` : '');
+    return `<div class="pk-pp"><div class="pk-detail-section">👉 Próximo passo</div><div class="pk-pp-txt">${p.ic} ${escapeHtml(p.txt)}</div>${bt}</div>`;
+}
+// "Prioridades de hoje": os 5 negócios com o passo mais importante, no topo do Pipeline
+function pkPintarPrioridades() {
+    const box = document.getElementById('pk-prioridades'); if (!box) return;
+    const lst = pkVisiveis().map(l => ({ l, p: pkProximoPasso(l) })).filter(x => x.p && x.p.peso >= 50).sort((a, b) => b.p.peso - a.p.peso).slice(0, 5);
+    box.innerHTML = ''; box.hidden = !lst.length;
+    if (!lst.length) return;
+    box.appendChild(prEl('div', 'pk-prio-tit', '⭐ Prioridades de hoje'));
+    lst.forEach(({ l, p }) => {
+        const b = prEl('button', 'pk-prio-item'); b.type = 'button';
+        b.appendChild(prEl('b', '', l.name || l.title || 'Lead'));
+        b.appendChild(prEl('span', '', p.ic + ' ' + p.txt));
+        b.onclick = () => pkAbrirDetail(l.id);
+        box.appendChild(b);
+    });
+}
 function pkDiasNaEtapa(l) { return Math.max(0, Math.floor((Date.now() - (l.movedAt || Date.now())) / 86400000)); }
 function pkTel(p) { let d = String(p || '').replace(/\D/g, ''); if (d.length >= 12 && d.startsWith('55')) d = d.slice(2); return d.slice(-11); }
 function pkProximaEtapa(col) { const ord = ['novo', 'contatado', 'respondeu', 'negociando', 'fechado']; const i = ord.indexOf(col); return i >= 0 && i < ord.length - 1 ? ord[i + 1] : null; }
@@ -6487,6 +6609,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                             </div>
             <section id="painel-aovivo" class="cp-aovivo" aria-live="polite" hidden></section>
+            <!-- PAINEL DO TIME: só aparece para quem é gestor de uma equipe -->
+            <section id="pt-time" class="ph-card pr-bloco" aria-labelledby="pt-t" hidden>
+                <h3 id="pt-t">👥 Seu time <select id="pt-dias" class="pk-sel" onchange="ptCarregar()" aria-label="Período"><option value="7">7 dias</option><option value="14">14 dias</option><option value="30">30 dias</option></select></h3>
+                <div id="pt-corpo"></div>
+            </section>
             <!-- PAINEL: hoje nos 3 canais (WhatsApp, Instagram, LinkedIn) -->
             <section id="pc-canais" class="ph-card pr-bloco" aria-labelledby="pc-t">
                 <h3 id="pc-t">Hoje nos 3 canais <span class="ph-tag">atualizado às <span id="mc-ultima-atualizacao">—</span></span></h3>
@@ -14590,6 +14717,15 @@ const MANUAL = {
                     dicas: ['Use palavras claras no nome ou nas instruções do produto (ex.: "site", "energia", "maquininha"): é assim que o app sabe que a dor combina com ele.']
                 },
                 {
+                    titulo: 'Pipeline que diz o próximo passo', resumo: 'Prioridades, proposta, copiloto e time', aba: 'pipeline',
+                    blocos: [
+                        { t: '⭐ Prioridades de hoje', l: ['No topo do Pipeline, os 5 negócios com o passo mais importante agora: confirmar reunião, registrar o resultado, ligar para negociação parada, mandar proposta, propor reunião para quem respondeu com interesse.', 'Cada card mostra "👉 Próximo passo" com o botão certo.'] },
+                        { t: '📄 Proposta pelo WhatsApp', l: ['No card: "Montar proposta" → escolha o produto e o valor, a IA escreve (o que o cliente precisa, o que está incluso, investimento e próximo passo). Revise e envie.', 'Ao enviar, o card vai para Negociando com o valor e um lembrete para cobrar o retorno em 2 dias.'] },
+                        { t: '🤖 Copiloto pelo WhatsApp', l: ['Do seu número de alerta (Integrações), mande texto ou áudio para o número da prospecção: "hoje", "move a Padaria Sol para negociando", "nota na Padaria Sol: ligar sexta 10h" ou "quem é a Padaria Sol?".', 'Ele só responde a você. Lead nunca recebe resposta automática.'] },
+                        { t: '👥 Seu time (gestor)', l: ['No Painel, o ranking de cada vendedor: envios, % de resposta, interessados, quanto tempo leva para responder um interessado, reuniões, ganhos e o que está ficando para trás.'] }
+                    ]
+                },
+                {
                     titulo: 'Pesquisa da empresa e aquecimento', resumo: 'Primeira mensagem com nome do dono e gancho real', aba: 'prospeccao',
                     blocos: [
                         { t: '🔎 Pesquisa da empresa', l: ['No detalhe do lead, **"Pesquisar com IA"**: o app lê o site, acha o CNPJ (ou você digita), puxa da Receita sócios, porte e há quantos anos a empresa existe, e a IA resume o que ela faz, para quem, a dor provável e um **gancho real** para a 1ª mensagem.', 'O sócio-administrador vira "quem decide" e a DM do Instagram e o convite do LinkedIn usam o gancho.', '**"🔎 Pesquisar os melhores"** (depois da busca) pesquisa até 15 de uma vez.'] },
@@ -17411,6 +17547,39 @@ async function phContar(tabela, filtros) {      // conta linhas sem trazer os da
     } catch (e) { return null; }
 }
 let _phRodando = false;
+// ── Painel do time ──
+// Ranking por vendedor (gestor vê o time e a si mesmo): envios, % de resposta, interessados, tempo para responder
+// interessado, reuniões, ganhos e o que está sendo deixado para trás.
+async function ptCarregar() {
+    const sec = document.getElementById('pt-time'), box = document.getElementById('pt-corpo');
+    if (!sec || !box || !currentUser) return;
+    try {
+        const dias = Number(document.getElementById('pt-dias')?.value || 7);
+        const { data, error } = await supabaseClient.rpc('painel_equipe', { dias });
+        if (error || !Array.isArray(data) || data.length < 2) { sec.hidden = true; return; }
+        const lst = data.map(r => ({ ...r, taxa: r.envios ? r.responderam / r.envios : 0 })).sort((a, b) => (b.ganhos - a.ganhos) || (b.interessados - a.interessados) || (b.envios - a.envios));
+        box.innerHTML = '';
+        const tab = prEl('table', 'pr-tabela pt-tab');
+        const cab = prEl('tr'); ['Vendedor', 'Envios', 'Responderam', 'Interessados', 'Responde em', 'Reuniões', 'Ganhos', 'Atenção'].forEach(h => cab.appendChild(prEl('th', '', h)));
+        tab.appendChild(cab);
+        const hora = m => m == null ? '—' : m < 60 ? Math.round(m) + ' min' : (m / 60).toFixed(1).replace('.', ',') + ' h';
+        lst.forEach((r, i) => {
+            const tr = prEl('tr');
+            const at = [];
+            if (r.interessados_esperando) at.push(`🔥 ${r.interessados_esperando} esperando`);
+            if (r.fu_vencidos) at.push(`⌛ ${r.fu_vencidos} follow-ups vencidos`);
+            const dSem = r.ultimo_envio ? Math.floor((Date.now() - new Date(r.ultimo_envio).getTime()) / 86400000) : null;
+            if (dSem == null || dSem >= 3) at.push(dSem == null ? '⏸ nunca enviou' : `⏸ ${dSem} dias sem envio`);
+            tr.append(prEl('td', '', (i === 0 && (r.ganhos || r.interessados) ? '🏆 ' : '') + r.nome), prEl('td', '', String(r.envios)), prEl('td', '', prPctTxt(r.responderam, r.envios)),
+                prEl('td', '', String(r.interessados)), prEl('td', r.minutos_resposta > 120 ? 'pt-ruim' : '', hora(r.minutos_resposta)), prEl('td', '', String(r.reunioes)),
+                prEl('td', '', r.ganhos ? r.ganhos + (Number(r.valor_ganho) ? ' · ' + _brl(Number(r.valor_ganho)) : '') : '0'), prEl('td', at.length ? 'pt-ruim' : '', at.join(' · ') || '✅ em dia'));
+            tab.appendChild(tr);
+        });
+        const wrap = prEl('div', 'pt-wrap'); wrap.appendChild(tab); box.appendChild(wrap);
+        box.appendChild(prEl('div', 'ph-linha', '"Responde em" = tempo médio entre o interessado escrever e a resposta sair. Até 1 hora dobra a chance de reunião.'));
+        sec.hidden = false;
+    } catch (e) { sec.hidden = true; }
+}
 async function painelHojeCarregar() {
     if (_phRodando || !document.getElementById('painel-hoje') || typeof currentUser === 'undefined' || !currentUser) return;
     _phRodando = true;
@@ -17754,6 +17923,7 @@ async function mcTabelaRankingAplicar(rows, campanhaId) {
     carregarMetricas = async function () {
         const r = await original.apply(this, arguments);
         try { painelHojeCarregar(); } catch (e) { /* o Painel original não pode quebrar */ }
+        try { ptCarregar(); } catch (e) {}
         try { prProdutosCarregar(); } catch (e) {}
         try { painelCanaisCarregar(); } catch (e) {}
         return r;
