@@ -1639,8 +1639,8 @@ test('Painel do time: ranking por vendedor com tempo de resposta e o que está f
       return { visivel: !document.getElementById('pt-time').hidden, linhas: [...document.querySelectorAll('#pt-corpo tr')].map(t => t.innerText.replace(/\s+/g, ' ').trim()) };
     });
     assert.strictEqual(r.visivel, true);
-    assert.match(r.linhas[1], /🏆 Gustavo 42 26,2% 15 54 min 1 1 · R\$ 1\.500 ✅ em dia/);
-    assert.match(r.linhas[2], /Você 272 14% 14 2,5 h 0 0 ⌛ 95 follow-ups vencidos · ⏸ 12 dias sem envio/);
+    assert.match(r.linhas[1], /🏆 Gustavo 42 26,2% 15 54 min — — 1 1 · R\$ 1\.500 ✅ em dia/);
+    assert.match(r.linhas[2], /Você 272 14% 14 2,5 h — — 0 0 ⌛ 95 follow-ups vencidos · ⏸ 12 dias sem envio/);
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
@@ -1732,7 +1732,7 @@ test('decisor no LinkedIn: perfil do sócio confirmado, nome indicado no WhatsAp
     assert.deepStrictEqual(r.nomes, ['Carlos Mendes', 'Ana', 'Ricardo', null, null]);
     assert.deepStrictEqual(r.termos, ['diretor comercial', 'gerente comercial', 'head de vendas']);
     assert.strictEqual(r.busca, 'https://www.linkedin.com/company/outra/people/?keywords=diretor comercial');
-    assert.deepStrictEqual(r.fila, ['Bia Beta | Convite há 4 dias: Bia Beta aceitou?', 'Jose Pao | Aquecer hoje: ver o perfil e curtir um post', 'Gil Gama | 8 dias sem aceitar: tentar Gui Gama']);
+    assert.deepStrictEqual(r.fila, ['Jose Pao | Aquecer hoje: ver o perfil e curtir um post', 'Gil Gama | 8 dias sem aceitar: tentar Gui Gama'], '"aceitou?" fica só no lote');
     assert.match(r.placar, /1 de 100\s*convites na semana/); assert.match(r.placar, /aceitaram \(0 de 2\)/);
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
@@ -2133,6 +2133,55 @@ test('Instagram com o mesmo motor: A/B da DM, responder story, resposta colada c
     assert.deepStrictEqual(r.row, ['respondeu', 'interessado', 'Tenho interesse, me manda mais detalhes']);
     assert.strictEqual(r.card, 'respondeu'); assert.match(r.ev, /Respondeu no Instagram/);
     assert.match(r.funil, /1\s*responderam100%/); assert.match(r.funil, /Detalhe do perfil \+ pergunta/);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('pontas soltas: limite do Google com aviso claro, pesquisa da empresa guardada no banco, campanha do LinkedIn na cadência nova e time com LinkedIn', async () => {
+  const a = await abrirApp({ largura: 1280, db: {
+    pesquisas_empresa: [{ user_id: 'u1', chave: 'velha', dados: { cnpj: { cnpj: '1', socios: [{ nome: 'ANA VELHA', qualificacao: 'Sócio-Administrador' }] }, decisor: { nome: 'Ana Velha', cargo: 'Sócio-Administrador' } } }],
+    campanhas_canal: [{ id: 'c1', user_id: 'u1', canal: 'linkedin', status: 'ativa', nome: 'Indústrias', etapas: [0, 3, 7] }],
+    campanhas_canal_leads: [
+      { id: 'l1', user_id: 'u1', campanha_id: 'c1', chave: 'k-convite', nome: 'Alfa', etapa: 0, status: 'pendente', proxima_em: new Date(Date.now() - 1000).toISOString() },
+      { id: 'l2', user_id: 'u1', campanha_id: 'c1', chave: 'k-aceite', nome: 'Beta', etapa: 1, status: 'pendente', proxima_em: new Date(Date.now() - 1000).toISOString() }],
+  }, rpcs: {
+    painel_equipe: [{ membro_id: 'u1', nome: 'Você', envios: 10, responderam: 2, interessados: 1, interessados_esperando: 0, minutos_resposta: 30, reunioes: 1, ganhos: 0, valor_ganho: 0, fu_vencidos: 0, ultimo_envio: new Date().toISOString() },
+      { membro_id: 'u2', nome: 'Gustavo', envios: 5, responderam: 1, interessados: 0, interessados_esperando: 0, minutos_resposta: null, reunioes: 0, ganhos: 0, valor_ganho: 0, fu_vencidos: 0, ultimo_envio: new Date().toISOString() }],
+    painel_equipe_canais: [{ membro_id: 'u2', li_convites: 20, li_aceitos: 8, li_respostas: 3, ig_dms: 12, ig_respostas: 2 }],
+  } });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      // 1) limite do Google: aviso uma vez por dia, e vagas/Instagram ficam para depois
+      let toasts = []; const t0 = showToast; showToast = (m, k) => { toasts.push(m); };
+      const orig = _apiOficial;
+      // o envoltório do aviso fica por fora do que o teste troca
+      _apiOficial = async () => { throw new Error('limite diário de buscas no Google atingido; tenta de novo amanhã'); };
+      (function () { const o = _apiOficial; _apiOficial = async function () { try { return await o.apply(this, arguments); } catch (e) { avisarLimiteGoogle(e); throw e; } }; })();
+      for (let i = 0; i < 2; i++) { try { await _apiOficial('/leads/vagas', {}); } catch (e) {} }
+      const avisos = toasts.filter(t => /Acabaram as buscas no Google/.test(t)).length;
+      showToast = t0;
+      const txt = googleUsoTxt({ usados: 250, limite: 300, restante: 50 });
+      // 2) pesquisa guardada no banco aparece mesmo sem estar no aparelho
+      await pesqTabCarregar();
+      const velha = pesqDe({ title: 'Velha', place_id: 'velha' });
+      pesqSalvar({ title: 'Nova', place_id: 'nova' }, { cnpj: { cnpj: '2' } }); await new Promise(x => setTimeout(x, 100));
+      // 3) campanha do LinkedIn: só o convite é tarefa da campanha
+      await ccCarregar(true);
+      const hoje = ccHoje('linkedin').map(x => x.r.chave), ativas = [...ccChavesAtivas('linkedin')];
+      return { avisos, txt, velha: velha && velha.decisor.nome, banco: _db.pesquisas_empresa.map(x => x.chave), hoje, ativas };
+    });
+    assert.strictEqual(r.avisos, 1, 'avisa uma vez só');
+    assert.strictEqual(r.txt, '🔎 Buscas no Google hoje: 250 de 300 · guardando o resto para CNPJ e decisor');
+    assert.strictEqual(r.velha, 'Ana Velha');
+    assert.ok(r.banco.includes('nova'), r.banco.join(','));
+    assert.deepStrictEqual(r.hoje, ['k-convite']); assert.deepStrictEqual(r.ativas, ['k-convite']);
+    // 4) time com LinkedIn e Instagram
+    await a.pagina.evaluate(() => ptCarregar());
+    await a.pagina.waitForTimeout(300);
+    const time = await a.pagina.evaluate(() => document.getElementById('pt-corpo').textContent);
+    assert.match(time, /20 convites · 40% aceite · 3 resp\./); assert.match(time, /12 DMs · 2 resp\./);
+    const manual = await a.pagina.evaluate(() => JSON.stringify(typeof MANUAL !== 'undefined' ? MANUAL : document.body.innerHTML).includes('Rotina do LinkedIn'));
+    assert.ok(manual);
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });

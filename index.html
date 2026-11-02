@@ -1465,6 +1465,9 @@
 .ig-story { background:#FDF2F8; border:1px solid #FBCFE8; border-radius:10px; padding:8px 10px; font-size:0.72rem; margin:6px 0; }
 .ig-funil-passos { grid-template-columns:repeat(3, minmax(0,1fr)); }
 .li-resp-bts { display:flex; gap:6px; flex-wrap:wrap; }
+.li-manha { display:flex; gap:8px; align-items:center; font-size:0.72rem; margin-top:8px; cursor:pointer; }
+.li-manha input { width:18px; height:18px; flex:none; }
+.ps-google-uso, .li-google-uso { font-size:0.66rem; color:var(--muted); width:100%; }
 .pq-alerta { background:#FEE2E2; color:#991B1B; border-radius:6px; padding:4px 8px; }
 .dec-chip b { font-weight:800; }
 .dec-chip.dec-busca { color:var(--muted); background:#f8fafc; border-color:#e5e7eb; cursor:default; }
@@ -7428,8 +7431,13 @@ async function buscarRedesEmFundo(buscaId, leads) {
             if (_leadsBase.includes(leads[0])) histAtualizarRedes(leads);
             completarRedesPeloGoogle(leads);
             await cnpjAutoMelhores(leads);
-            try { await vagasMelhores(leads.filter(l => liDecisoresDe(l).length).sort((a, b) => calcScore(b) - calcScore(a))); } catch (e) {}
-            try { await igInfoMelhores(leads); } catch (e) {}
+            // CNPJ e decisor já foram; vagas e Instagram só se sobrar folga no limite do dia
+            const gu = await googleUso(true).catch(() => null);
+            if (!(gu && gu.restante < 60)) {
+                try { await vagasMelhores(leads.filter(l => liDecisoresDe(l).length).sort((a, b) => calcScore(b) - calcScore(a))); } catch (e) {}
+                try { await igInfoMelhores(leads); } catch (e) {}
+            }
+            try { googleUsoPintar(); } catch (e) {}
             buscaFinalizadaAvisar(leads);
             return;
         }
@@ -14034,8 +14042,7 @@ function liDecisoresDia(buscas, feitos) {
             const d = Math.floor((Date.now() - new Date(r.criado_em).getTime()) / 86400000);
             if (ac[k] || r.aceito_em) return;   // aceitou: segue na cadência depois do aceite
             if (d >= 7 && dec.length > 1 && !segundo[k]) etapa = { ord: 4, ic: '🔁', txt: `${d} dias sem aceitar: tentar ${dec[1].nome}${dec[1].cargo ? ' (' + dec[1].cargo + ')' : ''}`, acao: 'segundo' };
-            else if (d >= 3 && !(adiar[k] && Date.now() < adiar[k])) etapa = { ord: 1, ic: '✅', txt: `Convite há ${d} dias: ${dec[0].nome} aceitou?`, acao: 'aceitou', r };
-            else return;
+            else return;   // "aceitou?" fica num lugar só: Quem aceitou? (em lote)
         } else if (liWaEsperando(l)) { const w = liWa(l); etapa = { ord: 6, ic: '⏳', txt: `WhatsApp há ${w.dias} dia${w.dias === 1 ? '' : 's'} sem resposta: o LinkedIn entra no ${LI_WA_DIAS}º dia`, acao: '' }; }
         else if (aqAquecendo('li', l)) etapa = { ord: 5, ic: '🔥', txt: 'Aquecido hoje · convite amanhã', acao: '' };
         else if (aqPronto('li', l)) etapa = { ord: 2, ic: '✉️', txt: 'Convite hoje', acao: 'convite' };
@@ -14866,6 +14873,11 @@ function liPainelTopo(box, buscas) {
     const b = prEl('button', 'ps-acao principal li-rotina-btn', '▶ Começar a rotina'); b.type = 'button'; b.disabled = !itens.length; b.onclick = () => liRotina();
     s.appendChild(b);
     s.appendChild(prEl('div', 'ph-linha li-rotina-dica', 'O app abre um por um, com a mensagem pronta. Você só cola e envia no LinkedIn: nada sai sozinho, então a conta fica segura.'));
+    const lb = document.createElement('label'); lb.className = 'li-manha';
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = userGet('aviso_manha', true) !== false;
+    cb.onchange = () => { userSet('aviso_manha', cb.checked); showToast(cb.checked ? '☀️ Às 8h dos dias úteis chega o resumo do dia no seu WhatsApp de alertas' : 'Resumo das 8h desligado', 'ok'); };
+    lb.append(cb, ' ☀️ Resumo às 8h no meu WhatsApp de alertas (mesmo com o app fechado)');
+    s.appendChild(lb);
     box.appendChild(s);
     if (aceite.length) {
         const sa = prEl('section', 'ph-card li-aceites');
@@ -15004,7 +15016,8 @@ var _liBuscaRes = [];
 function liBuscaSecao() {
     const s = prEl('section', 'ph-card li-busca');
     s.appendChild(prEl('h3', '', '🔎 Achar decisores no LinkedIn (pelo Google)'));
-    s.appendChild(prEl('div', 'ph-linha', 'Para empresas que não estão no Google Maps (indústria, distribuidora, B2B). O Google mostra os perfis; o app separa nome, cargo e empresa e puxa o CNPJ e o telefone.'));
+    s.appendChild(prEl('div', 'ph-linha', 'Para empresas que não estão no Google Maps (indústria, distribuidora, B2B). O Google mostra os perfis; o app separa nome, cargo e empresa e puxa o CNPJ e o telefone. Cada busca usa 2 das buscas no Google do dia.'));
+    const uso = prEl('div', 'ph-linha li-google-uso'); s.appendChild(uso); googleUsoPintar(uso).catch(() => {});
     const f = prEl('div', 'li-busca-form');
     const setor = document.createElement('input'); setor.className = 'ig-texto li-busca-setor'; setor.placeholder = 'Setor (ex.: indústria de plástico)'; setor.value = userGet('li_busca_setor', '') || '';
     const cidade = document.createElement('input'); cidade.className = 'ig-texto li-busca-cidade'; cidade.placeholder = 'Cidade (ex.: Guarulhos)';
@@ -15372,6 +15385,53 @@ function liPromptExtras(l) {
 // o chip do canal certo aparece junto com as ações da busca
 (function () { const o = atualizarAcoesBusca; atualizarAcoesBusca = function () { const r = o.apply(this, arguments); try { canalRecPintar(); } catch (e) {} return r; }; })();
 
+
+// ---- Buscas no Google (limite do dia por usuário): contador, prioridade e aviso claro ----
+var _gUso = null;
+async function googleUso(forcar) {
+    if (_gUso && !forcar && Date.now() - _gUso.em < 60000) return _gUso;
+    try { const d = await _apiOficial('/leads/google-uso', { method: 'GET' }); if (d && d.limite) _gUso = Object.assign({ em: Date.now() }, d); } catch (e) {}
+    return _gUso;
+}
+function googleUsoTxt(u) { return u && u.limite ? `🔎 Buscas no Google hoje: ${u.usados} de ${u.limite}` + (u.restante < 60 ? ' · guardando o resto para CNPJ e decisor' : '') : ''; }
+async function googleUsoPintar(el) {
+    const u = await googleUso();
+    const alvos = el ? [el] : [document.getElementById('ps-google-uso')].filter(Boolean);
+    if (!el) { const box = document.getElementById('ps-acoes'); if (box && !box.hidden && !document.getElementById('ps-google-uso')) { const x = prEl('div', 'ps-google-uso'); x.id = 'ps-google-uso'; box.appendChild(x); alvos.push(x); } }
+    alvos.forEach(x => { x.textContent = googleUsoTxt(u); x.hidden = !u; });
+}
+function avisarLimiteGoogle(e) {
+    if (!/limite di[aá]rio de buscas no Google/i.test(String((e && e.message) || e || ''))) return false;
+    const hoje = new Date().toLocaleDateString('pt-BR');
+    if (userGet('google_limite_avisou', '') !== hoje) {
+        userSet('google_limite_avisou', hoje);
+        showToast('🔎 Acabaram as buscas no Google de hoje: CNPJ, decisor, vagas e Instagram voltam amanhã cedo. O resto do app segue normal.', 'err');
+    }
+    return true;
+}
+(function () { const o = _apiOficial; _apiOficial = async function () { try { return await o.apply(this, arguments); } catch (e) { avisarLimiteGoogle(e); throw e; } }; })();
+// ---- Pesquisa da empresa (CNPJ, sócios, vagas) guardada no banco: o aparelho guarda só as 300 mais novas ----
+var _pesqTab = null;
+async function pesqTabCarregar() {
+    if (!currentUser) return;
+    try {
+        const rows = await prBuscarTudo(() => supabaseClient.from('pesquisas_empresa').select('chave,dados').eq('user_id', currentUser.id).order('chave'));
+        _pesqTab = {}; rows.forEach(r => { if (r && r.chave) _pesqTab[r.chave] = r.dados; });
+        // o que só existia no aparelho vai para o banco (uma vez)
+        const loc = userGet('pesquisas', {}) || {}, faltam = Object.keys(loc).filter(k => k && !_pesqTab[k]);
+        for (let i = 0; i < faltam.length; i += 200) {
+            const lote = faltam.slice(i, i + 200).map(k => ({ user_id: currentUser.id, chave: k, dados: loc[k], atualizado_em: new Date().toISOString() }));
+            await supabaseClient.from('pesquisas_empresa').upsert(lote, { onConflict: 'user_id,chave' });
+            faltam.slice(i, i + 200).forEach(k => { _pesqTab[k] = loc[k]; });
+        }
+    } catch (e) { _pesqTab = _pesqTab || {}; }
+}
+function pesqTabSalvar(k, p) {
+    if (!k || !currentUser) return;
+    if (_pesqTab) _pesqTab[k] = p;
+    try { supabaseClient.from('pesquisas_empresa').upsert({ user_id: currentUser.id, chave: k, dados: p, atualizado_em: new Date().toISOString() }, { onConflict: 'user_id,chave' }).then(() => {}, () => {}); } catch (e) {}
+}
+
 // ===================== COMPLETAR REDES DO HISTÓRICO =====================
 // Passa pelas buscas salvas e pelas empresas das campanhas antigas atrás de Instagram e LinkedIn:
 // primeiro no site da empresa (grátis), depois no Google (Serper, com o limite do dia). Fica guardado
@@ -15551,20 +15611,27 @@ function ccHoje(canal) {
     if (!_cc) return [];
     const ativas = new Map(_cc.camps.filter(c => c.canal === canal && c.status === 'ativa' && prodNaVisao(c.produto_id)).map(c => [c.id, c]));
     const agora = Date.now();
-    return _cc.leads.filter(r => r.status === 'pendente' && ativas.has(r.campanha_id) && new Date(r.proxima_em).getTime() <= agora)
+    return _cc.leads.filter(r => r.status === 'pendente' && ativas.has(r.campanha_id) && new Date(r.proxima_em).getTime() <= agora && !(canal === 'linkedin' && r.etapa > 0))
         .map(r => ({ r, camp: ativas.get(r.campanha_id) }));
 }
 // Chaves que estão numa campanha ativa (a campanha cuida da cadência delas: não entram na fila livre nem no "Retomar hoje")
 function ccChavesAtivas(canal) {
     if (!_cc) return new Set();
     const ativas = new Set(_cc.camps.filter(c => c.canal === canal && c.status === 'ativa').map(c => c.id));
-    return new Set(_cc.leads.filter(r => r.status === 'pendente' && ativas.has(r.campanha_id)).map(r => r.chave));
+    // LinkedIn: depois do convite, quem cuida é a cadência depois do aceite (Quem aceitou? → mensagens)
+    return new Set(_cc.leads.filter(r => r.status === 'pendente' && ativas.has(r.campanha_id) && !(canal === 'linkedin' && r.etapa > 0)).map(r => r.chave));
 }
 async function ccAvancar(row, camp) {
     const et = ccEtapas(camp), prox = row.etapa + 1;
     const patch = { atualizado_em: new Date().toISOString() };
     if (prox >= et.length) patch.status = 'concluido';
     else { patch.etapa = prox; const d = new Date(); d.setDate(d.getDate() + Math.max(1, et[prox] - et[row.etapa])); d.setHours(8, 0, 0, 0); patch.proxima_em = d.toISOString(); }
+    await supabaseClient.from('campanhas_canal_leads').update(patch).eq('user_id', currentUser.id).eq('id', row.id);
+    Object.assign(row, patch);
+}
+// LinkedIn: convite feito pela campanha → a cadência depois do aceite assume (sem duas cadências para a mesma pessoa)
+async function ccEntregarLinkedin(row) {
+    const patch = { status: 'concluido', etapa: Math.max(1, row.etapa || 0), atualizado_em: new Date().toISOString() };
     await supabaseClient.from('campanhas_canal_leads').update(patch).eq('user_id', currentUser.id).eq('id', row.id);
     Object.assign(row, patch);
 }
@@ -15593,7 +15660,7 @@ async function ccFazer(aba, item, aoTerminar) {
     const fim = () => { if (aoTerminar) aoTerminar(); else canalAbrir(aba, true); };
     if (tipo === 'primeira') {
         let fez = false;
-        c.abrir([l], { aoRegistrar: async () => { fez = true; await ccAvancar(r, camp); },
+        c.abrir([l], { aoRegistrar: async () => { fez = true; if (aba === 'linkedin') await ccEntregarLinkedin(r); else await ccAvancar(r, camp); },
             contexto: l.mencionarWa ? 'Esta empresa já recebeu uma mensagem sua no WhatsApp há alguns dias e não respondeu: pode citar de leve, sem cobrar.' : '',
             aoFechar: fim });
         return;
@@ -15660,13 +15727,13 @@ async function ccRender(canal) {
         const ls = _cc.leads.filter(r => r.campanha_id === camp.id);
         const n = k => ls.filter(r => r.status === k).length;
         const abordados = ls.filter(r => r.etapa > 0 || r.status !== 'pendente').length;
-        const hoje = ls.filter(r => r.status === 'pendente' && new Date(r.proxima_em).getTime() <= agora).length;
+        const hoje = ls.filter(r => r.status === 'pendente' && new Date(r.proxima_em).getTime() <= agora && !(canal === 'linkedin' && r.etapa > 0)).length;
         const card = prEl('section', 'ph-card cc-card');
         const cab = prEl('div', 'cc-cab');
         const nm = prEl('b', '', camp.nome); if (prodEtiqueta(camp.produto_id)) nm.insertAdjacentHTML('beforeend', prodEtiqueta(camp.produto_id));
         cab.append(nm, prEl('span', 'cl-selo' + (camp.status === 'ativa' ? ' ok' : ''), camp.status === 'ativa' ? 'ativa' : camp.status === 'pausada' ? 'pausada' : 'concluída'));
         card.appendChild(cab);
-        card.appendChild(prEl('div', 'ph-linha', `Cadência: ${ccEtapas(camp).map(d => 'Dia ' + d).join(' · ')} · ${camp.origem || ''}`));
+        card.appendChild(prEl('div', 'ph-linha', canal === 'linkedin' ? `Convite pela campanha → depois do aceite: mensagem, follow-up no dia 4, áudio no dia 9 e última no dia 16 · ${camp.origem || ''}` : `Cadência: ${ccEtapas(camp).map(d => 'Dia ' + d).join(' · ')} · ${camp.origem || ''}`));
         const nums = prEl('div', 'cc-nums');
         [[ls.length, 'empresas'], [abordados, 'já abordadas'], [n('respondeu'), 'responderam'], [n('sem_interesse'), 'sem interesse'], [hoje, 'para hoje']].forEach(([v, r]) => { const d = prEl('div'); d.append(prEl('b', '', String(v)), prEl('span', '', r)); nums.appendChild(d); });
         card.appendChild(nums);
@@ -16211,8 +16278,20 @@ const MANUAL = {
                     titulo: 'Chegar no decisor pelo LinkedIn', resumo: 'Quem decide, o perfil certo e a rotina do dia', aba: 'linkedin',
                     blocos: [
                         { t: '👤 Quem decide', l: ['Depois de cada busca, o app puxa os sócios pelo CNPJ das 20 melhores empresas e procura o perfil do sócio-administrador no LinkedIn ("✓ perfil confirmado").', 'Quando o WhatsApp responde "quem cuida disso é o Carlos" ou "fala com a Dra. Ana", aparece "👔 Indicaram quem decide" com o botão "Ir direto pelo LinkedIn".', 'No produto, escolha **Quem compra** (dono, comercial, marketing, financeiro, RH, TI, operações): a busca de pessoas procura esse cargo.'] },
-                        { t: '👔 Decisores do dia (aba LinkedIn)', l: ['A rotina: 👀 aquecer hoje (ver o perfil e curtir) → ✉️ convite amanhã → ✅ no 3º dia "aceitou?" (sim: abre a mensagem; ainda não: pergunta de novo em 2 dias) → 🔁 depois de 7 dias sem aceitar, tenta o 2º sócio.', 'Placar: convites na semana (limite de 100), % de quem aceitou e reuniões pelo LinkedIn.'] },
+                        { t: '👔 Decisores do dia (aba LinkedIn)', l: ['Quem decide em cada empresa: 👀 aquecer (ver o perfil, curtir ou 💬 comentar um post: cole o post e a IA escreve o comentário) → ✉️ convite no dia seguinte → 🔁 depois de 7 dias sem aceitar, tenta o 2º sócio.', 'Sobe na fila quem tem **sinal de compra**: 🆕 empresa aberta há menos de 2 anos, 📢 vaga aberta (está contratando), 🏭 porte, 📵 WhatsApp sem resposta há 5 dias. A IA usa o sinal no convite.', 'Quem respondeu no WhatsApp ou já está andando no Pipeline não recebe convite frio. Quem recebeu WhatsApp há menos de 5 dias espera.'] },
+                        { t: '▶ Rotina do LinkedIn (uns 15 minutos)', l: ['No topo da aba: **Começar a rotina**. O app abre um por um: 🤝 **Quem aceitou?** (marque em lote, com o atalho para as suas conexões) → 💬 **mensagens da cadência** → ✉️ convites e aquecimentos até o limite do dia.', 'Cadência depois do aceite: mensagem no dia do aceite → follow-up no dia 4 → áudio no dia 9 → última no dia 16. Em cada uma: "Copiar e abrir perfil" e **✓ Mandei**.', 'Aceitou e tem celular na Receita: "📲 Mandar WhatsApp também" (você confirma o texto antes).', 'Campanha do LinkedIn: a campanha faz o convite; depois do aceite vale essa mesma cadência.', '☀️ Resumo às 8h dos dias úteis no seu WhatsApp de alertas, mesmo com o app fechado (liga e desliga na rotina).'] },
+                        { t: '💬 Resposta do LinkedIn', l: ['O app não lê o LinkedIn: cole a resposta em **Respostas → Colar resposta do LinkedIn** (ou no "Respondeu" da aba). A IA entende e o app faz o resto: 🔥 interessado → Respondeu · 📅 reunião (horário lido do texto) → Negociando · ⏰ agora não → lembrete em 30/60/90 dias · 👔 indicou outra pessoa → Decisores do dia · 🚫 sem interesse → Perdido.', 'A sugestão de resposta já leva o **link da sua agenda** quando a pessoa topa conversar.', 'Respondeu no LinkedIn: os follow-ups do WhatsApp daquela empresa saem da fila.'] },
+                        { t: '🔎 Achar decisores no LinkedIn (pelo Google)', l: ['Para quem não está no Maps (indústria, distribuidora, B2B): digite o setor e a cidade, o app traz os perfis com cargo de decisão pelo Google (sem entrar no LinkedIn), você marca e eles entram na rotina com CNPJ e telefone da Receita.', 'Cada busca usa 2 das buscas no Google do dia. O contador "🔎 Buscas no Google hoje" mostra quanto sobra.'] },
+                        { t: '✍️ Perfil, posts e indicação', l: ['"Seu perfil e seus posts": a IA reescreve o título e o Sobre, e escreve os 3 posts da semana com as dores reais dos seus leads ("Postei ✓").', 'Funil de 30 dias (convites → aceite → respostas → reuniões) e **teste A/B do convite** (nota com gancho, nota curta, sem nota): com 10 de cada, o app usa o que mais é aceito.', 'Cliente ganho há 7 dias: "🤝 Pedir indicação" no card. Quem for indicado entra nos Decisores do dia e o convite cita a indicação.'] },
                         { t: '🎙️ Áudio no LinkedIn', l: ['Na mensagem para quem aceitou: "Gerar áudio desta mensagem". A IA fala com a sua voz escolhida e o arquivo vai para o compartilhar do celular; no app do LinkedIn, anexe na conversa.'] }
+                    ]
+                },
+                {
+                    titulo: 'Instagram com rotina e resposta', resumo: 'DM ou story, teste A/B e funil', aba: 'insta',
+                    blocos: [
+                        { t: '▶ Rotina do Instagram', l: ['No topo da aba: retomadas do dia e DMs até o limite, com o intervalo de segurança entre uma e outra.', '**Responder o story**: dentro da janela, "Ver stories" e "Responder o story". Cai na conversa principal, não em Solicitações.', 'Teste A/B da primeira DM (só uma pergunta, detalhe do perfil, dor que vi) e funil de 30 dias.'] },
+                        { t: '💬 Resposta do Instagram', l: ['Cole a resposta (Respostas → Colar resposta do Instagram): a IA entende e move o Pipeline, igual ao LinkedIn. Ou "Só marcar que respondeu, sem colar".'] },
+                        { t: '🎯 Canal certo por nicho', l: ['Depois da busca: clínica, salão, restaurante, academia e loja → o Instagram costuma render mais; indústria, distribuidora, transportadora e contabilidade → LinkedIn.', 'Dor "📉 Instagram fraco" (menos de 800 seguidores ou 30 publicações) aparece na Dor e solução quando o nicho é de Instagram ou o seu produto é de marketing.'] }
                     ]
                 },
                 {
@@ -16221,7 +16300,7 @@ const MANUAL = {
                         { t: '⭐ Prioridades de hoje', l: ['No topo do Pipeline, os 5 negócios com o passo mais importante agora: confirmar reunião, registrar o resultado, ligar para negociação parada, mandar proposta, propor reunião para quem respondeu com interesse.', 'Cada card mostra "👉 Próximo passo" com o botão certo.'] },
                         { t: '📄 Proposta pelo WhatsApp', l: ['No card: "Montar proposta" → escolha o produto e o valor, a IA escreve (o que o cliente precisa, o que está incluso, investimento e próximo passo). Revise e envie.', 'Ao enviar, o card vai para Negociando com o valor e um lembrete para cobrar o retorno em 2 dias.'] },
                         { t: '🤖 Copiloto pelo WhatsApp', l: ['Do seu número de alerta (Integrações), mande texto ou áudio para o número da prospecção: "hoje", "move a Padaria Sol para negociando", "nota na Padaria Sol: ligar sexta 10h" ou "quem é a Padaria Sol?".', 'Ele só responde a você. Lead nunca recebe resposta automática.'] },
-                        { t: '👥 Seu time (gestor)', l: ['No Painel, o ranking de cada vendedor: envios, % de resposta, interessados, quanto tempo leva para responder um interessado, reuniões, ganhos e o que está ficando para trás.'] }
+                        { t: '👥 Seu time (gestor)', l: ['No Painel, o ranking de cada vendedor: envios, % de resposta, interessados, quanto tempo leva para responder um interessado, LinkedIn (convites, % de aceite, respostas), Instagram (DMs e respostas), reuniões, ganhos e o que está ficando para trás.'] }
                     ]
                 },
                 {
@@ -16427,6 +16506,7 @@ async function prodCarregar() {
     prodPintar();
     await prodCarregarCampanhas();
     cpResincronizarSalvas();
+    try { pesqTabCarregar(); } catch (e) {}
     setTimeout(() => { try { pendCarregar(); } catch (e) {} }, 5000);   // avisa já ao abrir se o WhatsApp caiu ou parou
     if (_produtos.length > 1 || userGet('produto_visao', '') === 'todos') prodRecarregarTelas(); else { try { _enviadosRecalcular(); } catch (e) {} }
 }
@@ -19084,10 +19164,12 @@ async function ptCarregar() {
         const dias = Number(document.getElementById('pt-dias')?.value || 7);
         const { data, error } = await supabaseClient.rpc('painel_equipe', { dias });
         if (error || !Array.isArray(data) || data.length < 2) { sec.hidden = true; return; }
+        let canais = {};
+        try { const rc = await supabaseClient.rpc('painel_equipe_canais', { dias }); (rc.data || []).forEach(x => { canais[x.membro_id] = x; }); } catch (e) {}
         const lst = data.map(r => ({ ...r, taxa: r.envios ? r.responderam / r.envios : 0 })).sort((a, b) => (b.ganhos - a.ganhos) || (b.interessados - a.interessados) || (b.envios - a.envios));
         box.innerHTML = '';
         const tab = prEl('table', 'pr-tabela pt-tab');
-        const cab = prEl('tr'); ['Vendedor', 'Envios', 'Responderam', 'Interessados', 'Responde em', 'Reuniões', 'Ganhos', 'Atenção'].forEach(h => cab.appendChild(prEl('th', '', h)));
+        const cab = prEl('tr'); ['Vendedor', 'Envios', 'Responderam', 'Interessados', 'Responde em', 'LinkedIn', 'Instagram', 'Reuniões', 'Ganhos', 'Atenção'].forEach(h => cab.appendChild(prEl('th', '', h)));
         tab.appendChild(cab);
         const hora = m => m == null ? '—' : m < 60 ? Math.round(m) + ' min' : (m / 60).toFixed(1).replace('.', ',') + ' h';
         lst.forEach((r, i) => {
@@ -19098,7 +19180,10 @@ async function ptCarregar() {
             const dSem = r.ultimo_envio ? Math.floor((Date.now() - new Date(r.ultimo_envio).getTime()) / 86400000) : null;
             if (dSem == null || dSem >= 3) at.push(dSem == null ? '⏸ nunca enviou' : `⏸ ${dSem} dias sem envio`);
             tr.append(prEl('td', '', (i === 0 && (r.ganhos || r.interessados) ? '🏆 ' : '') + r.nome), prEl('td', '', String(r.envios)), prEl('td', '', prPctTxt(r.responderam, r.envios)),
-                prEl('td', '', String(r.interessados)), prEl('td', r.minutos_resposta > 120 ? 'pt-ruim' : '', hora(r.minutos_resposta)), prEl('td', '', String(r.reunioes)),
+                prEl('td', '', String(r.interessados)), prEl('td', r.minutos_resposta > 120 ? 'pt-ruim' : '', hora(r.minutos_resposta)),
+                prEl('td', '', (c => c && c.li_convites ? `${c.li_convites} convites · ${prPctTxt(c.li_aceitos, c.li_convites)} aceite · ${c.li_respostas} resp.` : '—')(canais[r.membro_id])),
+                prEl('td', '', (c => c && c.ig_dms ? `${c.ig_dms} DMs · ${c.ig_respostas} resp.` : '—')(canais[r.membro_id])),
+                prEl('td', '', String(r.reunioes)),
                 prEl('td', '', r.ganhos ? r.ganhos + (Number(r.valor_ganho) ? ' · ' + _brl(Number(r.valor_ganho)) : '') : '0'), prEl('td', at.length ? 'pt-ruim' : '', at.join(' · ') || '✅ em dia'));
             tab.appendChild(tr);
         });
@@ -20750,12 +20835,13 @@ function pesqChave(l) { return (l && (l.place_id || pkTel(l.phone) || _normNicho
 function pesqDe(l) {
     if (!l) return null;
     if (l.pesquisa) return l.pesquisa;
-    const c = (userGet('pesquisas', {}) || {})[pesqChave(l)];
+    const c = (userGet('pesquisas', {}) || {})[pesqChave(l)] || (typeof _pesqTab !== 'undefined' && _pesqTab && _pesqTab[pesqChave(l)]) || null;
     if (c) l.pesquisa = c;
-    return c || null;
+    return c;
 }
 function pesqSalvar(l, p) {
     l.pesquisa = p;
+    try { pesqTabSalvar(pesqChave(l), p); } catch (e) {}
     const c = userGet('pesquisas', {}) || {}; c[pesqChave(l)] = p;
     const ks = Object.keys(c);
     if (ks.length > 300) ks.sort((a, b) => (c[a].em || 0) - (c[b].em || 0)).slice(0, ks.length - 300).forEach(k => delete c[k]);
