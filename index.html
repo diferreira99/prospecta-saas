@@ -7286,6 +7286,7 @@ async function buscarRedesEmFundo(buscaId, leads) {
             if (d.enriquecimento === 'pronto' && u && _leadsBase.includes(leads[0])) userSet('ultimosLeads', { ...u, leads: _leadsBase, redesOk: true });
             if (_leadsBase.includes(leads[0])) histAtualizarRedes(leads);
             completarRedesPeloGoogle(leads);
+            cnpjAutoMelhores(leads);
             return;
         }
         await _esperar(8000);
@@ -19258,7 +19259,8 @@ function pesqPrompt(l, site, cnpj) {
         '\n\nO QUE EU VENDO: ' + ((prod && prod.nome) || '') + ' — ' + String((prod && prod.instrucoes) || '').replace(/\s+/g, ' ').slice(0, 400) +
         '\n\nResponda SÓ com um JSON: {"oque_faz":"1 frase","publico":"para quem vendem, 1 frase curta","dor":"a dor mais provável que o meu produto resolve, 1 frase","gancho":"1 frase para abrir a conversa citando um detalhe REAL da empresa (algo do site, do Instagram ou um elogio de cliente), sem elogio genérico, sem citar avaliação negativa, sem citar o CNPJ nem dados da Receita"}';
 }
-async function pesquisarLead(l, cnpjDigitado) {
+// Acha o CNPJ do lead: no site primeiro, depois no Google pelo nome + cidade; e puxa os dados da Receita.
+async function cnpjBuscar(l, cnpjDigitado) {
     let site = null, cnpj = null, avisoSite = '';
     if (l.website) { try { site = await _srv('/site-texto', { url: l.website }); } catch (e) { if (/precisa atualizar/.test(e.message)) throw e; avisoSite = e.message; } }
     let n = String(cnpjDigitado || (site && site.cnpjs && site.cnpjs[0]) || (pesqDe(l) && pesqDe(l).cnpj && pesqDe(l).cnpj.cnpj) || '').replace(/\D/g, '');
@@ -19271,15 +19273,46 @@ async function pesquisarLead(l, cnpjDigitado) {
         } catch (e) {}
     }
     if (n) { try { cnpj = await _srv('/cnpj?n=' + n); if (cnpj) cnpj.fonte = cnpjFonte; } catch (e) {} }
+    return { site, cnpj, avisoSite };
+}
+// O sócio-administrador vira "quem decide" (o LinkedIn e a IA usam)
+function cnpjDecisorNoLead(l, soc) {
+    if (soc && !(Array.isArray(l.decisores) && l.decisores.some(d => _normNicho(d.nome) === _normNicho(soc.nome)))) l.decisores = [{ nome: soc.nome, cargo: soc.cargo, fonte: 'receita' }].concat(Array.isArray(l.decisores) ? l.decisores : []).slice(0, 4);
+}
+async function pesquisarLead(l, cnpjDigitado) {
+    const { site, cnpj, avisoSite } = await cnpjBuscar(l, cnpjDigitado);
     const t = await iaServidor(pesqPrompt(l, site, cnpj), 500, config.iaProvider || undefined);
     const m = String(t).match(/\{[\s\S]*\}/);
     let r = {}; try { r = m ? JSON.parse(m[0]) : {}; } catch (e) {}
     const soc = socioPrincipal(cnpj);
     const p = { oque_faz: r.oque_faz || '', publico: r.publico || '', dor: r.dor || '', gancho: r.gancho || '', decisor: soc, cnpj, semCnpj: !cnpj, site: site ? { titulo: site.titulo } : null, avisoSite, em: Date.now() };
     pesqSalvar(l, p);
-    // o sócio vira "quem decide" (o LinkedIn e a IA usam)
-    if (soc && !(Array.isArray(l.decisores) && l.decisores.some(d => _normNicho(d.nome) === _normNicho(soc.nome)))) l.decisores = [{ nome: soc.nome, cargo: soc.cargo, fonte: 'receita' }].concat(Array.isArray(l.decisores) ? l.decisores : []).slice(0, 4);
+    cnpjDecisorNoLead(l, soc);
     return p;
+}
+// Depois de cada busca: CNPJ, sócios, porte e idade das 20 melhores empresas, sozinho e em segundo plano
+// (sem IA; o gancho continua no "Pesquisar com IA"). Cada uma só uma vez: o resultado fica guardado.
+var CNPJ_AUTO_MAX = 20, _cnpjAutoRodando = false;
+async function cnpjAutoMelhores(leads) {
+    if (_cnpjAutoRodando || !currentUser || !config?.uazapi?.url) return;
+    const alvo = (leads || []).filter(l => l && (l.title || l.name) && !l._cnpjTentado && !bloqueadoLead(l) && !(pesqDe(l) && (pesqDe(l).cnpj || pesqDe(l).semCnpj)))
+        .map(l => ({ l, sc: calcScore(l) })).sort((a, b) => b.sc - a.sc).slice(0, CNPJ_AUTO_MAX).map(x => x.l);
+    if (!alvo.length) return;
+    _cnpjAutoRodando = true;
+    let achou = 0;
+    try {
+        for (const l of alvo) {
+            l._cnpjTentado = true;
+            try {
+                const { cnpj } = await cnpjBuscar(l);
+                const ant = pesqDe(l);
+                const p = Object.assign({}, ant || {}, { parcial: !ant || !!ant.parcial, cnpj, semCnpj: !cnpj, decisor: socioPrincipal(cnpj) || (ant || {}).decisor || null, em: (ant || {}).em || Date.now() });
+                pesqSalvar(l, p);
+                if (cnpj) { achou++; cnpjDecisorNoLead(l, p.decisor); }
+            } catch (e) { if (/precisa atualizar/.test(e.message || '')) break; }
+        }
+    } finally { _cnpjAutoRodando = false; }
+    if (achou) showToast(`🧾 CNPJ de ${achou} empresa${achou === 1 ? '' : 's'} encontrado: sócios, porte e idade no detalhe do lead`, 'ok');
 }
 var _pesqLeads = {};
 function blocoPesquisa(l, idx) {
@@ -19291,7 +19324,7 @@ function blocoPesquisa(l, idx) {
                 <div class="dor-tit pq-tit">🔎 Pesquisa da empresa</div>
                 <div class="pq-corpo">${corpo}</div>
                 <div class="pq-acoes">
-                    <button type="button" class="dor-btn ia pq-btn" onclick="pesqClicar(${idx})">${p ? '🔄 Pesquisar de novo' : '🔎 Pesquisar com IA'}</button>
+                    <button type="button" class="dor-btn ia pq-btn" onclick="pesqClicar(${idx})">${p && !p.parcial ? '🔄 Pesquisar de novo' : '🔎 Pesquisar com IA'}</button>
                     <input class="pq-cnpj" id="pq-cnpj-${idx}" inputmode="numeric" maxlength="18" placeholder="CNPJ (o app procura sozinho)" value="${escapeHtml((p && p.cnpj && p.cnpj.cnpj) || '')}">
                 </div>
             </div>`;
@@ -19307,7 +19340,7 @@ function pesqHtml(p) {
         (p.semCnpj ? '<div class="pq-vazio">🧾 CNPJ não apareceu no site nem no Google. Se você souber, digite abaixo e pesquise de novo.</div>' : '') + (socios && (!p.decisor || c.socios.length > 1) ? lin('🤝', 'Sócios', socios) : '') +
         (p.gancho ? `<div class="pq-gancho">💬 "${escapeHtml(p.gancho)}" <button type="button" class="dor-btn" onclick="dorCopiarTexto(${JSON.stringify(p.gancho).replace(/"/g, '&quot;')})">📋 Copiar</button></div>` : '') +
         (p.avisoSite ? `<div class="pq-vazio">Site: ${escapeHtml(p.avisoSite)}</div>` : '') +
-        `<div class="pq-vazio">pesquisado em ${new Date(p.em).toLocaleDateString('pt-BR')}</div>`;
+        (p.parcial ? '<div class="pq-vazio">CNPJ puxado sozinho depois da busca. Toque em "Pesquisar com IA" para o que a empresa faz, a dor e o gancho.</div>' : `<div class="pq-vazio">pesquisado em ${new Date(p.em).toLocaleDateString('pt-BR')}</div>`);
 }
 function dorCopiarTexto(t) {
     try { navigator.clipboard.writeText(t).then(() => showToast('📋 Copiado', 'ok'), () => showToast('Não deu para copiar', 'err')); } catch (e) { showToast('Não deu para copiar', 'err'); }
@@ -19323,7 +19356,7 @@ async function pesqClicar(idx) {
 }
 // Antes da campanha: pesquisa os melhores (um por vez) para a IA ter o gancho de cada um
 async function pesqMelhores() {
-    const alvo = melhoresParaCampanha().filter(l => !pesqDe(l)).slice(0, 15);
+    const alvo = melhoresParaCampanha().filter(l => !pesqDe(l) || pesqDe(l).parcial).slice(0, 15);
     if (!alvo.length) { showToast('Os melhores desta busca já estão pesquisados ✓', 'ok'); return; }
     if (!confirm(`Pesquisar ${alvo.length} empresa(s) com a IA (site, CNPJ e gancho)? Leva uns ${Math.ceil(alvo.length * 12 / 60)} min; dá para continuar usando o app.`)) return;
     const bt = document.getElementById('ps-btn-pesq'); let ok = 0;

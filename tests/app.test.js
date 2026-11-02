@@ -1669,3 +1669,34 @@ test('CNPJ é procurado sozinho no Google quando o site não mostra', async () =
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('depois da busca, CNPJ das melhores empresas é puxado sozinho (sem IA) e aparece no detalhe', async () => {
+  const a = await abrirApp({ largura: 1280 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      config.uazapi = Object.assign({}, config.uazapi, { url: 'https://srv.test', token: 't' });
+      let ia = 0; iaServidor = async () => { ia++; return '{}'; };
+      _srv = async c => c === '/site-texto' ? { cnpjs: [] } : { cnpj: '11222333000181', porte: 'ME', abertura: '2010-05-01', atividade: 'Padaria', situacao: 'ATIVA', socios: [{ nome: 'JOSE PAO', qualificacao: 'Sócio-Administrador' }] };
+      _apiOficial = async (c, o) => JSON.parse(o.body).nome === 'Padaria Sol' ? { cnpj: '11222333000181' } : { cnpj: null };
+      const leads = [
+        { title: 'Padaria Sol', phone: '11999990001', website: 'https://sol.com.br', rating: 4.9, reviews: 200, is_whatsapp: true, place_id: 'a1' },
+        { title: 'Sem Registro', phone: '11999990002', rating: 4.0, reviews: 10, place_id: 'a2' },
+      ];
+      todosLeads = leads.slice(); _leadsBase = leads.slice();
+      await cnpjAutoMelhores(leads);
+      const segunda = await (async () => { let n = 0; const orig = _srv; _srv = async (...x) => { n++; return orig(...x); }; await cnpjAutoMelhores(leads); _srv = orig; return n; })();
+      trocarAba('prospeccao', document.querySelector(`.nav-item[onclick*="'prospeccao'"]`)); renderPagina(1);
+      const idx = todosLeads.indexOf(leads[0]);
+      toggleExpandScore(idx, document.getElementById('lead-row-' + idx).querySelector('[onclick^="toggleExpandScore("]'));
+      return { ia, segunda, card: document.getElementById('pq-' + idx).innerText, dec: leads[0].decisores && leads[0].decisores[0].nome, sem: pesqDe(leads[1]).semCnpj };
+    });
+    assert.strictEqual(r.ia, 0, 'sem gastar IA');
+    assert.strictEqual(r.segunda, 0, 'não busca de novo quem já foi tentado');
+    assert.match(r.card, /Quem decide: Jose Pao/);
+    assert.match(r.card, /aberta há \d+ anos · ME · Padaria \(achado no Google pelo nome\)/);
+    assert.match(r.card, /CNPJ puxado sozinho depois da busca[\s\S]*Pesquisar com IA/);
+    assert.strictEqual(r.dec, 'Jose Pao');
+    assert.strictEqual(r.sem, true);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
