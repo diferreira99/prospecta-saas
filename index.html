@@ -14728,7 +14728,7 @@ const MANUAL = {
                 {
                     titulo: 'Pesquisa da empresa e aquecimento', resumo: 'Primeira mensagem com nome do dono e gancho real', aba: 'prospeccao',
                     blocos: [
-                        { t: '🔎 Pesquisa da empresa', l: ['No detalhe do lead, **"Pesquisar com IA"**: o app lê o site, acha o CNPJ (ou você digita), puxa da Receita sócios, porte e há quantos anos a empresa existe, e a IA resume o que ela faz, para quem, a dor provável e um **gancho real** para a 1ª mensagem.', 'O sócio-administrador vira "quem decide" e a DM do Instagram e o convite do LinkedIn usam o gancho.', '**"🔎 Pesquisar os melhores"** (depois da busca) pesquisa até 15 de uma vez.'] },
+                        { t: '🔎 Pesquisa da empresa', l: ['No detalhe do lead, **"Pesquisar com IA"**: o app lê o site, acha o CNPJ sozinho (no site ou no Google pelo nome e cidade; se não achar, você digita), puxa da Receita sócios, porte e há quantos anos a empresa existe, e a IA resume o que ela faz, para quem, a dor provável e um **gancho real** para a 1ª mensagem.', 'O sócio-administrador vira "quem decide" e a DM do Instagram e o convite do LinkedIn usam o gancho.', '**"🔎 Pesquisar os melhores"** (depois da busca) pesquisa até 15 de uma vez.'] },
                         { t: '🔥 Aquecer antes da DM', l: ['No Instagram e no LinkedIn, o primeiro passo é seguir e curtir 1 ou 2 posts. A DM fica liberada no dia seguinte e cai menos em Solicitações.', 'No dia seguinte, quem foi aquecido aparece primeiro na fila, com o selo 🔥.', 'Dá para "Mandar agora mesmo" ou desligar o aquecimento no próprio passo.'] },
                         { t: '⏰ Cadência com caminhos', l: ['Quando o lead diz "agora não", "mais pra frente" ou "ano que vem", a resposta mostra **Retomar em 30, 60 ou 90 dias**: vira lembrete no Pipeline e a caixa já traz um "combinado, te chamo em…".', 'Follow-up de quem **leu e não respondeu** ganha o selo 👁 e o botão para a IA reescrever com outro ângulo.', 'Quem entrou em Não contatar sai da fila de follow-up sozinho.'] }
                     ]
@@ -19261,13 +19261,21 @@ function pesqPrompt(l, site, cnpj) {
 async function pesquisarLead(l, cnpjDigitado) {
     let site = null, cnpj = null, avisoSite = '';
     if (l.website) { try { site = await _srv('/site-texto', { url: l.website }); } catch (e) { if (/precisa atualizar/.test(e.message)) throw e; avisoSite = e.message; } }
-    const n = String(cnpjDigitado || (site && site.cnpjs && site.cnpjs[0]) || (pesqDe(l) && pesqDe(l).cnpj && pesqDe(l).cnpj.cnpj) || '').replace(/\D/g, '');
-    if (n) { try { cnpj = await _srv('/cnpj?n=' + n); } catch (e) {} }
+    let n = String(cnpjDigitado || (site && site.cnpjs && site.cnpjs[0]) || (pesqDe(l) && pesqDe(l).cnpj && pesqDe(l).cnpj.cnpj) || '').replace(/\D/g, '');
+    let cnpjFonte = cnpjDigitado ? 'digitado' : n ? 'site' : '';
+    // Sem CNPJ no site: procura no Google pelo nome + cidade (só aceita quando o nome da empresa aparece junto)
+    if (!n) {
+        try {
+            const g = await _apiOficial('/leads/cnpj-google', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: l.title || l.name || '', cidade: cidadeDoLead(l) || '' }) });
+            if (g && g.cnpj) { n = String(g.cnpj).replace(/\D/g, ''); cnpjFonte = 'Google'; }
+        } catch (e) {}
+    }
+    if (n) { try { cnpj = await _srv('/cnpj?n=' + n); if (cnpj) cnpj.fonte = cnpjFonte; } catch (e) {} }
     const t = await iaServidor(pesqPrompt(l, site, cnpj), 500, config.iaProvider || undefined);
     const m = String(t).match(/\{[\s\S]*\}/);
     let r = {}; try { r = m ? JSON.parse(m[0]) : {}; } catch (e) {}
     const soc = socioPrincipal(cnpj);
-    const p = { oque_faz: r.oque_faz || '', publico: r.publico || '', dor: r.dor || '', gancho: r.gancho || '', decisor: soc, cnpj, site: site ? { titulo: site.titulo } : null, avisoSite, em: Date.now() };
+    const p = { oque_faz: r.oque_faz || '', publico: r.publico || '', dor: r.dor || '', gancho: r.gancho || '', decisor: soc, cnpj, semCnpj: !cnpj, site: site ? { titulo: site.titulo } : null, avisoSite, em: Date.now() };
     pesqSalvar(l, p);
     // o sócio vira "quem decide" (o LinkedIn e a IA usam)
     if (soc && !(Array.isArray(l.decisores) && l.decisores.some(d => _normNicho(d.nome) === _normNicho(soc.nome)))) l.decisores = [{ nome: soc.nome, cargo: soc.cargo, fonte: 'receita' }].concat(Array.isArray(l.decisores) ? l.decisores : []).slice(0, 4);
@@ -19277,14 +19285,14 @@ var _pesqLeads = {};
 function blocoPesquisa(l, idx) {
     _pesqLeads[idx] = l;
     const p = pesqDe(l);
-    const corpo = p ? pesqHtml(p) : `<div class="pq-vazio">A IA lê o site e o Instagram, puxa sócios e porte pelo CNPJ e sugere um gancho real para a primeira mensagem.</div>`;
+    const corpo = p ? pesqHtml(p) : `<div class="pq-vazio">A IA lê o site e o Instagram, acha o CNPJ sozinha (no site ou no Google), puxa sócios, porte e idade da empresa e sugere um gancho real para a primeira mensagem.</div>`;
     return `
             <div class="pq-box" id="pq-${idx}">
                 <div class="dor-tit pq-tit">🔎 Pesquisa da empresa</div>
                 <div class="pq-corpo">${corpo}</div>
                 <div class="pq-acoes">
                     <button type="button" class="dor-btn ia pq-btn" onclick="pesqClicar(${idx})">${p ? '🔄 Pesquisar de novo' : '🔎 Pesquisar com IA'}</button>
-                    <input class="pq-cnpj" id="pq-cnpj-${idx}" inputmode="numeric" maxlength="18" placeholder="CNPJ (se souber)" value="${escapeHtml((p && p.cnpj && p.cnpj.cnpj) || '')}">
+                    <input class="pq-cnpj" id="pq-cnpj-${idx}" inputmode="numeric" maxlength="18" placeholder="CNPJ (o app procura sozinho)" value="${escapeHtml((p && p.cnpj && p.cnpj.cnpj) || '')}">
                 </div>
             </div>`;
 }
@@ -19295,7 +19303,8 @@ function pesqHtml(p) {
     const socios = c && c.socios && c.socios.length ? c.socios.slice(0, 3).map(s => nomeProprio(s.nome)).join(', ') : '';
     return lin('🏢', 'O que faz', p.oque_faz) + lin('👥', 'Para quem', p.publico) +
         lin('👤', 'Quem decide', p.decisor ? p.decisor.nome + (p.decisor.cargo ? ' (' + p.decisor.cargo + ')' : '') : '') +
-        lin('🎯', 'Dor provável', p.dor) + lin('🧾', 'Receita', rec) + (socios && (!p.decisor || c.socios.length > 1) ? lin('🤝', 'Sócios', socios) : '') +
+        lin('🎯', 'Dor provável', p.dor) + lin('🧾', 'Receita', rec ? rec + (c.fonte === 'Google' ? ' (achado no Google pelo nome)' : '') : '') +
+        (p.semCnpj ? '<div class="pq-vazio">🧾 CNPJ não apareceu no site nem no Google. Se você souber, digite abaixo e pesquise de novo.</div>' : '') + (socios && (!p.decisor || c.socios.length > 1) ? lin('🤝', 'Sócios', socios) : '') +
         (p.gancho ? `<div class="pq-gancho">💬 "${escapeHtml(p.gancho)}" <button type="button" class="dor-btn" onclick="dorCopiarTexto(${JSON.stringify(p.gancho).replace(/"/g, '&quot;')})">📋 Copiar</button></div>` : '') +
         (p.avisoSite ? `<div class="pq-vazio">Site: ${escapeHtml(p.avisoSite)}</div>` : '') +
         `<div class="pq-vazio">pesquisado em ${new Date(p.em).toLocaleDateString('pt-BR')}</div>`;

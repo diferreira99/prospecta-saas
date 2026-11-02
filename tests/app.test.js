@@ -1643,3 +1643,29 @@ test('Painel do time: ranking por vendedor com tempo de resposta e o que está f
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('CNPJ é procurado sozinho no Google quando o site não mostra', async () => {
+  const a = await abrirApp({ largura: 1280 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      config.uazapi = Object.assign({}, config.uazapi, { url: 'https://srv.test', token: 't' });
+      const chamadas = [];
+      _srv = async c => { chamadas.push(c); if (c === '/site-texto') return { titulo: 'X', texto: 'sem cnpj aqui', cnpjs: [] };
+        return { cnpj: '11222333000181', razao_social: 'LUA LTDA', porte: 'ME', abertura: '2015-01-01', atividade: 'Oficina', situacao: 'ATIVA', socios: [{ nome: 'ANA LUZ', qualificacao: 'Sócio-Administrador' }] }; };
+      let pedidoGoogle = null;
+      _apiOficial = async (c, o) => { pedidoGoogle = { c, corpo: JSON.parse(o.body) }; return { cnpj: '11222333000181' }; };
+      iaServidor = async () => '{"oque_faz":"Oficina","publico":"motoristas","dor":"x","gancho":"y"}';
+      const l = { title: 'Oficina Lua', phone: '11999990002', website: 'https://lua.com.br', address: 'Rua A, 10 - Centro, Campinas - SP', place_id: 'pLua' };
+      const p = await pesquisarLead(l);
+      const semNada = await (async () => { _apiOficial = async () => ({ cnpj: null }); _srv = async c => c === '/site-texto' ? { cnpjs: [] } : null; return pesquisarLead({ title: 'Sem Nada', phone: '11999990003', website: 'https://x.com', place_id: 'pNada' }); })();
+      return { chamadas, pedidoGoogle, html: pesqHtml(p), dec: p.decisor && p.decisor.nome, semNada: pesqHtml(semNada) };
+    });
+    assert.strictEqual(r.pedidoGoogle.c, '/leads/cnpj-google');
+    assert.strictEqual(r.pedidoGoogle.corpo.nome, 'Oficina Lua');
+    assert.deepStrictEqual(r.chamadas, ['/site-texto', '/cnpj?n=11222333000181']);
+    assert.match(r.html, /achado no Google pelo nome/);
+    assert.strictEqual(r.dec, 'Ana Luz');
+    assert.match(r.semNada, /CNPJ não apareceu no site nem no Google/);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
