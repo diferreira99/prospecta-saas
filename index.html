@@ -1417,6 +1417,9 @@
 .ps-chip { font-family:'Inter',sans-serif; font-size:0.6rem; font-weight:700; padding:4px 10px; border-radius:20px; border:1.5px solid #d1d5db; background:#fff; color:#6b7280; cursor:pointer; white-space:nowrap; }
 .ps-chip[aria-pressed="true"] { border-color:#165DFF; background:#EBF0FF; color:#165DFF; }
 .pend { margin-bottom:16px; }
+.fu-fila-aviso { font-family:'Inter',sans-serif; font-size:0.74rem; font-weight:700; color:#9a3412; background:#FFF3E0; border:1.5px solid #FFD6B0; border-radius:10px; padding:9px 12px; margin:0 0 10px; }
+.fu-fila-aviso[hidden] { display:none; }
+.fila-card.fu-na-fila { opacity:.75; border-color:#FFD6B0 !important; }
 .cp-arquivadas { margin-top:6px; }
 .cp-arquivadas > summary { cursor:pointer; font-family:'Inter',sans-serif; font-size:0.78rem; font-weight:700; color:var(--muted); padding:10px 4px; }
 .cp-arquivadas[open] > summary { margin-bottom:8px; }
@@ -3952,7 +3955,7 @@ function renderizarFilaFollowups() {
             : canal === 'linkedin' ? `<button onclick="fuAbrirCanal(${item.id})" style="padding:8px 16px;border-radius:8px;border:none;background:#0D1330;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;">Abrir no LinkedIn</button>`
             : `<button onclick="fuAudioOuvir(${item.id}, this)" class="ps-acao" title="Ouvir como fica em áudio">▶ Ouvir</button><button onclick="fuEnviarAudio(${item.id}, this)" class="ps-acao" title="A IA fala o texto e manda como áudio">🎙️ Enviar em áudio</button><button onclick="enviarFollowup(${item.id})" style="padding:8px 16px;border-radius:8px;border:none;background:#FF6A00;color:#fff;font-size:0.78rem;font-weight:700;cursor:pointer;">📤 Enviar follow-up</button>`;
         return `
-        <div class="fila-card" style="background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;">
+        <div class="fila-card" data-fu="${item.id}" style="background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:16px 18px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
                 <div style="display:flex;align-items:center;gap:10px;">
                     <strong style="font-size:0.92rem;">${escapeHtml(item.lead_nome || item.phone || 'Lead')}</strong>
@@ -3971,33 +3974,96 @@ function renderizarFilaFollowups() {
             </div>
         </div>`;
     }).join('');
+    try { fuPintarFila(); } catch (e) {}
 }
 
-// Envia todos os follow-ups da fila, como estão na tela (com as suas edições), um a cada 20–40 s
-// para não parecer disparo em massa. Dá para parar no meio.
-var _fuEnviandoTodos = false, _fuParar = false;
+// Fila de envio dos follow-ups: sai um de cada vez, com 40 a 70 s entre eles, seja tocando card por card ou em
+// "Enviar todos". Rajada é o que derruba o número: em 19/10 saíram até 5 no mesmo segundo e o WhatsApp desconectou.
+// Se o app fechar no meio, o que não saiu continua pendente na fila de follow-ups (nada se perde).
+var _fuFila = [], _fuFilaRodando = false, _fuProxEm = 0, _fuEsperaTimer = null;
+function fuIntervalo() { return 40000 + Math.random() * 30000; }
+function enviarFollowup(filaId, textoPronto, silencioso) {
+    const texto = (textoPronto || document.getElementById('fu-texto-' + filaId)?.value || '').trim();
+    if (!texto) { if (!silencioso) showToast('A mensagem não pode ficar vazia', 'err'); return false; }
+    if (_fuFila.some(x => x.id === filaId)) return true;
+    _fuFila.push({ id: filaId, texto });
+    const espera = Math.max(0, _fuProxEm - Date.now());
+    if (!silencioso && (_fuFila.length > 1 || espera > 1000)) showToast(`⏳ Na fila de envio: sai em ~${Math.round((espera + (_fuFila.length - 1) * 55000) / 1000)} s (intervalo que protege o número)`, 'ok');
+    fuPintarFila();
+    fuProcessarFila();
+    return true;
+}
+function fuEsperar(ms) {
+    return new Promise(r => {
+        const fim = Date.now() + ms;
+        const tique = () => { fuPintarFila(); if (!_fuFila.length || Date.now() >= fim) { _fuEsperaTimer = null; r(); } else _fuEsperaTimer = setTimeout(tique, 1000); };
+        tique();
+    });
+}
+async function fuProcessarFila() {
+    if (_fuFilaRodando) return;
+    _fuFilaRodando = true;
+    let ok = 0, falhas = 0;
+    try {
+        while (_fuFila.length) {
+            const espera = Math.max(0, _fuProxEm - Date.now());
+            if (espera) { await fuEsperar(espera); if (!_fuFila.length) break; }
+            const it = _fuFila[0];
+            if (!_filaFollowupsCache.some(i => i.id === it.id)) { _fuFila.shift(); continue; }   // pulado enquanto esperava
+            it.saindo = true; fuPintarFila();
+            const enviou = await _fuEnviarAgora(it.id, it.texto, true);
+            _fuFila = _fuFila.filter(x => x !== it);
+            if (enviou) { ok++; _fuProxEm = Date.now() + fuIntervalo(); } else falhas++;
+            fuPintarFila();
+        }
+    } finally {
+        _fuFilaRodando = false; fuPintarFila();
+        if (ok + falhas > 1 || falhas) showToast('📤 ' + ok + ' follow-up' + (ok === 1 ? '' : 's') + ' enviado' + (ok === 1 ? '' : 's') + (falhas ? ' · ' + falhas + ' com erro (continuam na fila)' : ''), falhas ? 'err' : 'ok');
+        else if (ok) showToast('Follow-up enviado ✅', 'ok');
+    }
+}
+function fuPararFila() {
+    _fuFila = _fuFila.filter(x => x.saindo);   // o que já está saindo termina; o resto volta a ficar só pendente
+    fuPintarFila();
+    showToast('⏹ Parado. O que não saiu continua na fila de follow-ups.', 'ok');
+}
+// Mostra a fila: aviso no topo, botão "Enviar todos" vira "Parar" e cada card na fila fica travado com a posição
+function fuPintarFila() {
+    const secao = document.getElementById('fila-followups-secao');
+    let av = document.getElementById('fu-fila-aviso');
+    if (secao && !av) {
+        av = document.createElement('div'); av.id = 'fu-fila-aviso'; av.className = 'fu-fila-aviso';
+        const lista = document.getElementById('fila-followups-lista');
+        (lista && lista.parentNode === secao) ? secao.insertBefore(av, lista) : secao.prepend(av);
+    }
+    if (av) {
+        const n = _fuFila.length, prox = Math.max(0, Math.round((_fuProxEm - Date.now()) / 1000));
+        av.hidden = !n;
+        av.textContent = n ? `📤 Enviando com intervalo para proteger o número: ${n} na fila` + (_fuFila[0] && _fuFila[0].saindo ? ' · enviando agora…' : prox ? ` · próximo em ${prox} s` : '') + '. Deixe o app aberto.' : '';
+    }
+    const bt = document.getElementById('fu-todos');
+    if (bt) bt.textContent = _fuFila.length ? `⏹ Parar (${_fuFila.length} na fila)` : '📤 Enviar todos';
+    document.querySelectorAll('.fila-card[data-fu]').forEach(card => {
+        const id = Number(card.getAttribute('data-fu'));
+        const pos = _fuFila.findIndex(x => x.id === id);
+        card.classList.toggle('fu-na-fila', pos >= 0);
+        card.querySelectorAll('button').forEach(b => { if (!/^pularFollowup/.test(b.getAttribute('onclick') || '')) b.disabled = pos >= 0; });
+        const env = card.querySelector('button[onclick^="enviarFollowup("]');
+        if (env) env.textContent = pos < 0 ? '📤 Enviar follow-up' : _fuFila[pos].saindo ? '⏳ Enviando…' : `⏳ Na fila (${pos + 1}º)`;
+    });
+}
+window.addEventListener('beforeunload', e => { if (_fuFila.length) { e.preventDefault(); e.returnValue = ''; } });
 async function enviarTodosFollowups() {
-    const btn = document.getElementById('fu-todos');
-    if (_fuEnviandoTodos) { _fuParar = true; if (btn) btn.textContent = '⏳ Parando…'; return; }
+    if (_fuFila.length) { fuPararFila(); return; }
     const itens = _filaFollowupsCache.filter(i => i.canal !== 'instagram' && i.canal !== 'linkedin' && (document.getElementById('fu-texto-' + i.id)?.value || '').trim());
     if (!itens.length) { showToast('Nenhum follow-up com mensagem para enviar', 'err'); return; }
-    const min = Math.ceil(itens.length * 30 / 60);
-    if (!confirm('Enviar os ' + itens.length + ' follow-ups como estão na tela (com as suas edições)?\n\nVai um a cada 20 a 40 segundos (cerca de ' + min + ' min no total). Você pode parar no meio clicando no mesmo botão.')) return;
-    _fuEnviandoTodos = true; _fuParar = false;
-    const textos = {};
-    itens.forEach(i => { textos[i.id] = document.getElementById('fu-texto-' + i.id).value.trim(); });
-    let ok = 0, falhas = 0;
-    for (let k = 0; k < itens.length && !_fuParar; k++) {
-        if (btn) btn.textContent = '⏹ Parar (' + (k + 1) + '/' + itens.length + ')';
-        const enviou = await enviarFollowup(itens[k].id, textos[itens[k].id], true);
-        enviou ? ok++ : falhas++;
-        if (k < itens.length - 1 && !_fuParar) await new Promise(r => setTimeout(r, 20000 + Math.random() * 20000));
-    }
-    _fuEnviandoTodos = false;
-    if (btn) btn.textContent = '📤 Enviar todos';
-    showToast('📤 ' + ok + ' follow-up' + (ok === 1 ? '' : 's') + ' enviado' + (ok === 1 ? '' : 's') + (falhas ? ' · ' + falhas + ' com erro (continuam na fila)' : '') + (_fuParar ? ' · parado por você' : ''), falhas ? 'err' : 'ok');
+    const min = Math.ceil(itens.length * 55 / 60);
+    if (!confirm('Enviar os ' + itens.length + ' follow-ups como estão na tela (com as suas edições)?\n\nSaem um de cada vez, com 40 a 70 segundos entre eles (cerca de ' + min + ' min), para proteger o número. Deixe o app aberto: o que não sair continua na fila. Dá para parar no meio pelo mesmo botão.')) return;
+    itens.forEach(i => { if (!_fuFila.some(x => x.id === i.id)) _fuFila.push({ id: i.id, texto: document.getElementById('fu-texto-' + i.id).value.trim() }); });
+    fuPintarFila();
+    fuProcessarFila();
 }
-async function enviarFollowup(filaId, textoPronto, silencioso) {
+async function _fuEnviarAgora(filaId, textoPronto, silencioso) {
     const textarea = document.getElementById('fu-texto-' + filaId);
     const texto = (textoPronto || textarea?.value || '').trim();
     if (!texto) { if (!silencioso) showToast('A mensagem não pode ficar vazia', 'err'); return false; }
@@ -4015,6 +4081,7 @@ async function enviarFollowup(filaId, textoPronto, silencioso) {
         _filaFollowupsCache.forEach(i => { const t = document.getElementById('fu-texto-' + i.id); if (t) rascunhos[i.id] = t.value; });
         renderizarFilaFollowups();
         Object.keys(rascunhos).forEach(id => { const t = document.getElementById('fu-texto-' + id); if (t) t.value = rascunhos[id]; });
+        fuPintarFila();
         atualizarBadgeRespostas();
         return true;
     } catch (e) {
@@ -4043,6 +4110,7 @@ async function fuAbrirCanal(filaId) {
     else liAbordar([lead], { textoInicial: texto, aoRegistrar: concluir, contexto });
 }
 async function pularFollowup(filaId) {
+    _fuFila = _fuFila.filter(x => x.id !== filaId || x.saindo);
     try {
         await fetch(`${N8N_BASE}/responder-followup`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -14024,6 +14092,8 @@ function fuAudioOuvir(filaId, btn) { audioOuvir(document.getElementById('fu-text
 async function fuEnviarAudio(filaId, btn) {
     const item = _filaFollowupsCache.find(i => i.id === filaId); if (!item) return;
     const t = audioTexto(document.getElementById('fu-texto-' + filaId)?.value || item.mensagem); if (!audioChecar(t)) return;
+    const espera = Math.max(0, Math.round((_fuProxEm - Date.now()) / 1000));
+    if (_fuFila.length || espera) { showToast(_fuFila.length ? '⏳ Espere a fila de follow-ups terminar (proteção do número)' : `⏳ Espere ${espera} s para o próximo envio (proteção do número)`, 'err'); return; }
     if (!confirm('Mandar este follow-up como áudio para ' + (item.lead_nome || item.phone) + '?')) return;
     const antes = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Enviando…';
     try {
@@ -14033,6 +14103,7 @@ async function fuEnviarAudio(filaId, btn) {
         await supabaseClient.from('respostas_historico').insert({ user_id: currentUser.id, phone: item.phone, lead_nome: item.lead_nome || '', direcao: 'enviada', mensagem: '🎙️ (áudio) ' + t, criado_em: new Date().toISOString() }).then(() => {}, () => {});
         _filaFollowupsCache = _filaFollowupsCache.filter(i => i.id !== filaId);
         renderizarFilaFollowups(); atualizarBadgeRespostas();
+        _fuProxEm = Date.now() + fuIntervalo();
         showToast('🎙️ Follow-up enviado em áudio', 'ok');
     } catch (e) { showToast('❌ Não enviei o áudio: ' + (e && e.message), 'err'); btn.disabled = false; btn.textContent = antes; }
 }

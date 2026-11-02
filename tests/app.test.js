@@ -104,7 +104,7 @@ test('enviar todos os follow-ups manda as edições e esvazia a fila', async () 
   try {
     await a.pagina.evaluate(() => trocarAba('respostas', document.querySelector(`.nav-item[onclick*="'respostas'"]`)));
     await a.pagina.waitForTimeout(1200);
-    await a.pagina.evaluate(() => { const st = window.setTimeout; window.setTimeout = (f, ms) => st(f, Math.min(ms, 10)); window.confirm = () => true;
+    await a.pagina.evaluate(() => { const st = window.setTimeout; window.setTimeout = (f, ms) => st(f, Math.min(ms, 10)); window.confirm = () => true; fuIntervalo = () => 0;
       _filaFollowupsCache = [1, 2].map(i => ({ id: i, phone: '1190000000' + i, lead_nome: 'Lead ' + i, dia_etapa: 3, mensagem: 'Oi ' + i, campanha_nome: 'C' })); renderizarFilaFollowups(); });
     await a.pagina.fill('#fu-texto-2', 'Editado');
     await a.pagina.evaluate(() => enviarTodosFollowups()); await a.pagina.waitForTimeout(1000);
@@ -1346,6 +1346,41 @@ test('Pendências no Plano: automáticas + tarefas com ✅, e campanhas antigas 
     assert.deepStrictEqual(r.soltos.map(t => t.split('·')[0].trim()), ['Facilities']);
     assert.match(r.arqTit, /Arquivadas \(1\)/);
     assert.strictEqual(r.arqCards, 1);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('follow-ups saem pela fila com intervalo: tocar vários cards rápido não vira rajada (o que derrubou o número em 19/10)', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      const envios = [];
+      _fuEnviarAgora = async (id, texto) => { envios.push({ id, texto, t: Date.now() }); _filaFollowupsCache = _filaFollowupsCache.filter(i => i.id !== id); renderizarFilaFollowups(); return true; };
+      fuIntervalo = () => 250;
+      trocarAba('respostas', document.querySelector(`.nav-item[onclick*="'respostas'"]`) || document.body);
+      await new Promise(r => setTimeout(r, 1500));   // a aba termina de carregar a fila (vazia) do banco de teste
+      _filaFollowupsCache = [1, 2, 3, 4].map(id => ({ id, phone: '1199999000' + id, lead_nome: 'Lead ' + id, mensagem: 'Oi ' + id, dia_etapa: 3, campanha_nome: 'Facilities' }));
+      renderizarFilaFollowups();
+      [1, 2, 3, 4].forEach(id => { document.getElementById('fu-texto-' + id).value = 'Oi ' + id; });
+      // toca os 4 "Enviar" em sequência, como no dia 19
+      [1, 2, 3, 4].forEach(id => document.querySelector(`.fila-card[data-fu="${id}"] button[onclick^="enviarFollowup("]`).click());
+      await new Promise(r => setTimeout(r, 30));
+      const aviso = document.getElementById('fu-fila-aviso').textContent;
+      const btn3 = document.querySelector('.fila-card[data-fu="3"] button[onclick^="enviarFollowup("]');
+      const estado3 = { txt: btn3.textContent, off: btn3.disabled };
+      const todos = document.getElementById('fu-todos').textContent;
+      // pula o 4 enquanto espera: não pode sair
+      await pularFollowup(4);
+      await new Promise(r => setTimeout(r, 3500));
+      const gaps = envios.slice(1).map((e, i) => e.t - envios[i].t);
+      return { ids: envios.map(e => e.id), gaps, aviso, estado3, todos, avisoFim: document.getElementById('fu-fila-aviso').hidden, todosFim: document.getElementById('fu-todos').textContent };
+    });
+    assert.deepStrictEqual(r.ids, [1, 2, 3], 'na ordem, sem o pulado');
+    assert.ok(r.gaps.every(g => g >= 240), 'espaçados: ' + r.gaps.join(','));
+    assert.match(r.aviso, /Enviando com intervalo para proteger o número: \d na fila/);
+    assert.match(r.estado3.txt, /Na fila \(\d+º\)/); assert.strictEqual(r.estado3.off, true);
+    assert.match(r.todos, /Parar \(\d na fila\)/);
+    assert.strictEqual(r.avisoFim, true); assert.strictEqual(r.todosFim, '📤 Enviar todos');
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
