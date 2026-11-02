@@ -33,9 +33,11 @@ window.supabase = { createClient: () => {
 }
 
 // rotas: [[regex do caminho, (pedido) => resposta json]] para servidores falsos (n8n, WhatsApp, agenda)
-async function abrirApp({ db, rpcs, rotas = [], largura = 390, antes = null } = {}) {   // antes: roda no navegador antes do app (ex.: dados salvos no aparelho)
+// aquecer: false (padrão) desliga o passo "aquecer antes da DM" no Instagram/LinkedIn, para os testes antigos irem direto à DM
+async function abrirApp({ db, rpcs, rotas = [], largura = 390, antes = null, aquecer = false } = {}) {   // antes: roda no navegador antes do app (ex.: dados salvos no aparelho)
   const navegador = await chromium.launch();
   const ctx = await navegador.newContext({ viewport: { width: largura, height: 844 } });
+  if (!aquecer) await ctx.addInitScript(() => { ['guest', 'teste@x.com'].forEach(e => { try { localStorage.setItem(e + '__aquecer_ig', 'false'); localStorage.setItem(e + '__aquecer_li', 'false'); } catch (x) {} }); });
   if (antes) await ctx.addInitScript(antes);
   const pagina = await ctx.newPage();
   const erros = [];

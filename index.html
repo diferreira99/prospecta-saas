@@ -1417,6 +1417,21 @@
 .ps-chip { font-family:'Inter',sans-serif; font-size:0.6rem; font-weight:700; padding:4px 10px; border-radius:20px; border:1.5px solid #d1d5db; background:#fff; color:#6b7280; cursor:pointer; white-space:nowrap; }
 .ps-chip[aria-pressed="true"] { border-color:#165DFF; background:#EBF0FF; color:#165DFF; }
 .pend { margin-bottom:16px; }
+.dor-btn { font-family:'Inter',sans-serif; font-size:0.6rem; font-weight:700; padding:4px 10px; border-radius:8px; border:1.5px solid #d1d5db; background:#fff; color:#374151; cursor:pointer; }
+.dor-btn.ia { border-color:#7C3AED; background:#7C3AED; color:#fff; padding:7px 12px; font-size:0.66rem; }
+.dor-btn:disabled { opacity:.6; cursor:wait; }
+.pq-box { margin-top:12px; padding:12px; border:1.5px solid #E9D5FF; background:#FAF5FF; border-radius:12px; font-family:'Inter',sans-serif; }
+.pq-box .pq-tit { color:#7C3AED; }
+.pq-lin { font-size:0.72rem; line-height:1.5; color:var(--text); margin:2px 0; overflow-wrap:anywhere; }
+.pq-gancho { font-size:0.72rem; line-height:1.5; font-style:italic; color:#4b5563; background:#fff; border-radius:8px; padding:7px 9px; margin:6px 0; overflow-wrap:anywhere; }
+.pq-vazio { font-size:0.66rem; color:var(--muted); margin:3px 0; }
+.pq-acoes { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px; }
+.pq-cnpj { width:160px !important; padding:6px 9px !important; font-size:0.7rem !important; border-radius:8px !important; }
+.aq-box { margin:10px 0; padding:12px; border:1.5px solid #FFD6B0; background:#FFF8F1; border-radius:12px; }
+.aq-tit { font-weight:800; font-size:0.85rem; color:#9a3412; margin-bottom:4px; }
+.aq-txt { font-size:0.76rem; line-height:1.5; color:var(--text); }
+.aq-pronto { font-size:0.72rem; font-weight:700; color:#9a3412; background:#FFF3E0; border-radius:8px; padding:6px 10px; margin:6px 0; }
+.fu-leu { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-family:'Inter',sans-serif; font-size:0.72rem; font-weight:700; color:#1d4ed8; background:#EFF6FF; border-radius:8px; padding:6px 10px; margin:0 0 8px; }
 .pend-item.auto.urgente { border-color:#fca5a5; background:#fef2f2; }
 .pend-item.auto.urgente .pend-ir { border-color:#dc2626; color:#dc2626; }
 .fu-vencidos { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-family:'Inter',sans-serif; font-size:0.74rem; color:#6b7280; background:#f8fafc; border:1.5px dashed #cbd5e1; border-radius:10px; padding:9px 12px; margin:0 0 10px; }
@@ -2471,6 +2486,7 @@ function iniciarAppPosLogin() {
             </div>
             <div id="ps-acoes" class="ps-acoes" hidden>
                 <button type="button" class="ps-acao principal" id="ps-btn-melhores" onclick="campanhaComMelhores()"></button>
+                <button type="button" class="ps-acao" id="ps-btn-pesq" onclick="pesqMelhores()" title="A IA lê site, Instagram e CNPJ dos melhores e prepara o gancho de cada um">🔎 Pesquisar os melhores</button>
                 <button type="button" class="ps-acao" id="ps-btn-cidade" onclick="mesmaBuscaOutraCidade()">🔁 Mesma busca em outra cidade</button>
                 <button type="button" class="ps-acao" id="ps-btn-fundo" onclick="buscarMaisFundo()" hidden>🔎 Buscar mais nesta cidade</button>
                 <button type="button" class="ps-acao ps-acao-ig" id="ps-btn-ig" onclick="igAbrirFila()" hidden></button>
@@ -3417,6 +3433,28 @@ function reuniaoDetectar(texto, agora) {
     if (d.getTime() <= base.getTime()) return null;
     return d.getTime();
 }
+// "Agora não / mais pra frente / ano que vem": em vez de perder, retoma em 30, 60 ou 90 dias (lembrete no Pipeline)
+var RE_DEPOIS = /\b(agora n[aã]o|no momento n[aã]o|n[aã]o (é|e) o momento|mais (pra|para) frente|pr[oó]ximo (m[eê]s|ano|semestre)|ano que vem|fim do ano|depois do (carnaval|feriado|ano novo)|em (janeiro|fevereiro|mar[cç]o)|me procur[ae] (em|daqui|depois|mais)|retorn[ae] (em|daqui|depois|mais)|daqui (a|uns?) \d+ (dias|meses))/i;
+function rsDepoisSugerido(g) {
+    const msgs = (_rsCtx.hist[g.k] || []).filter(m => m.direcao === 'recebida').slice(-2).map(m => m.mensagem);
+    const textos = msgs.length ? msgs : g.itens.map(i => i.mensagem_recebida);
+    if (!textos.some(t => RE_DEPOIS.test(String(t || '')))) return null;
+    const box = prEl('div', 'rs-reuniao-sug rs-depois-sug');
+    box.appendChild(prEl('span', '', '⏰ Pediu para falar mais pra frente. Retomar em:'));
+    [[30, '30 dias'], [60, '60 dias'], [90, '90 dias']].forEach(([d, t]) => {
+        const b = prEl('button', 'rs-btn', t); b.type = 'button';
+        b.onclick = async () => {
+            const q = new Date(); q.setDate(q.getDate() + d); q.setHours(9, 0, 0, 0);
+            const mes = q.toLocaleDateString('pt-BR', { month: 'long' });
+            await rsPipeline(g, l => { l.proximaAcaoEm = q.getTime(); l.proximaAcaoTxt = 'Retomar: pediu para falar em ' + mes; }, '⏰ Lembrete para ' + q.toLocaleDateString('pt-BR'));
+            const ta = document.getElementById('fila-texto-' + g.ultimo.id);
+            if (ta) { ta.value = `Combinado! Te chamo de novo em ${mes}. Qualquer coisa antes, é só me chamar por aqui. Abraço!`; ta.dispatchEvent(new Event('input')); }
+            box.replaceChildren(prEl('span', '', `✅ Lembrete em ${mes} no Pipeline. A resposta "combinado" está pronta na caixa.`));
+        };
+        box.appendChild(b);
+    });
+    return box;
+}
 function rsReuniaoSugerida(g) {
     const msgs = (_rsCtx.hist[g.k] || []).filter(m => m.direcao === 'recebida').slice(-3).map(m => m.mensagem);
     const textos = msgs.length ? msgs : g.itens.map(i => i.mensagem_recebida);
@@ -3451,7 +3489,7 @@ function rsCard(g) {
     topo.append(quem, tags);
     card.appendChild(topo);
     card.appendChild(rsBolhas(g));
-    try { const sug = rsReuniaoSugerida(g); if (sug) card.appendChild(sug); } catch (e) {}
+    try { const sug = rsReuniaoSugerida(g) || rsDepoisSugerido(g); if (sug) card.appendChild(sug); } catch (e) {}
 
     if (g.classif === 'menu' || g.robo) card.appendChild(prEl('div', 'rs-dica', '🤖 Robô de atendimento da empresa. A sugestão tenta chegar no comercial ou no responsável.'));
 
@@ -3518,7 +3556,7 @@ function rsPintarPainel(painel, g, tipo) {
     if (tipo === 'retomar') {
         painel.appendChild(prEl('div', 'rs-painel-tit', 'Quando retomar? No dia, ele aparece no Painel.'));
         const linha = prEl('div', 'rs-painel-linha');
-        [[1, 'Amanhã'], [3, '3 dias'], [7, '1 semana']].forEach(([d, t]) => {
+        [[1, 'Amanhã'], [3, '3 dias'], [7, '1 semana'], [30, '30 dias'], [60, '60 dias'], [90, '90 dias']].forEach(([d, t]) => {
             const b = prEl('button', 'ps-sug sin', t);
             b.onclick = () => { const q = new Date(); q.setDate(q.getDate() + d); q.setHours(9, 0, 0, 0); rsPipeline(g, l => { l.proximaAcaoEm = q.getTime(); l.proximaAcaoTxt = l.proximaAcaoTxt || 'Retomar conversa'; }, '⏰ Lembrete para ' + q.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })); };
             linha.appendChild(b);
@@ -3972,6 +4010,12 @@ let _filaFollowupsCache = [];
 // Follow-up que não envelhece: quando chega a etapa nova de um lead, a velha (que nem saiu) sai da fila sozinha.
 var FU_VENCE_DIAS = 5;
 function fuTirarSuperados() {
+    // quem entrou em Não contatar ou pediu para sair não recebe follow-up
+    const bloq = _filaFollowupsCache.filter(i => { try { return bloqueadoLead({ phone: i.phone, title: i.lead_nome }); } catch (e) { return false; } }).map(i => i.id);
+    if (bloq.length) {
+        _filaFollowupsCache = _filaFollowupsCache.filter(i => !bloq.includes(i.id));
+        bloq.forEach(id => fetch(`${N8N_BASE}/responder-followup`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filaId: id, userId: currentUser.id, acao: 'pular' }) }).catch(() => {}));
+    }
     const porTel = {};
     _filaFollowupsCache.filter(i => i.canal !== 'instagram' && i.canal !== 'linkedin').forEach(i => {
         const k = pkTel(i.phone); if (!k) return;
@@ -4018,6 +4062,30 @@ function fuPintarVencidos() {
         }
     });
 }
+// Leu e não respondeu: selo no card e um botão para a IA reescrever com outro ângulo (a mesma mensagem de novo não funciona)
+function fuPintarLeu() {
+    if (typeof cpLeu !== 'function') return;
+    document.querySelectorAll('.fila-card[data-fu]').forEach(card => {
+        const it = _filaFollowupsCache.find(i => i.id === Number(card.getAttribute('data-fu')));
+        if (!it || it.canal === 'instagram' || it.canal === 'linkedin' || !cpLeu(it) || card.querySelector('.fu-leu')) return;
+        const box = prEl('div', 'fu-leu');
+        box.appendChild(prEl('span', '', '👁 Leu e não respondeu'));
+        const b = prEl('button', 'rs-btn', '✍️ Reescrever com outro ângulo'); b.type = 'button';
+        b.onclick = () => fuReescreverLeu(it.id, b);
+        box.appendChild(b);
+        const ta = card.querySelector('textarea'); ta ? card.insertBefore(box, ta) : card.appendChild(box);
+    });
+}
+async function fuReescreverLeu(id, btn) {
+    const it = _filaFollowupsCache.find(i => i.id === id); const ta = document.getElementById('fu-texto-' + id); if (!it || !ta) return;
+    const prod = typeof prodAtual === 'function' ? prodAtual() : null;
+    btn.disabled = true; btn.textContent = '✍️ Escrevendo…';
+    try {
+        const t = await iaServidor('Escreva um follow-up de WhatsApp para alguém que VISUALIZOU a mensagem anterior e não respondeu. Não repita a mensagem anterior nem cobre resposta. Traga um ângulo novo e concreto (um exemplo, um número ou uma pergunta bem fácil de responder com sim ou não). No máximo 2 frases curtas, tom leve, sem link, no máximo 1 emoji.\n\nEmpresa: ' + (it.lead_nome || '') + '\nMensagem anterior: ' + (ta.value || it.mensagem || '') + '\nO que eu vendo: ' + String((prod && prod.instrucoes) || '').slice(0, 400) + '\n\nRetorne só o texto.', 200, config.iaProvider || undefined);
+        ta.value = String(t).replace(/^["“]|["”]$/g, '').trim();
+    } catch (e) { showToast('IA: ' + (e.message || e), 'err'); }
+    finally { btn.disabled = false; btn.textContent = '✍️ Reescrever com outro ângulo'; }
+}
 async function carregarFilaFollowups() {
     if (!currentUser) return;
     try {
@@ -4030,6 +4098,7 @@ async function carregarFilaFollowups() {
         if (error) throw error;
         _filaFollowupsCache = data || [];
         fuTirarSuperados();
+        cpCarregarEntregas().then(() => { try { fuPintarLeu(); } catch (e) {} }).catch(() => {});
     } catch (e) {
         console.warn('Erro ao carregar fila de follow-ups:', e.message);
         _filaFollowupsCache = [];
@@ -4077,7 +4146,7 @@ function renderizarFilaFollowups() {
             </div>
         </div>`;
     }).join('');
-    try { fuPintarFila(); fuPintarVencidos(); } catch (e) {}
+    try { fuPintarFila(); fuPintarVencidos(); fuPintarLeu(); } catch (e) {}
 }
 
 // Fila de envio dos follow-ups: sai um de cada vez, com 40 a 70 s entre eles, seja tocando card por card ou em
@@ -8262,6 +8331,7 @@ function toggleExpandScore(realIdx, btn) {
                 </div>
             </div>
             ${blocoDor(l)}
+            ${blocoPesquisa(l, realIdx)}
             ${blocoSinais(l)}
             ${blocoContatosExtras(l)}
             ${blocoAvaliacoes(l)}
@@ -12922,9 +12992,9 @@ function igJaAbordado(l) { const h = igHandle(l && l.instagram); return !!h && !
 function igFila() {
     const base = (_leadsBase && _leadsBase.length) ? _leadsBase : todosLeads;
     return (base || [])
-        .filter(l => l && igHandle(l.instagram) && !igJaAbordado(l) && !bloqueadoLead(l) && !(l.phone && leadJaFoiEnviado(l.phone)))
-        .map(l => ({ l, semZap: (!l.phone || l.is_whatsapp === false) ? 1 : 0, sc: calcScore(l) }))
-        .sort((a, b) => (b.semZap - a.semZap) || (b.sc - a.sc))
+        .filter(l => l && igHandle(l.instagram) && !igJaAbordado(l) && !bloqueadoLead(l) && !(l.phone && leadJaFoiEnviado(l.phone)) && !aqAquecendo('ig', l))
+        .map(l => ({ l, pronto: aqPronto('ig', l) ? 1 : 0, semZap: (!l.phone || l.is_whatsapp === false) ? 1 : 0, sc: calcScore(l) }))
+        .sort((a, b) => (b.pronto - a.pronto) || (b.semZap - a.semZap) || (b.sc - a.sc))
         .map(x => x.l);
 }
 function igBotaoHtml(onclick, titulo) {
@@ -12936,6 +13006,8 @@ function igPrompt(l, prod) {
         'EMPRESA:\n- Nome: ' + (l.title || l.name || 'não informado') + '\n- Categoria: ' + (l.category || l.cat || 'não informada') +
         '\n- Cidade/endereço: ' + (l.address || 'não informado') + (l.rating ? '\n- Nota no Google: ' + l.rating + (l.reviews ? ' (' + l.reviews + ' avaliações)' : '') : '') +
         (l.instagramBio ? '\n- Bio do Instagram deles: "' + String(l.instagramBio).slice(0, 220) + '"' : '') +
+        (pesqDe(l) && pesqDe(l).oque_faz ? '\n- O que fazem (pesquisa): ' + pesqDe(l).oque_faz : '') +
+        (pesqDe(l) && pesqDe(l).gancho ? '\n- Gancho pesquisado (use a ideia, com as suas palavras): ' + pesqDe(l).gancho : '') +
         (l.mencionarWa ? '\n- Você já mandou um WhatsApp há alguns dias e não teve resposta: pode citar de leve ("te chamei no WhatsApp também"), sem cobrar.' : '') +
         '\n\nREGRAS: no máximo 300 caracteres; tom leve e próximo, como alguém escrevendo do celular; 1 cumprimento com o nome da empresa, ' +
         (l.instagramBio ? '1 frase mostrando que você viu o perfil, usando um detalhe real da BIO (o que fazem, para quem, onde), ' : '1 frase com um detalhe real dela (nota no Google, categoria ou cidade), ') +
@@ -12992,6 +13064,35 @@ async function igRegistrar(l) {
 }
 
 // Janela de abordagem. `fila` = lista de leads (um por vez); um lead só = fila de 1.
+// Aquecer antes da DM: seguir e curtir 1 ou 2 posts hoje, mandar a DM amanhã. A conta vê o seu nome antes e a mensagem
+// cai menos em "Solicitações". Liga e desliga por canal; quem foi aquecido há 20 h ou mais vai para o topo da fila.
+var AQUECER_HORAS = 20;
+function aqChave(canal, l) { return canal + ':' + (canal === 'ig' ? igHandle(l && l.instagram) : liChave(l)); }
+function aqLigado(canal) { return userGet('aquecer_' + canal, true) !== false; }
+function aqEm(canal, l) { return (userGet('aquecidos', {}) || {})[aqChave(canal, l)] || 0; }
+function aqMarcar(canal, l) {
+    const a = userGet('aquecidos', {}) || {}; a[aqChave(canal, l)] = Date.now();
+    const ks = Object.keys(a); if (ks.length > 600) ks.sort((x, y) => a[x] - a[y]).slice(0, ks.length - 600).forEach(k => delete a[k]);
+    userSet('aquecidos', a);
+}
+function aqPronto(canal, l) { const t = aqEm(canal, l); return !!t && Date.now() - t >= AQUECER_HORAS * 3600000; }
+function aqAquecendo(canal, l) { const t = aqEm(canal, l); return !!t && Date.now() - t < AQUECER_HORAS * 3600000; }
+// Passo "aquecer" no topo da janela de abordagem. Devolve true se mostrou o passo (a DM fica para amanhã).
+function aqPasso(m, canal, l, url, onFeito, onAgora) {
+    if (!aqLigado(canal) || aqEm(canal, l)) return false;
+    const box = prEl('div', 'aq-box');
+    box.appendChild(prEl('div', 'aq-tit', '🔥 Aquecer primeiro (recomendado)'));
+    box.appendChild(prEl('div', 'aq-txt', canal === 'ig' ? 'Abra o perfil, toque em Seguir e curta 1 ou 2 posts recentes. Amanhã a DM sai com o seu nome já conhecido e cai menos em Solicitações.' : 'Abra o perfil de quem decide e curta ou comente um post. Amanhã o convite chega de alguém que ela já viu.'));
+    const bts = prEl('div', 'modal-actions');
+    const abrir = prEl('button', 'modal-btn', 'Abrir perfil'); abrir.onclick = () => window.open(url, '_blank', 'noopener');
+    const feito = prEl('button', 'modal-btn primary', canal === 'ig' ? 'Segui e curti ✓' : 'Curti ✓'); feito.onclick = () => { aqMarcar(canal, l); showToast('🔥 Aquecido. A DM fica liberada amanhã.', 'ok'); onFeito(); };
+    const agora = prEl('button', 'modal-btn', 'Mandar agora mesmo'); agora.onclick = onAgora;
+    bts.append(agora, abrir, feito); box.appendChild(bts);
+    const nao = prEl('button', 'ig-link', 'não aquecer antes (desligar)'); nao.onclick = () => { userSet('aquecer_' + canal, false); onAgora(); };
+    box.appendChild(nao);
+    m.appendChild(box);
+    return true;
+}
 async function igAbordar(fila, inicio, opcoes) {
     if (!currentUser) return;
     opcoes = opcoes || {};
@@ -13040,6 +13141,8 @@ async function igAbordar(fila, inicio, opcoes) {
         cont.appendChild(mudar);
         m.appendChild(cont);
         if (_igHoje >= lim) m.appendChild(prEl('div', 'ig-aviso', 'Você já chegou no limite de hoje. Abordar muita gente de uma vez faz o Instagram bloquear ações da conta: o melhor é continuar amanhã.'));
+        if (!opcoes.aoRegistrar && !l._aqAgora && aqPasso(m, 'ig', l, igUrl(l), () => { if (fila.length > 1) { i++; mostrar(); } else fechar(); }, () => { l._aqAgora = true; mostrar(); })) return;
+        if (aqPronto('ig', l)) m.appendChild(prEl('div', 'aq-pronto', '🔥 Aquecido: você seguiu e curtiu em ' + new Date(aqEm('ig', l)).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + '. Hora da DM.'));
         const prod = typeof prodAtual === 'function' ? prodAtual() : null;
         m.appendChild(prEl('div', 'ig-rot', 'Mensagem (DM)' + (prod ? ' · vendendo ' + prod.nome : '')));
         const ta = document.createElement('textarea'); ta.className = 'ig-texto'; ta.rows = 5; ta.maxLength = 1000; ta.placeholder = 'A IA está escrevendo…'; ta.disabled = true;
@@ -13160,8 +13263,8 @@ async function liCarregarFeitos(forcar) {
 function liJaAbordado(l) { const k = liChave(l); return !!k && !!_liFeitos && _liFeitos.has(k); }
 function liFila() {
     const base = (_leadsBase && _leadsBase.length) ? _leadsBase : todosLeads;
-    return (base || []).filter(l => l && liUrl(l) && !liJaAbordado(l) && !bloqueadoLead(l))
-        .map(l => ({ l, sc: calcScore(l) })).sort((a, b) => b.sc - a.sc).map(x => x.l);
+    return (base || []).filter(l => l && liUrl(l) && !liJaAbordado(l) && !bloqueadoLead(l) && !aqAquecendo('li', l))
+        .map(l => ({ l, pronto: aqPronto('li', l) ? 1 : 0, sc: calcScore(l) })).sort((a, b) => (b.pronto - a.pronto) || (b.sc - a.sc)).map(x => x.l);
 }
 function liBotaoHtml(onclick) {
     return `<button type="button" class="tag-rede tag-lidm" onclick="${onclick}" title="Abordar pelo LinkedIn: ache o dono, a IA escreve o convite" aria-label="Abordar pelo LinkedIn">${_LI_GLIFO}</button>`;
@@ -13171,6 +13274,7 @@ function liPrompt(l, prod, pessoa, contexto) {
         'O QUE VOCÊ VENDE:\n' + ((prod && prod.instrucoes) || 'Apresente nosso serviço e peça uma conversa rápida.') + '\n\n' +
         'EMPRESA: ' + (l.title || l.name || 'não informado') + ' · ' + (l.category || l.cat || 'categoria não informada') + (l.address ? ' · ' + l.address : '') +
         '\nPESSOA: ' + (pessoa ? pessoa : 'nome desconhecido (não use nome; comece com "Olá!")') + (contexto ? '\nCONTEXTO: ' + contexto : '') +
+        (pesqDe(l) && pesqDe(l).oque_faz ? '\nO QUE A EMPRESA FAZ (pesquisa): ' + pesqDe(l).oque_faz + (pesqDe(l).gancho ? '\nGANCHO PESQUISADO: ' + pesqDe(l).gancho : '') : '') +
         '\n\nEscreva DUAS coisas, exatamente neste formato:\nCONVITE: <nota do convite de conexão, no máximo 190 caracteres, cordial, sem vender ainda, diz por que quer conectar (mesmo mercado/região ou algo da empresa)>\n' +
         'MENSAGEM: <mensagem para mandar depois que a pessoa aceitar: 2 a 3 frases curtas, agradece a conexão, o benefício principal para a empresa dela e termina com UMA pergunta simples>\n' +
         'Sem link, sem hashtag, sem emoji. Português do Brasil, tom profissional e próximo.';
@@ -13254,6 +13358,8 @@ async function liAbordar(fila, opcoes) {
         mudar.onclick = () => { const v = prompt('Quantos convites pelo LinkedIn por dia? (recomendado: até 15)', String(lim)); const n = Number(v); if (n >= 1 && n <= 100) { userSet('li_limite', Math.round(n)); mostrar(); } };
         cont.appendChild(mudar); m.appendChild(cont);
         if (_liHoje >= lim) m.appendChild(prEl('div', 'ig-aviso', 'Você já chegou no limite de hoje. Convites demais seguidos fazem o LinkedIn restringir a conta: o melhor é continuar amanhã.'));
+        if (!opcoes.aoRegistrar && !l._aqAgora && aqPasso(m, 'li', l, (liUrl(l) && /\/in\//.test(liUrl(l))) ? liUrl(l) : liPessoasUrl(l), () => { i++; mostrar(); }, () => { l._aqAgora = true; mostrar(); })) return;
+        if (aqPronto('li', l)) m.appendChild(prEl('div', 'aq-pronto', '🔥 Aquecido em ' + new Date(aqEm('li', l)).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + '. Hora do convite.'));
         // 1) achar quem decide
         m.appendChild(prEl('div', 'ig-rot', '1. Ache quem decide'));
         const l1 = prEl('div', 'li-linha');
@@ -14482,6 +14588,14 @@ const MANUAL = {
                         { t: 'Onde aparece', l: ['**Depois da busca**: o seletor "🩺 Dor e solução" (ao lado de Filtros) mostra quantas empresas têm cada dor. Escolha uma para filtrar a tabela.', '**No detalhe do lead** (▼ ao lado do Score): o cartão "Dor e solução". Quando a solução combina com o produto do topo, aparece "✅ combina com" o produto.', '**Para vender**: escolha no topo o produto que resolve a dor, filtre a dor na busca e crie a campanha com os melhores.'] }
                     ],
                     dicas: ['Use palavras claras no nome ou nas instruções do produto (ex.: "site", "energia", "maquininha"): é assim que o app sabe que a dor combina com ele.']
+                },
+                {
+                    titulo: 'Pesquisa da empresa e aquecimento', resumo: 'Primeira mensagem com nome do dono e gancho real', aba: 'prospeccao',
+                    blocos: [
+                        { t: '🔎 Pesquisa da empresa', l: ['No detalhe do lead, **"Pesquisar com IA"**: o app lê o site, acha o CNPJ (ou você digita), puxa da Receita sócios, porte e há quantos anos a empresa existe, e a IA resume o que ela faz, para quem, a dor provável e um **gancho real** para a 1ª mensagem.', 'O sócio-administrador vira "quem decide" e a DM do Instagram e o convite do LinkedIn usam o gancho.', '**"🔎 Pesquisar os melhores"** (depois da busca) pesquisa até 15 de uma vez.'] },
+                        { t: '🔥 Aquecer antes da DM', l: ['No Instagram e no LinkedIn, o primeiro passo é seguir e curtir 1 ou 2 posts. A DM fica liberada no dia seguinte e cai menos em Solicitações.', 'No dia seguinte, quem foi aquecido aparece primeiro na fila, com o selo 🔥.', 'Dá para "Mandar agora mesmo" ou desligar o aquecimento no próprio passo.'] },
+                        { t: '⏰ Cadência com caminhos', l: ['Quando o lead diz "agora não", "mais pra frente" ou "ano que vem", a resposta mostra **Retomar em 30, 60 ou 90 dias**: vira lembrete no Pipeline e a caixa já traz um "combinado, te chamo em…".', 'Follow-up de quem **leu e não respondeu** ganha o selo 👁 e o botão para a IA reescrever com outro ângulo.', 'Quem entrou em Não contatar sai da fila de follow-up sozinho.'] }
+                    ]
                 },
                 {
                     titulo: 'Meus Leads', resumo: 'Todo mundo que já recebeu campanha', aba: 'meusleads',
@@ -18926,6 +19040,121 @@ TEMAS_NEGATIVAS.slice().reverse().forEach(m => DORES.splice(DORES.findIndex(d =>
     tem: l => !!temasNegativas(l)[m.id],
     rot: l => { const n = temasNegativas(l)[m.id] || 0; return `${m.rot} (${n} ${n === 1 ? 'avaliação' : 'avaliações'})`; },
 }));
+// ── Pesquisa da empresa ──
+// Lê o site (o servidor do WhatsApp busca a página), puxa o CNPJ da Receita (sócios, porte, abertura) e a IA resume
+// o que a empresa faz, quem decide, a dor provável e um gancho real para a 1ª mensagem. Fica guardado por lead.
+function pesqChave(l) { return (l && (l.place_id || pkTel(l.phone) || _normNicho(l.title || l.name || ''))) || ''; }
+function pesqDe(l) {
+    if (!l) return null;
+    if (l.pesquisa) return l.pesquisa;
+    const c = (userGet('pesquisas', {}) || {})[pesqChave(l)];
+    if (c) l.pesquisa = c;
+    return c || null;
+}
+function pesqSalvar(l, p) {
+    l.pesquisa = p;
+    const c = userGet('pesquisas', {}) || {}; c[pesqChave(l)] = p;
+    const ks = Object.keys(c);
+    if (ks.length > 300) ks.sort((a, b) => (c[a].em || 0) - (c[b].em || 0)).slice(0, ks.length - 300).forEach(k => delete c[k]);
+    userSet('pesquisas', c);
+}
+async function _srv(caminho, corpo) {
+    const base = String(config?.uazapi?.url || '').replace(/\/+$/, '');
+    if (!base) throw new Error('Configure o servidor WhatsApp em Integrações');
+    const h = { 'x-api-token': config.uazapi.token || '' };
+    const r = await fetch(base + caminho, corpo ? { method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify(corpo) } : { headers: h });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw Object.assign(new Error(r.status === 404 && !j.error ? 'o servidor do WhatsApp ainda não tem a pesquisa (precisa atualizar)' : (j.error || 'HTTP ' + r.status)), { status: r.status });
+    return j;
+}
+function nomeProprio(n) { return String(n || '').toLowerCase().replace(/(^|\s)\S/g, x => x.toUpperCase()).replace(/\b(Da|De|Do|Das|Dos|E)\b/g, x => x.toLowerCase()); }
+function socioPrincipal(cnpj) {
+    const ss = (cnpj && cnpj.socios) || [];
+    const s = ss.find(x => /administrador/i.test(x.qualificacao)) || ss[0];
+    return s ? { nome: nomeProprio(s.nome), cargo: String(s.qualificacao || '').replace(/^\d+-/, '').trim() } : null;
+}
+function anosDesde(iso) { const d = new Date(iso); return isNaN(d) ? null : Math.floor((Date.now() - d.getTime()) / (365.25 * 86400000)); }
+function pesqPrompt(l, site, cnpj) {
+    const prod = typeof prodAtual === 'function' ? prodAtual() : null;
+    const soc = socioPrincipal(cnpj);
+    const revs = (Array.isArray(l.ultimas_avaliacoes) ? l.ultimas_avaliacoes : []).filter(r => r && r.nota >= 4 && r.texto).slice(0, 2).map(r => '"' + String(r.texto).slice(0, 160) + '"');
+    return 'Você é um SDR experiente pesquisando uma empresa antes do primeiro contato. Use SÓ os dados abaixo; se algo não estiver nos dados, deixe vazio.\n\n' +
+        'EMPRESA: ' + (l.title || l.name || '') + ' · ' + (l.category || '') + ' · ' + (l.address || '') +
+        (l.rating ? '\nGoogle: nota ' + l.rating + (l.reviews ? ' (' + l.reviews + ' avaliações)' : '') : '') +
+        (revs.length ? '\nElogios de clientes: ' + revs.join(' | ') : '') +
+        (l.instagramBio ? '\nBio do Instagram: "' + String(l.instagramBio).slice(0, 300) + '"' : '') +
+        (site ? '\nSITE (' + (site.titulo || '') + '): ' + (site.descricao ? site.descricao + ' — ' : '') + String(site.texto || '').slice(0, 2500) : '\nSite: não tem ou não abriu') +
+        (cnpj ? '\nRECEITA: ' + [cnpj.razao_social, cnpj.porte && 'porte ' + cnpj.porte, cnpj.abertura && 'aberta em ' + cnpj.abertura, cnpj.atividade].filter(Boolean).join(' · ') + (soc ? ' · sócio: ' + soc.nome + ' (' + soc.cargo + ')' : '') : '') +
+        '\n\nO QUE EU VENDO: ' + ((prod && prod.nome) || '') + ' — ' + String((prod && prod.instrucoes) || '').replace(/\s+/g, ' ').slice(0, 400) +
+        '\n\nResponda SÓ com um JSON: {"oque_faz":"1 frase","publico":"para quem vendem, 1 frase curta","dor":"a dor mais provável que o meu produto resolve, 1 frase","gancho":"1 frase para abrir a conversa citando um detalhe REAL da empresa (algo do site, do Instagram ou um elogio de cliente), sem elogio genérico, sem citar avaliação negativa, sem citar o CNPJ nem dados da Receita"}';
+}
+async function pesquisarLead(l, cnpjDigitado) {
+    let site = null, cnpj = null, avisoSite = '';
+    if (l.website) { try { site = await _srv('/site-texto', { url: l.website }); } catch (e) { if (/precisa atualizar/.test(e.message)) throw e; avisoSite = e.message; } }
+    const n = String(cnpjDigitado || (site && site.cnpjs && site.cnpjs[0]) || (pesqDe(l) && pesqDe(l).cnpj && pesqDe(l).cnpj.cnpj) || '').replace(/\D/g, '');
+    if (n) { try { cnpj = await _srv('/cnpj?n=' + n); } catch (e) {} }
+    const t = await iaServidor(pesqPrompt(l, site, cnpj), 500, config.iaProvider || undefined);
+    const m = String(t).match(/\{[\s\S]*\}/);
+    let r = {}; try { r = m ? JSON.parse(m[0]) : {}; } catch (e) {}
+    const soc = socioPrincipal(cnpj);
+    const p = { oque_faz: r.oque_faz || '', publico: r.publico || '', dor: r.dor || '', gancho: r.gancho || '', decisor: soc, cnpj, site: site ? { titulo: site.titulo } : null, avisoSite, em: Date.now() };
+    pesqSalvar(l, p);
+    // o sócio vira "quem decide" (o LinkedIn e a IA usam)
+    if (soc && !(Array.isArray(l.decisores) && l.decisores.some(d => _normNicho(d.nome) === _normNicho(soc.nome)))) l.decisores = [{ nome: soc.nome, cargo: soc.cargo, fonte: 'receita' }].concat(Array.isArray(l.decisores) ? l.decisores : []).slice(0, 4);
+    return p;
+}
+var _pesqLeads = {};
+function blocoPesquisa(l, idx) {
+    _pesqLeads[idx] = l;
+    const p = pesqDe(l);
+    const corpo = p ? pesqHtml(p) : `<div class="pq-vazio">A IA lê o site e o Instagram, puxa sócios e porte pelo CNPJ e sugere um gancho real para a primeira mensagem.</div>`;
+    return `
+            <div class="pq-box" id="pq-${idx}">
+                <div class="dor-tit pq-tit">🔎 Pesquisa da empresa</div>
+                <div class="pq-corpo">${corpo}</div>
+                <div class="pq-acoes">
+                    <button type="button" class="dor-btn ia pq-btn" onclick="pesqClicar(${idx})">${p ? '🔄 Pesquisar de novo' : '🔎 Pesquisar com IA'}</button>
+                    <input class="pq-cnpj" id="pq-cnpj-${idx}" inputmode="numeric" maxlength="18" placeholder="CNPJ (se souber)" value="${escapeHtml((p && p.cnpj && p.cnpj.cnpj) || '')}">
+                </div>
+            </div>`;
+}
+function pesqHtml(p) {
+    const lin = (ic, rot, v) => v ? `<div class="pq-lin"><b>${ic} ${rot}:</b> ${escapeHtml(v)}</div>` : '';
+    const c = p.cnpj, anos = c && anosDesde(c.abertura);
+    const rec = c ? [c.cnpj && c.cnpj.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5'), anos != null ? `aberta há ${anos} ano${anos === 1 ? '' : 's'}` : '', c.porte, c.atividade, c.situacao && c.situacao !== 'ATIVA' ? '⚠️ ' + c.situacao : ''].filter(Boolean).join(' · ') : '';
+    const socios = c && c.socios && c.socios.length ? c.socios.slice(0, 3).map(s => nomeProprio(s.nome)).join(', ') : '';
+    return lin('🏢', 'O que faz', p.oque_faz) + lin('👥', 'Para quem', p.publico) +
+        lin('👤', 'Quem decide', p.decisor ? p.decisor.nome + (p.decisor.cargo ? ' (' + p.decisor.cargo + ')' : '') : '') +
+        lin('🎯', 'Dor provável', p.dor) + lin('🧾', 'Receita', rec) + (socios && (!p.decisor || c.socios.length > 1) ? lin('🤝', 'Sócios', socios) : '') +
+        (p.gancho ? `<div class="pq-gancho">💬 "${escapeHtml(p.gancho)}" <button type="button" class="dor-btn" onclick="dorCopiarTexto(${JSON.stringify(p.gancho).replace(/"/g, '&quot;')})">📋 Copiar</button></div>` : '') +
+        (p.avisoSite ? `<div class="pq-vazio">Site: ${escapeHtml(p.avisoSite)}</div>` : '') +
+        `<div class="pq-vazio">pesquisado em ${new Date(p.em).toLocaleDateString('pt-BR')}</div>`;
+}
+function dorCopiarTexto(t) {
+    try { navigator.clipboard.writeText(t).then(() => showToast('📋 Copiado', 'ok'), () => showToast('Não deu para copiar', 'err')); } catch (e) { showToast('Não deu para copiar', 'err'); }
+}
+async function pesqClicar(idx) {
+    const l = _pesqLeads[idx]; const box = document.getElementById('pq-' + idx); if (!l || !box) return;
+    const bt = box.querySelector('.pq-btn'); const cn = (document.getElementById('pq-cnpj-' + idx)?.value || '').replace(/\D/g, '');
+    if (!(config.iaProvider === 'gemini' ? config.gemini?.key : config.openai?.key)) { showToast('Configure a IA em Integrações', 'err'); return; }
+    bt.disabled = true; bt.textContent = '🔎 Lendo site e CNPJ…';
+    try { const p = await pesquisarLead(l, cn.length === 14 ? cn : ''); box.querySelector('.pq-corpo').innerHTML = pesqHtml(p); bt.textContent = '🔄 Pesquisar de novo'; }
+    catch (e) { showToast('Pesquisa: ' + (e.message || e), 'err'); bt.textContent = '🔎 Pesquisar com IA'; }
+    finally { bt.disabled = false; }
+}
+// Antes da campanha: pesquisa os melhores (um por vez) para a IA ter o gancho de cada um
+async function pesqMelhores() {
+    const alvo = melhoresParaCampanha().filter(l => !pesqDe(l)).slice(0, 15);
+    if (!alvo.length) { showToast('Os melhores desta busca já estão pesquisados ✓', 'ok'); return; }
+    if (!confirm(`Pesquisar ${alvo.length} empresa(s) com a IA (site, CNPJ e gancho)? Leva uns ${Math.ceil(alvo.length * 12 / 60)} min; dá para continuar usando o app.`)) return;
+    const bt = document.getElementById('ps-btn-pesq'); let ok = 0;
+    for (let k = 0; k < alvo.length; k++) {
+        if (bt) bt.textContent = `🔎 Pesquisando ${k + 1}/${alvo.length}…`;
+        try { await pesquisarLead(alvo[k]); ok++; } catch (e) { if (/precisa atualizar/.test(e.message)) { showToast(e.message, 'err'); break; } }
+    }
+    if (bt) bt.textContent = '🔎 Pesquisar os melhores';
+    showToast(`🔎 ${ok} empresa(s) pesquisada(s): o gancho aparece no detalhe de cada lead`, 'ok');
+}
 function doresLead(l) {
     if (!l) return [];
     return DORES.filter(d => { try { return d.tem(l); } catch (e) { return false; } });

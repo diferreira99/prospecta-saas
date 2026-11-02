@@ -1473,3 +1473,95 @@ test('criar campanha num nicho fraco oferece trocar pelo melhor nicho', async ()
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('Pesquisa da empresa: lê site e CNPJ, mostra o que faz, quem decide e o gancho, e a DM do Instagram usa', async () => {
+  const a = await abrirApp({ largura: 1280 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      config.uazapi = Object.assign({}, config.uazapi, { url: 'https://srv.test', token: 't' }); config.openai = { key: '••••' }; config.iaProvider = 'openai';
+      const chamadas = [];
+      _srv = async (c, corpo) => { chamadas.push(c); if (c === '/site-texto') return { titulo: 'Sol Facilities', texto: 'Limpeza e portaria para condomínios. CNPJ 11.222.333/0001-81', cnpjs: ['11222333000181'] };
+        return { cnpj: '11222333000181', razao_social: 'SOL SERVICOS LTDA', porte: 'MICRO EMPRESA', abertura: '2019-03-10', atividade: 'Limpeza em prédios', situacao: 'ATIVA', socios: [{ nome: 'MARIA DA SILVA', qualificacao: '49-Sócio-Administrador' }, { nome: 'JOAO SOUZA', qualificacao: 'Sócio' }] }; };
+      let promptPesq = '';
+      iaServidor = async p => { if (/pesquisando uma empresa/.test(p)) { promptPesq = p; return '{"oque_faz":"Limpeza e portaria para condomínios","publico":"síndicos e administradoras","dor":"achar gente para prospectar condomínios","gancho":"Vi que vocês cuidam de portaria e limpeza para condomínios"}'; } return 'DM gerada'; };
+      const lead = { title: 'Sol Facilities', phone: '11999990001', website: 'https://sol.com.br', instagram: 'https://instagram.com/solfac', rating: 4.8, reviews: 40, place_id: 'pSol' };
+      todosLeads = [lead]; _leadsBase = [lead];
+      trocarAba('prospeccao', document.querySelector(`.nav-item[onclick*="'prospeccao'"]`)); renderPagina(1);
+      toggleExpandScore(0, document.getElementById('lead-row-0').querySelector('[onclick^="toggleExpandScore("]'));
+      await pesqClicar(0);
+      const txt = document.getElementById('pq-0').innerText;
+      const ig = igPrompt(lead, { nome: 'Kaizen', instrucoes: 'x' });
+      const guardado = (userGet('pesquisas', {}) || {}).pSol;
+      return { chamadas, txt, ig, dec: lead.decisores && lead.decisores[0], guardado: !!guardado, promptPesq };
+    });
+    assert.deepStrictEqual(r.chamadas, ['/site-texto', '/cnpj?n=11222333000181']);
+    assert.match(r.txt, /O que faz: Limpeza e portaria para condomínios/);
+    assert.match(r.txt, /Quem decide: Maria da Silva \(Sócio-Administrador\)/);
+    assert.match(r.txt, /11\.222\.333\/0001-81 · aberta há \d+ anos · MICRO EMPRESA/);
+    assert.match(r.txt, /Vi que vocês cuidam de portaria/);
+    assert.match(r.ig, /Gancho pesquisado.*portaria e limpeza/);
+    assert.strictEqual(r.dec.nome, 'Maria da Silva');
+    assert.strictEqual(r.guardado, true);
+    assert.match(r.promptPesq, /nunca|sem citar avaliação negativa/i);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('cadência com caminhos: "agora não" vira lembrete em 30/60/90 dias, leu e não respondeu reescreve, Não contatar sai do follow-up', async () => {
+  const a = await abrirApp({ largura: 390, rotas: [[/\/responder-followup$/, () => ({ ok: true })]] });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      const re = ['No momento não, me procura no ano que vem', 'Agora não, quem sabe mais pra frente', 'retorne daqui uns 2 meses', 'Tenho interesse sim', 'Pode ser quinta?'].map(t => RE_DEPOIS.test(t));
+      trocarAba('respostas', document.querySelector(`.nav-item[onclick*="'respostas'"]`) || document.body);
+      await new Promise(r => setTimeout(r, 1500));
+      _naoContatar = [{ phone: '11999990009', nome: 'Bloqueada' }]; _optOutTels = new Set();
+      _cpEntregas = { t: Date.now(), m: { [prTel('11999990001')]: { status: 4 } } };
+      _filaFollowupsCache = [
+        { id: 1, phone: '11999990001', lead_nome: 'Leu', dia_etapa: 3, mensagem: 'oi', criado_em: new Date().toISOString() },
+        { id: 2, phone: '11999990009', lead_nome: 'Bloqueada', dia_etapa: 3, mensagem: 'oi', criado_em: new Date().toISOString() },
+      ];
+      fuTirarSuperados(); renderizarFilaFollowups();
+      iaServidor = async () => 'Ângulo novo, posso te mandar um exemplo?';
+      const leuTxt = document.querySelector('.fila-card[data-fu="1"] .fu-leu')?.innerText || '';
+      await fuReescreverLeu(1, document.querySelector('.fila-card[data-fu="1"] .fu-leu button'));
+      await new Promise(r => setTimeout(r, 300));
+      return { re, ids: _filaFollowupsCache.map(i => i.id), leuTxt, novo: document.getElementById('fu-texto-1').value };
+    });
+    assert.deepStrictEqual(r.re, [true, true, true, false, false]);
+    assert.deepStrictEqual(r.ids, [1], 'Não contatar sai da fila');
+    assert.ok(a.pedidos.some(p => p.corpo.filaId === 2 && p.corpo.acao === 'pular'));
+    assert.match(r.leuTxt, /Leu e não respondeu/);
+    assert.strictEqual(r.novo, 'Ângulo novo, posso te mandar um exemplo?');
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('aquecer antes da DM: seguir e curtir hoje, DM amanhã (quem está aquecendo espera; aquecido vai para o topo)', async () => {
+  const a = await abrirApp({ largura: 390, aquecer: true });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      _igFeitos = new Set(); _igHoje = 0;
+      const A = { title: 'Alfa', phone: '', instagram: 'https://instagram.com/alfa', rating: 4.5 }, B = { title: 'Beta', phone: '', instagram: 'https://instagram.com/beta', rating: 4.9 };
+      todosLeads = [A, B]; _leadsBase = [A, B];
+      window.open = () => null;
+      igAbordar([A]);
+      await new Promise(r => setTimeout(r, 300));
+      const passo = document.querySelector('.ig-modal .aq-box')?.innerText || '';
+      [...document.querySelectorAll('.ig-modal .aq-box button')].find(b => /Segui e curti/.test(b.textContent)).click();
+      await new Promise(r => setTimeout(r, 200));
+      const filaHoje = igFila().map(l => l.title);
+      const aq = userGet('aquecidos', {}); aq['ig:alfa'] = Date.now() - 21 * 3600000; userSet('aquecidos', aq);
+      const filaAmanha = igFila().map(l => l.title);
+      iaServidor = async () => 'DM';
+      igAbordar([A]);
+      await new Promise(r => setTimeout(r, 300));
+      const amanha = document.querySelector('.ig-modal')?.innerText || '';
+      return { passo, filaHoje, filaAmanha, amanha };
+    });
+    assert.match(r.passo, /Aquecer primeiro[\s\S]*Seguir e curta 1 ou 2 posts|Aquecer primeiro/);
+    assert.deepStrictEqual(r.filaHoje, ['Beta'], 'Alfa aquecendo: só amanhã');
+    assert.deepStrictEqual(r.filaAmanha, ['Alfa', 'Beta'], 'aquecido vai para o topo');
+    assert.match(r.amanha, /Aquecido: você seguiu e curtiu[\s\S]*Hora da DM/);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
