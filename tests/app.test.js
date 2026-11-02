@@ -2197,3 +2197,54 @@ test('pontas soltas: limite do Google com aviso claro, pesquisa da empresa guard
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('LinkedIn: "Já mandei o convite" no aquecer, revisar aquecidos de hoje que receberam convite, CNPJ homônimo de outra cidade e limpeza da prospecção', async () => {
+  const a = await abrirApp({ largura: 390, aquecer: true });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      const espera = ms => new Promise(x => setTimeout(x, ms));
+      iaServidor = async () => 'CONVITE: Olá\nMENSAGEM: Oi';
+      _liFeitos = new Set(); _liHoje = 0; _liRows = [];
+      // 1) no passo aquecer: já mandou o convite
+      const A = { title: 'Alfa Contábil', phone: '11999990001', decisores: [{ nome: 'Ana Alfa', fonte: 'receita' }] };
+      liAbordar([A]); await espera(300);
+      const ja = [...document.querySelectorAll('.li-modal button')].find(b => /Já mandei o convite/.test(b.textContent));
+      ja.click(); await espera(400);
+      const reg1 = _db.abordagens_linkedin.map(x => x.nome + '|' + x.pessoa);
+      // 2) aquecidos hoje que na verdade receberam convite
+      const B = { title: 'Beta Contábil', phone: '11999990002', decisores: [{ nome: 'Bia Beta' }] }, C = { title: 'Gama Contábil', phone: '11999990003', decisores: [{ nome: 'Gil Gama' }] };
+      todosLeads = [A, B, C]; _leadsBase = [A, B, C];
+      aqMarcar('li', B); aqMarcar('li', C);
+      const hoje = liAquecidosHoje().map(l => l.title);
+      liAquecidosRevisar(liAquecidosHoje());
+      const m = document.querySelector('.li-aq-modal');
+      m.querySelector(`input[data-chave="${liChave(B)}"]`).click();
+      [...m.querySelectorAll('button')].find(b => /Registrar 1 convite/.test(b.textContent)).click(); await espera(400);
+      const reg2 = _db.abordagens_linkedin.map(x => x.nome).sort();
+      const depois = liAquecidosHoje().map(l => l.title);
+      // 3) CNPJ achado pelo nome em outra cidade é descartado
+      config.uazapi = Object.assign({}, config.uazapi, { url: 'https://srv.test', token: 't' });
+      _apiOficial = async () => ({ cnpj: '11222333000181' });
+      _srv = async () => ({ cnpj: '11222333000181', municipio: 'JOINVILLE', telefones: ['4788124014'], socios: [] });
+      const homo = await cnpjBuscar({ title: 'M & A Contabilidade', cidade: 'Guarulhos' });
+      _srv = async () => ({ cnpj: '11222333000181', municipio: 'GUARULHOS', telefones: ['11987654321'], socios: [] });
+      const certo = await cnpjBuscar({ title: 'M & A Contabilidade', cidade: 'Guarulhos' });
+      // 4) limpeza do que entrou antes da correção
+      userSet('li_decisores_extra', [
+        { title: 'Galan Ferreira Contabilidade', origem: 'busca LinkedIn', address: 'Guarulhos', linkedin: 'https://www.linkedin.com/in/galan/', decisores: [{ nome: 'Galan Ferreira Contabilidade' }] },
+        { title: 'M & A', origem: 'busca LinkedIn', address: 'Guarulhos', phone: '554788124014', place_id: 'li:ma', linkedin: 'https://www.linkedin.com/in/ligia/', decisores: [{ nome: 'Ligia Macedo' }] }]);
+      pesqSalvar({ place_id: 'li:ma' }, { cnpj: { cnpj: '1', fonte: 'Google', municipio: 'JOINVILLE' } });
+      liProspectsLimpar();
+      const extra = (userGet('li_decisores_extra', []) || []).map(l => [l.title, l.phone, (pesqDe(l) || {}).cnpj || null]);
+      return { reg1, hoje, reg2, depois, homo: [homo.cnpj, homo.motivos.join('|')], certo: !!certo.cnpj, extra };
+    });
+    assert.deepStrictEqual(r.reg1, ['Alfa Contábil|Ana Alfa']);
+    assert.deepStrictEqual(r.hoje.sort(), ['Beta Contábil', 'Gama Contábil']);
+    assert.deepStrictEqual(r.reg2, ['Alfa Contábil', 'Beta Contábil']);
+    assert.deepStrictEqual(r.depois, ['Gama Contábil']);
+    assert.strictEqual(r.homo[0], null); assert.match(r.homo[1], /CNPJ de outra cidade \(JOINVILLE\)/);
+    assert.strictEqual(r.certo, true);
+    assert.deepStrictEqual(r.extra, [['M & A', '', null]]);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});

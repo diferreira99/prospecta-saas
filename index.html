@@ -13377,7 +13377,7 @@ function aqMarcar(canal, l) {
 function aqPronto(canal, l) { const t = aqEm(canal, l); return !!t && Date.now() - t >= AQUECER_HORAS * 3600000; }
 function aqAquecendo(canal, l) { const t = aqEm(canal, l); return !!t && Date.now() - t < AQUECER_HORAS * 3600000; }
 // Passo "aquecer" no topo da janela de abordagem. Devolve true se mostrou o passo (a DM fica para amanhã).
-function aqPasso(m, canal, l, url, onFeito, onAgora) {
+function aqPasso(m, canal, l, url, onFeito, onAgora, onJaMandei) {
     if (!aqLigado(canal) || aqEm(canal, l)) return false;
     const box = prEl('div', 'aq-box');
     box.appendChild(prEl('div', 'aq-tit', '🔥 Aquecer primeiro (recomendado)'));
@@ -13388,6 +13388,12 @@ function aqPasso(m, canal, l, url, onFeito, onAgora) {
     const feito = prEl('button', 'modal-btn primary', canal === 'ig' ? 'Segui e curti ✓' : 'Curti ✓'); feito.onclick = () => { aqMarcar(canal, l); showToast('🔥 Aquecido. A DM fica liberada amanhã.', 'ok'); onFeito(); };
     const agora = prEl('button', 'modal-btn', 'Mandar agora mesmo'); agora.onclick = onAgora;
     bts.append(agora, abrir, feito); box.appendChild(bts);
+    if (onJaMandei) {
+        const ja = prEl('button', 'modal-btn aq-ja', canal === 'ig' ? 'Já mandei a DM ✓' : 'Já mandei o convite ✓'); ja.type = 'button';
+        ja.title = 'Em vez de curtir, você já mandou: o app registra e segue a cadência';
+        ja.onclick = async () => { ja.disabled = true; try { await onJaMandei(); } catch (e) { ja.disabled = false; showToast('Não consegui registrar: ' + e.message, 'err'); } };
+        bts.appendChild(ja);
+    }
     const nao = prEl('button', 'ig-link', 'não aquecer antes (desligar)'); nao.onclick = () => { userSet('aquecer_' + canal, false); onAgora(); };
     box.appendChild(nao);
     m.appendChild(box);
@@ -13710,7 +13716,8 @@ async function liAbordar(fila, opcoes) {
         if (_liSemana >= liLimiteSemana()) m.appendChild(prEl('div', 'ig-aviso', `Você já mandou ${_liSemana} convites nos últimos 7 dias (limite da semana: ${liLimiteSemana()}). O LinkedIn restringe quem passa disso: espere alguns dias ou mande sem convite novo, só para quem já aceitou.`));
         if (_liHoje >= lim) m.appendChild(prEl('div', 'ig-aviso', 'Você já chegou no limite de hoje. Convites demais seguidos fazem o LinkedIn restringir a conta: o melhor é continuar amanhã.'));
         const perfilDec = (Array.isArray(l.decisores) ? l.decisores : []).map(d => d && liPerfilOk(d.linkedin)).find(Boolean);
-        if (!opcoes.aoRegistrar && !l._aqAgora && aqPasso(m, 'li', l, perfilDec || ((liUrl(l) && /\/in\//.test(liUrl(l))) ? liUrl(l) : liPessoasUrl(l)), () => { i++; mostrar(); }, () => { l._aqAgora = true; mostrar(); })) return;
+        if (!opcoes.aoRegistrar && !l._aqAgora && aqPasso(m, 'li', l, perfilDec || ((liUrl(l) && /\/in\//.test(liUrl(l))) ? liUrl(l) : liPessoasUrl(l)), () => { i++; mostrar(); }, () => { l._aqAgora = true; mostrar(); },
+            async () => { await liRegistrar(l, (liDecisoresDe(l)[0] || {}).nome || '', '', perfilDec || '', null); feitas++; showToast('✉️ Convite registrado: quando aceitar, a mensagem fica pronta', 'ok'); i++; if (fila.length > 1) mostrar(); else fechar(); })) return;
         if (aqPronto('li', l)) m.appendChild(prEl('div', 'aq-pronto', '🔥 Aquecido em ' + new Date(aqEm('li', l)).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + '. Hora do convite.'));
         // 1) achar quem decide
         m.appendChild(prEl('div', 'ig-rot', '1. Ache quem decide'));
@@ -14008,7 +14015,7 @@ async function canalAbrir(aba, forcar) {
     if (!c || !box || !currentUser) return;
     if (!box.childElementCount) box.appendChild(prEl('div', 'ph-mudo', 'Carregando…'));
     const [buscas] = await Promise.all([canalBuscasSalvas(forcar), c.carregar(true), ccCarregar(forcar), aba === 'linkedin' ? liRowsCarregar(true) : igRowsCarregar(true), waEstadoCarregar()]);
-    if (aba === 'linkedin') liPuxarDecisoresWa(buscas).catch(() => {});
+    if (aba === 'linkedin') { liPuxarDecisoresWa(buscas).catch(() => {}); try { liProspectsLimpar(); } catch (e) {} }
     let feitos = [];
     try {
         const { data } = await supabaseClient.from(c.tabela).select('*').eq('user_id', currentUser.id).order('criado_em', { ascending: false }).limit(200);
@@ -14547,6 +14554,77 @@ async function liMsgModal(r, aoFechar) {
     f('Daqui a 2 dias', async () => { const d = new Date(Date.now() + 2 * LI_DIA_MS); d.setHours(8, 0, 0, 0); try { await liAtualizarRow(r, { proxima_em: d.toISOString() }); } catch (er) {} fechar(); });
     m.appendChild(fim);
 }
+// ---- Aquecidos hoje que na verdade receberam convite ----
+function liAquecidosHoje() {
+    const ini = new Date(); ini.setHours(0, 0, 0, 0);
+    const vistos = new Set(), out = [];
+    liLeadsConhecidos().forEach(l => {
+        const k = liChave(l); if (!k || vistos.has(k)) return;
+        const t = aqEm('li', l);
+        if (t >= ini.getTime() && !liJaAbordado(l)) { vistos.add(k); out.push(l); }
+    });
+    return out;
+}
+function liAquecidosRevisar(lista, aoFechar) {
+    const fundo = prEl('div', 'modal-backdrop active'), m = prEl('div', 'modal ig-modal li-modal li-lote-modal li-aq-modal');
+    fundo.appendChild(m); document.body.appendChild(fundo);
+    let fechou = false;
+    const fechar = () => { if (fechou) return; fechou = true; fundo.remove(); if (aoFechar) aoFechar(); };
+    fundo.onclick = ev => { if (ev.target === fundo) fechar(); };
+    m.appendChild(prEl('div', 'modal-title', '✉️ Para quem você mandou convite?'));
+    m.appendChild(prEl('div', 'modal-sub', 'Marque quem recebeu o convite hoje. Os outros continuam como aquecidos (convite amanhã).'));
+    const marcados = new Set();
+    const conf = prEl('button', 'modal-btn primary', 'Registrar convites'); conf.type = 'button';
+    const contar = () => { conf.textContent = marcados.size ? `Registrar ${marcados.size} convite${marcados.size === 1 ? '' : 's'}` : 'Marque quem recebeu'; conf.disabled = !marcados.size; };
+    const todos = prEl('button', 'ig-link', 'Marcar todos'); todos.type = 'button';
+    todos.onclick = () => { m.querySelectorAll('.li-lote input').forEach(cb => { cb.checked = true; marcados.add(cb.dataset.chave); }); contar(); };
+    m.appendChild(todos);
+    const ul = prEl('ul', 'canal-lista li-lote');
+    lista.forEach(l => {
+        const k = liChave(l), d = liDecisoresDe(l)[0];
+        const li = prEl('li'), lb = document.createElement('label'); lb.className = 'li-lote-item';
+        const cb = document.createElement('input'); cb.type = 'checkbox'; cb.dataset.chave = k;
+        cb.onchange = () => { if (cb.checked) marcados.add(k); else marcados.delete(k); contar(); };
+        const meio = prEl('div', 'cl-meio'); meio.append(prEl('div', 'cl-nome', (d && d.nome) || l.title || l.name || ''), prEl('div', 'cl-sub', d ? (l.title || l.name || '') : 'empresa'));
+        lb.append(cb, meio); li.appendChild(lb); ul.appendChild(li);
+    });
+    m.appendChild(ul);
+    const acoes = prEl('div', 'modal-actions');
+    const dep = prEl('button', 'modal-btn', 'Cancelar'); dep.type = 'button'; dep.onclick = fechar;
+    acoes.append(dep, conf); m.appendChild(acoes); contar();
+    conf.onclick = async () => {
+        conf.disabled = true; let n = 0;
+        for (const l of lista) {
+            if (!marcados.has(liChave(l))) continue;
+            const d = liDecisoresDe(l)[0];
+            try { await liRegistrar(l, (d && d.nome) || '', '', (d && liPerfilOk(d.linkedin)) || '', null); n++; } catch (e) {}
+            conf.textContent = `Registrando… ${n}`;
+        }
+        userSet('li_aq_revisto', new Date().toLocaleDateString('pt-BR'));
+        showToast(`✉️ ${n} convite${n === 1 ? '' : 's'} registrado${n === 1 ? '' : 's'}. Em 2 dias o app pergunta quem aceitou.`, 'ok');
+        fechar();
+    };
+}
+// Prospecção pelo LinkedIn feita antes da correção: tira telefone e CNPJ de empresa homônima de outra cidade
+// e quem veio com nome de empresa ou de cargo no lugar do nome da pessoa
+var RE_NAO_PESSOA = /\b(contabil|cont[aá]bil|ltda|assessoria|consultoria|escrit[oó]rio|servi[cç]os|empresa|grupo|eireli|ind[uú]stria|com[eé]rcio|s[oó]cio|propriet[aá]ri|diretor|contador|gerente|\bna\b)/i;
+function liProspectsLimpar() {
+    const lst = userGet('li_decisores_extra', []) || []; let mudou = 0;
+    const fica = lst.filter(l => {
+        if (!l || l.origem !== 'busca LinkedIn') return true;
+        const d = (l.decisores || [])[0];
+        if (!d || RE_NAO_PESSOA.test(d.nome || '')) { mudou++; return false; }
+        if (!l.cidade && l.address) { l.cidade = l.address; mudou++; }
+        const p = pesqDe(l), c = p && p.cnpj;
+        if (c && c.fonte === 'Google' && l.cidade && c.municipio && _normNicho(c.municipio) !== _normNicho(l.cidade)) {
+            pesqSalvar(l, Object.assign({}, p, { cnpj: null, semCnpj: true, vagas: [], vagasEm: 0 }));
+            l.phone = ''; mudou++;
+        }
+        return true;
+    });
+    if (mudou) userSet('li_decisores_extra', fica);
+    return mudou;
+}
 // ---- "Quem aceitou?" em lote ----
 function liAceitesLote(lista, aoFechar) {
     const fundo = prEl('div', 'modal-backdrop active'), m = prEl('div', 'modal ig-modal li-modal li-lote-modal');
@@ -14901,6 +14979,15 @@ function liPainelTopo(box, buscas) {
         sa.appendChild(bl); box.appendChild(sa);
     }
     if (hoje.length) box.appendChild(liListaCadencia(hoje, () => canalAbrir('linkedin', true)));
+    const aqh = liAquecidosHoje();
+    if (aqh.length && userGet('li_aq_revisto', '') !== new Date().toLocaleDateString('pt-BR')) {
+        const sq = prEl('section', 'ph-card li-aceites li-aq-hoje');
+        sq.appendChild(prEl('h3', '', `🔥 Você aqueceu ${aqh.length} hoje`));
+        sq.appendChild(prEl('div', 'ph-linha', 'Se em vez de curtir você já mandou o convite, marque quem: o app registra e segue a cadência (senão amanhã ele pede o convite de novo).'));
+        const b = prEl('button', 'ps-acao principal', 'Mandei convite para alguns'); b.type = 'button'; b.onclick = () => liAquecidosRevisar(aqh, () => canalAbrir('linkedin', true));
+        const n = prEl('button', 'ig-link', 'Não, só curti'); n.type = 'button'; n.onclick = () => { userSet('li_aq_revisto', new Date().toLocaleDateString('pt-BR')); sq.remove(); };
+        sq.append(b, n); box.appendChild(sq);
+    }
     const sf = prEl('section', 'ph-card li-funil-card');
     sf.appendChild(prEl('h3', '', '📊 Funil do LinkedIn · 30 dias'));
     sf.appendChild(liFunilEl(rows, null));
@@ -15064,6 +15151,11 @@ function liBuscaPintar(res, setor) {
     const novos = _liBuscaRes.filter(p => !ja.has(liPerfilOk(p.linkedin)) && !(_liFeitos && _liFeitos.has(String(liPerfilOk(p.linkedin)).toLowerCase())));
     if (!_liBuscaRes.length) { res.appendChild(prEl('div', 'ph-mudo', 'O Google não mostrou ninguém com cargo de decisão. Tente um setor mais amplo ou outra cidade.')); return; }
     res.appendChild(prEl('div', 'ph-linha', `${_liBuscaRes.length} decisores encontrados${novos.length < _liBuscaRes.length ? ` · ${_liBuscaRes.length - novos.length} já estavam na sua fila` : ''}.`));
+    if (!novos.length) {
+        const av = prEl('div', 'ig-aviso', 'Todos já estão na sua fila (por isso não dá para marcar). Eles estão em "Decisores e fila". Para achar gente nova, troque a cidade, o setor (ex.: "escritório contábil", "contador") ou o cargo. ');
+        const b = prEl('button', 'ig-link', 'Ver em Decisores e fila →'); b.type = 'button'; b.onclick = () => canalIrSub('linkedin', 'fila');
+        av.appendChild(b); res.appendChild(av);
+    }
     const marcados = new Set(novos.map(p => p.linkedin));
     const ul = prEl('ul', 'canal-lista li-lote');
     _liBuscaRes.forEach(p => {
@@ -15082,19 +15174,20 @@ function liBuscaPintar(res, setor) {
         const escolhidos = _liBuscaRes.filter(p => marcados.has(p.linkedin));
         if (!escolhidos.length) return;
         add.disabled = true;
-        const leads = liProspectAdicionar(escolhidos, setor);
+        const leads = liProspectAdicionar(escolhidos, setor, userGet('li_busca_cidade', '') || '');
         showToast(`➕ ${leads.length} decisores nos "Decisores do dia". Puxando CNPJ e telefone das empresas…`, 'ok');
         await liProspectEnriquecer(leads);
+        userSet('canal_sub_linkedin', 'fila');
         canalAbrir('linkedin', true);
     };
     res.appendChild(add);
 }
-function liProspectAdicionar(pessoas, setor) {
+function liProspectAdicionar(pessoas, setor, cidade) {
     const lst = userGet('li_decisores_extra', []) || [], out = [];
     pessoas.forEach(p => {
         const perfil = liPerfilOk(p.linkedin); if (!perfil) return;
         if (lst.some(l => liUrl(l) === perfil)) return;
-        const l = { title: p.empresa || p.nome, phone: '', address: p.local || '', category: setor || '', linkedin: perfil, place_id: 'li:' + perfil.split('/in/')[1].replace(/\/$/, ''),
+        const l = { title: p.empresa || p.nome, phone: '', address: p.local || '', cidade: cidade || p.local || '', category: setor || '', linkedin: perfil, place_id: 'li:' + perfil.split('/in/')[1].replace(/\/$/, ''),
             decisores: [{ nome: p.nome, cargo: p.cargo || '', linkedin: perfil, fonte: 'google', confirmado: true }], extra: true, origem: 'busca LinkedIn', em: Date.now() };
         lst.unshift(l); out.push(l);
     });
@@ -20938,11 +21031,15 @@ async function cnpjBuscar(l, cnpjDigitado) {
     // Sem CNPJ no site: procura no Google pelo nome + cidade (só aceita quando o nome da empresa aparece junto)
     if (!n) {
         try {
-            const g = await _apiOficial('/leads/cnpj-google', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: l.title || l.name || '', cidade: cidadeDoLead(l) || '' }) });
+            const g = await _apiOficial('/leads/cnpj-google', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: l.title || l.name || '', cidade: l.cidade || cidadeDoLead(l) || '' }) });
             if (g && g.cnpj) { n = String(g.cnpj).replace(/\D/g, ''); cnpjFonte = 'Google'; } else motivos.push('Google sem CNPJ');
         } catch (e) { motivos.push('Google: ' + (e.status || '') + ' ' + e.message); }
     }
     if (n) { try { cnpj = await _srv('/cnpj?n=' + n); if (cnpj) cnpj.fonte = cnpjFonte; } catch (e) { motivos.push('Receita: ' + e.message); } }
+    // achado pelo nome no Google: se a Receita diz outra cidade, é empresa homônima (telefone e sócio errados)
+    if (cnpj && cnpjFonte === 'Google' && l.cidade && cnpj.municipio && _normNicho(cnpj.municipio) !== _normNicho(l.cidade)) {
+        motivos.push('CNPJ de outra cidade (' + cnpj.municipio + ')'); cnpj = null;
+    }
     return { site, cnpj, avisoSite, motivos };
 }
 // O sócio-administrador vira "quem decide" (o LinkedIn e a IA usam)
