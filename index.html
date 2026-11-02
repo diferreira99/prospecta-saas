@@ -1417,6 +1417,13 @@
 .ps-chip { font-family:'Inter',sans-serif; font-size:0.6rem; font-weight:700; padding:4px 10px; border-radius:20px; border:1.5px solid #d1d5db; background:#fff; color:#6b7280; cursor:pointer; white-space:nowrap; }
 .ps-chip[aria-pressed="true"] { border-color:#165DFF; background:#EBF0FF; color:#165DFF; }
 .pend { margin-bottom:16px; }
+.pend-item.auto.urgente { border-color:#fca5a5; background:#fef2f2; }
+.pend-item.auto.urgente .pend-ir { border-color:#dc2626; color:#dc2626; }
+.fu-vencidos { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-family:'Inter',sans-serif; font-size:0.74rem; color:#6b7280; background:#f8fafc; border:1.5px dashed #cbd5e1; border-radius:10px; padding:9px 12px; margin:0 0 10px; }
+.fu-vencidos[hidden] { display:none; }
+.fu-selo-vencido { display:inline-block; font-family:'Inter',sans-serif; font-size:0.62rem; font-weight:700; color:#64748b; background:#f1f5f9; border-radius:6px; padding:2px 8px; margin-bottom:8px; }
+.rs-reuniao-sug { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-family:'Inter',sans-serif; font-size:0.74rem; font-weight:600; color:#166534; background:#f0fdf4; border:1.5px solid #bbf7d0; border-radius:10px; padding:8px 10px; margin:8px 0; }
+.nf-bts { display:flex; flex-direction:column; gap:8px; margin-top:12px; }
 .fu-fila-aviso { font-family:'Inter',sans-serif; font-size:0.74rem; font-weight:700; color:#9a3412; background:#FFF3E0; border:1.5px solid #FFD6B0; border-radius:10px; padding:9px 12px; margin:0 0 10px; }
 .fu-fila-aviso[hidden] { display:none; }
 .fila-card.fu-na-fila { opacity:.75; border-color:#FFD6B0 !important; }
@@ -3384,6 +3391,50 @@ function rsChecarTexto(ta, aviso, btn) {
     if (btn) btn.disabled = tem || !ta.value.trim();
 }
 
+// Reunião combinada na conversa ("pode ser quinta às 15h", "amanhã 10:30", "dia 12/11 às 9h"): vira 1 toque para registrar.
+var DIAS_SEMANA_PT = { domingo: 0, segunda: 1, terca: 2, quarta: 3, quinta: 4, sexta: 5, sabado: 6 };
+function reuniaoDetectar(texto, agora) {
+    const t = String(texto || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const h = t.match(/(?:\bas\s+|\b)(\d{1,2})\s*(?:h|:|horas?\b)\s*(\d{2})?/);
+    if (!h) return null;
+    const hora = Number(h[1]), min = Number(h[2] || 0);
+    if (hora < 6 || hora > 21 || min > 59) return null;
+    const base = new Date(agora || Date.now()); base.setSeconds(0, 0);
+    let d = null;
+    const dm = t.match(/\b(\d{1,2})\/(\d{1,2})\b/);
+    if (dm) { d = new Date(base.getFullYear(), Number(dm[2]) - 1, Number(dm[1])); if (d < new Date(base.getFullYear(), base.getMonth(), base.getDate())) d.setFullYear(d.getFullYear() + 1); }
+    else if (/\bamanha\b/.test(t)) { d = new Date(base); d.setDate(d.getDate() + 1); }
+    else if (/\bhoje\b/.test(t)) d = new Date(base);
+    else {
+        const w = t.match(/\b(domingo|segunda|terca|quarta|quinta|sexta|sabado)\b/);
+        if (!w) return null;
+        d = new Date(base); const alvo = DIAS_SEMANA_PT[w[1]];
+        let soma = (alvo - d.getDay() + 7) % 7;
+        if (soma === 0 && (hora < base.getHours() || (hora === base.getHours() && min <= base.getMinutes()))) soma = 7;
+        d.setDate(d.getDate() + soma);
+    }
+    d.setHours(hora, min, 0, 0);
+    if (d.getTime() <= base.getTime()) return null;
+    return d.getTime();
+}
+function rsReuniaoSugerida(g) {
+    const msgs = (_rsCtx.hist[g.k] || []).filter(m => m.direcao === 'recebida').slice(-3).map(m => m.mensagem);
+    const textos = msgs.length ? msgs : g.itens.map(i => i.mensagem_recebida);
+    let quando = null;
+    for (let i = textos.length - 1; i >= 0 && !quando; i--) quando = reuniaoDetectar(textos[i]);
+    if (!quando) return null;
+    const txt = new Date(quando).toLocaleString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    const box = prEl('div', 'rs-reuniao-sug');
+    box.appendChild(prEl('span', '', `📅 Parece que combinaram ${txt}.`));
+    const b = prEl('button', 'rs-btn verde', 'Registrar reunião'); b.type = 'button';
+    b.onclick = async () => {
+        b.disabled = true;
+        await rsPipeline(g, l => { l.reuniaoEm = quando; l.reuniaoMarcada = true; if (['novo', 'contatado', 'respondeu'].includes(l.col)) { l.col = 'negociando'; l.movedAt = Date.now(); } }, '📅 Reunião registrada: ' + txt);
+        box.replaceChildren(prEl('span', '', '✅ Reunião registrada no Pipeline: ' + txt));
+    };
+    box.appendChild(b);
+    return box;
+}
 function rsCard(g) {
     const info = CLASSIFICACAO_INFO[g.classif] || CLASSIFICACAO_INFO.indefinido;
     const card = prEl('div', 'fila-card rs-card' + (g.interessado ? ' quente' : ''));
@@ -3400,6 +3451,7 @@ function rsCard(g) {
     topo.append(quem, tags);
     card.appendChild(topo);
     card.appendChild(rsBolhas(g));
+    try { const sug = rsReuniaoSugerida(g); if (sug) card.appendChild(sug); } catch (e) {}
 
     if (g.classif === 'menu' || g.robo) card.appendChild(prEl('div', 'rs-dica', '🤖 Robô de atendimento da empresa. A sugestão tenta chegar no comercial ou no responsável.'));
 
@@ -3655,6 +3707,7 @@ async function rsEnviar(g, btn) {
     }
 }
 async function rsDescartar(g) {
+    if (g.interessado) { rsSemInteresse(g, true); return; }   // lead interessado nunca some sem motivo
     await Promise.all(g.itens.map(i => fetch(`${N8N_BASE}/responder-fila`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ filaId: i.id, userId: currentUser.id, acao: 'descartar' })
@@ -3669,7 +3722,7 @@ async function rsMarcar(g, status) {
         if (status === 'respondido_fora') rsPipeline(g, l => { if (['novo', 'contatado'].includes(l.col)) { l.col = 'respondeu'; l.movedAt = Date.now(); } }, '✓ Marcado como respondido no WhatsApp');
     } catch (e) { showToast('❌ Não consegui salvar: ' + (e && e.message), 'err'); }
 }
-function rsSemInteresse(g) {
+function rsSemInteresse(g, veioDoDescartar) {
     let m = document.getElementById('rs-motivo-modal');
     if (!m) {
         m = document.createElement('div'); m.id = 'rs-motivo-modal'; m.className = 'nc-modal';
@@ -3680,7 +3733,7 @@ function rsSemInteresse(g) {
     m.innerHTML = '';
     const cx = prEl('div', 'nc-caixa');
     cx.appendChild(prEl('h3', '', 'Por que ' + g.nome + ' não tem interesse?'));
-    cx.appendChild(prEl('p', 'ph-linha', 'O lead vai para Perdido no Pipeline com esse motivo.'));
+    cx.appendChild(prEl('p', 'ph-linha', veioDoDescartar ? '🔥 É um lead interessado: antes de descartar, diga o motivo. Ele vai para Perdido no Pipeline com esse motivo.' : 'O lead vai para Perdido no Pipeline com esse motivo.'));
     const lista = prEl('div', 'pk-motivos');
     PK_MOTIVOS.forEach(([k, n]) => {
         const b = prEl('button', 'ps-sug sin', n);
@@ -3916,6 +3969,55 @@ async function descartarSugestao(filaId) {
 // ===================== FILA DE FOLLOW-UPS (cadência com aprovação) =====================
 let _filaFollowupsCache = [];
 
+// Follow-up que não envelhece: quando chega a etapa nova de um lead, a velha (que nem saiu) sai da fila sozinha.
+var FU_VENCE_DIAS = 5;
+function fuTirarSuperados() {
+    const porTel = {};
+    _filaFollowupsCache.filter(i => i.canal !== 'instagram' && i.canal !== 'linkedin').forEach(i => {
+        const k = pkTel(i.phone); if (!k) return;
+        (porTel[k] = porTel[k] || []).push(i);
+    });
+    const sair = [];
+    Object.values(porTel).forEach(l => {
+        if (l.length < 2) return;
+        const fica = l.reduce((a, b) => (Number(b.dia_etapa) || 0) > (Number(a.dia_etapa) || 0) || ((Number(b.dia_etapa) || 0) === (Number(a.dia_etapa) || 0) && new Date(b.criado_em) > new Date(a.criado_em)) ? b : a);
+        l.forEach(i => { if (i !== fica) sair.push(i.id); });
+    });
+    if (!sair.length) return;
+    _filaFollowupsCache = _filaFollowupsCache.filter(i => !sair.includes(i.id));
+    sair.forEach(id => fetch(`${N8N_BASE}/responder-followup`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filaId: id, userId: currentUser.id, acao: 'pular' }) }).catch(() => {}));
+}
+function fuVencido(i) { return i.criado_em && (Date.now() - new Date(i.criado_em).getTime()) > FU_VENCE_DIAS * 86400000; }
+// Vencidos (mais de 5 dias esperando): selo no card e um botão para tirar todos de uma vez
+function fuPintarVencidos() {
+    const secao = document.getElementById('fila-followups-secao'); if (!secao) return;
+    const venc = _filaFollowupsCache.filter(fuVencido);
+    let av = document.getElementById('fu-vencidos');
+    if (!av) {
+        av = document.createElement('div'); av.id = 'fu-vencidos'; av.className = 'fu-vencidos';
+        const lista = document.getElementById('fila-followups-lista');
+        (lista && lista.parentNode === secao) ? secao.insertBefore(av, lista) : secao.prepend(av);
+    }
+    av.innerHTML = '';
+    av.hidden = !venc.length;
+    if (venc.length) {
+        av.appendChild(prEl('span', '', `⌛ ${venc.length} follow-up${venc.length === 1 ? '' : 's'} esperando há mais de ${FU_VENCE_DIAS} dias: a conversa esfriou.`));
+        const b = prEl('button', 'rs-btn', `Pular os ${venc.length} vencidos`); b.type = 'button';
+        b.onclick = async () => {
+            if (!confirm(`Tirar da fila os ${venc.length} follow-ups com mais de ${FU_VENCE_DIAS} dias? Eles não são enviados.`)) return;
+            for (const i of venc) await pularFollowup(i.id);
+            showToast(`⏭ ${venc.length} follow-ups vencidos tirados da fila`, 'ok');
+        };
+        av.appendChild(b);
+    }
+    document.querySelectorAll('.fila-card[data-fu]').forEach(card => {
+        const it = _filaFollowupsCache.find(i => i.id === Number(card.getAttribute('data-fu')));
+        if (it && fuVencido(it) && !card.querySelector('.fu-selo-vencido')) {
+            const selo = prEl('span', 'fu-selo-vencido', `⌛ vencido · ${Math.floor((Date.now() - new Date(it.criado_em).getTime()) / 86400000)} dias`);
+            card.insertBefore(selo, card.firstChild);
+        }
+    });
+}
 async function carregarFilaFollowups() {
     if (!currentUser) return;
     try {
@@ -3927,6 +4029,7 @@ async function carregarFilaFollowups() {
             .order('criado_em', { ascending: false });
         if (error) throw error;
         _filaFollowupsCache = data || [];
+        fuTirarSuperados();
     } catch (e) {
         console.warn('Erro ao carregar fila de follow-ups:', e.message);
         _filaFollowupsCache = [];
@@ -3974,7 +4077,7 @@ function renderizarFilaFollowups() {
             </div>
         </div>`;
     }).join('');
-    try { fuPintarFila(); } catch (e) {}
+    try { fuPintarFila(); fuPintarVencidos(); } catch (e) {}
 }
 
 // Fila de envio dos follow-ups: sai um de cada vez, com 40 a 70 s entre eles, seja tocando card por card ou em
@@ -14462,8 +14565,8 @@ const MANUAL = {
             itens: [
                 {
                     titulo: 'Pendências', resumo: 'Nada fica para trás: tudo vira ✅', aba: 'plano',
-                    texto: 'No topo do Plano de Prospecção. O app junta sozinho o que está em aberto: respostas e follow-ups para aprovar, listas salvas sem disparo, empresas de campanhas que ainda não receberam mensagem, Pipeline parado há mais de 14 dias e produto sem instruções. Cada item tem o botão que leva à tela certa.',
-                    blocos: [{ t: 'Como usar', l: ['Toque no quadrado para marcar ✅. Um item automático some sozinho quando zera; se você marcar antes, ele volta só se aparecer coisa nova.', 'Escreva as suas pendências em "+ Nova pendência".', '"Limpar as ✅ feitas" tira da lista o que já foi feito.'] }]
+                    texto: 'No topo do Plano de Prospecção. O app junta sozinho o que está em aberto: em vermelho o urgente (WhatsApp desconectado, 2+ dias úteis sem campanha, interessados esperando resposta, negociação parada há 7+ dias) e depois respostas e follow-ups para aprovar, listas salvas sem disparo, empresas de campanhas ainda sem mensagem, Pipeline parado há 14+ dias e produto sem instruções. O urgente também chega como notificação no celular, uma vez por dia.',
+                    blocos: [{ t: 'Proteções que rodam sozinhas', l: ['Follow-ups saem por uma fila: um a cada 40 a 70 segundos. Quando chega a etapa nova de um lead, a velha sai da fila; os com mais de 5 dias ganham o selo ⌛ vencido e um botão para pular todos.', 'Descartar um lead interessado pede o motivo (vai para Perdido).', 'Quando o lead escreve dia e hora ("quinta às 15h"), aparece "Registrar reunião" na resposta.', 'Ao criar campanha num nicho que rende bem menos que o seu melhor, o app oferece trocar.'] }, { t: 'Como usar', l: ['Toque no quadrado para marcar ✅. Um item automático some sozinho quando zera; se você marcar antes, ele volta só se aparecer coisa nova.', 'Escreva as suas pendências em "+ Nova pendência".', '"Limpar as ✅ feitas" tira da lista o que já foi feito.'] }]
                 },
                 {
                     titulo: 'Histórico', resumo: 'Todas as buscas que você já fez', aba: 'historico',
@@ -14561,6 +14664,7 @@ async function prodCarregar() {
     prodPintar();
     await prodCarregarCampanhas();
     cpResincronizarSalvas();
+    setTimeout(() => { try { pendCarregar(); } catch (e) {} }, 5000);   // avisa já ao abrir se o WhatsApp caiu ou parou
     if (_produtos.length > 1 || userGet('produto_visao', '') === 'todos') prodRecarregarTelas(); else { try { _enviadosRecalcular(); } catch (e) {} }
 }
 function prodTextoMudou(texto) {
@@ -17093,8 +17197,59 @@ async function pendCarregar() {
         const n = camps.reduce((a, g) => a + g.faltam.length, 0);
         if (n) auto.push({ id: 'a-faltam', n, texto: `${n} empresas de buscas que já viraram campanha ainda sem mensagem`, det: camps.sort((a, b) => b.faltam.length - a.faltam.length).slice(0, 3).map(g => `${g.titulo} (${g.faltam.length})`).join(' · '), aba: 'historico', ir: 'Histórico' });
     } catch (e) {}
+    const urg = [];   // urgentes no topo, nesta ordem: caiu/parou, interessados, negociação parada
+    try { urg.push(...(await pendChecarParou())); } catch (e) {}
+    try {
+        const d7 = new Date(Date.now() - 7 * 86400000).toISOString();
+        const [ints, neg] = await Promise.all([
+            phContar('fila_sugestoes', [['eq', 'status', 'pendente'], ['in', 'classificacao', ['quente', 'duvida']]]),
+            phContar('pipeline_leads', [['eq', 'col', 'negociando'], ['lt', 'moved_at', d7]]),
+        ]);
+        if (ints) urg.push({ id: 'a-int', n: ints, urgente: true, texto: `🔥 ${ints} interessado${ints === 1 ? '' : 's'} esperando sua resposta`, det: 'responder rápido é o que mais vira reunião', aba: 'respostas', ir: 'Responder' });
+        if (neg) urg.push({ id: 'a-neg', n: neg, urgente: true, texto: `${neg} negociaç${neg === 1 ? 'ão parada' : 'ões paradas'} há mais de 7 dias: ligar, retomar ou mover para Perdido`, aba: 'pipeline', ir: 'Pipeline' });
+    } catch (e) {}
+    auto.unshift(...urg);
     _pendAuto = auto;
     pendPintar();
+    pendNotificar(auto.filter(a => a.urgente && (a.id === 'a-wa' || a.id === 'a-parou')));
+}
+// "Parou": WhatsApp desconectado ou dias úteis sem campanha. Avisa no app e por notificação do celular (uma vez por dia).
+function diasUteisSem(ultimo, agora) {
+    const d = new Date(ultimo); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() + 1);
+    const hoje = new Date(agora || Date.now()); const fim = new Date(hoje); fim.setHours(0, 0, 0, 0);
+    let n = 0;
+    for (; d < fim; d.setDate(d.getDate() + 1)) if (d.getDay() !== 0 && d.getDay() !== 6) n++;
+    if (hoje.getDay() !== 0 && hoje.getDay() !== 6 && hoje.getHours() >= 12) n++;   // hoje conta depois do meio-dia
+    return n;
+}
+async function pendChecarParou() {
+    const out = [];
+    const u = (typeof config !== 'undefined' && config && config.uazapi) || {};
+    if (u.url && u.token) {
+        try {
+            const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 8000);
+            const r = await fetch(String(u.url).replace(/\/+$/, '') + '/status', { headers: { 'x-api-token': u.token }, signal: ctl.signal });
+            clearTimeout(t);
+            const j = await r.json().catch(() => ({}));
+            if (r.ok && j && j.connected === false) out.push({ id: 'a-wa', n: 1, urgente: true, texto: '📵 WhatsApp desconectado: campanhas e follow-ups não estão saindo', det: 'leia o QR code de novo em Integrações', aba: 'integracoes', ir: 'Conectar' });
+        } catch (e) {}
+    }
+    try {
+        const { data } = await supabaseClient.from('leads').select('enviado_em').eq('user_id', currentUser.id).not('enviado_em', 'is', null).order('enviado_em', { ascending: false }).limit(1);
+        const ult = data && data[0] && data[0].enviado_em;
+        const n = ult ? diasUteisSem(ult) : 0;
+        if (n >= 2) out.push({ id: 'a-parou', n, urgente: true, texto: `⏸ ${n} dias úteis sem campanha no WhatsApp`, det: 'último envio em ' + new Date(ult).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + '. O que não roda não vende.', aba: 'prospeccao', ir: 'Prospectar' });
+    } catch (e) {}
+    return out;
+}
+function pendNotificar(urgentes) {
+    if (!urgentes.length) return;
+    const hoje = new Date().toLocaleDateString('pt-BR');
+    if (userGet('pend_avisou_dia', '') === hoje) return;
+    userSet('pend_avisou_dia', hoje);
+    const txt = urgentes.map(a => a.texto.replace(/^[^\wÀ-ú]+/, '')).join(' · ');
+    try { showToast('⚠️ ' + txt, 'err'); } catch (e) {}
+    try { _notificarSistema('⚠️ Prospecta+ parado', txt, 'plano'); } catch (e) {}
 }
 function pendPintar() {
     const ul = document.getElementById('pend-lista'); if (!ul) return;
@@ -17110,7 +17265,7 @@ function pendPintar() {
         if (ir && aba) { const b = prEl('button', 'pend-ir', ir + ' →'); b.type = 'button'; b.onclick = () => pendAbrir(aba); li.appendChild(b); }
         ul.appendChild(li);
     };
-    auto.forEach(a => linha('auto', '', 'Marcar como feito (volta se aparecer mais)', () => { const v = userGet('pendencias_vistos', {}) || {}; v[a.id] = a.n; userSet('pendencias_vistos', v); pendPintar(); }, a.texto, a.det, a.ir, a.aba));
+    auto.forEach(a => linha('auto' + (a.urgente ? ' urgente' : ''), '', 'Marcar como feito (volta se aparecer mais)', () => { const v = userGet('pendencias_vistos', {}) || {}; v[a.id] = a.n; userSet('pendencias_vistos', v); pendPintar(); }, a.texto, a.det, a.ir, a.aba));
     abertas.forEach(t => linha('', '', 'Marcar como feito', () => pendMarcar(t.id, true), t.texto, '', t.aba ? 'Abrir' : '', t.aba));
     feitas.slice(0, 5).forEach(t => linha('feito', '✅', 'Desmarcar', () => pendMarcar(t.id, false), t.texto, 'feito em ' + new Date(t.feitoEm).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), '', ''));
     const n = auto.length + abertas.length;
@@ -18367,9 +18522,36 @@ function atualizarAcoesBusca() {
     }
 }
 // Vai para a Prospecção IA já com os melhores marcados (o envio continua pedindo a sua confirmação).
-function campanhaComMelhores() {
+// Aviso de nicho fraco na hora de criar a campanha: se este nicho rende bem menos que o seu melhor, oferece trocar.
+// Devolve true quando você escolheu buscar o outro nicho (a campanha não é criada).
+async function nichoFracoTrocar(nicho, local) {
+    const n = _normNicho(String(nicho || '').split(',')[0]); if (!n) return false;
+    if (!_statsNicho && typeof carregarInteligenciaProspeccao === 'function') { try { await carregarInteligenciaProspeccao(); } catch (e) {} }
+    const lista = (_statsNicho || []).filter(g => g.env >= 30);
+    const atual = lista.find(g => _normNicho(g.nome) === n), melhor = lista[0];
+    if (!atual || !melhor || _normNicho(melhor.nome) === n) return false;
+    const tx = atual.hum / atual.env, tm = melhor.hum / melhor.env;
+    if (!(tm > 0 && tx < tm * 0.6)) return false;
+    return await new Promise(resolve => {
+        let m = document.getElementById('nicho-fraco-modal');
+        if (!m) { m = document.createElement('div'); m.id = 'nicho-fraco-modal'; m.className = 'nc-modal'; m.setAttribute('role', 'dialog'); m.setAttribute('aria-modal', 'true'); document.body.appendChild(m); }
+        m.innerHTML = '';
+        const cx = prEl('div', 'nc-caixa');
+        cx.appendChild(prEl('h3', '', '🎯 Esse nicho rende pouco para você'));
+        cx.appendChild(prEl('p', 'ph-linha', `${atual.nome} trouxe ${prPctTxt(atual.hum, atual.env)} de interessados (${atual.env} envios). ${melhor.nome}, o seu melhor, trouxe ${prPctTxt(melhor.hum, melhor.env)}.`));
+        const fim = v => { m.hidden = true; resolve(v); };
+        const trocar = prEl('button', 'ps-acao principal', `🔎 Buscar ${melhor.nome}${local ? ' em ' + local : ''}`); trocar.type = 'button';
+        trocar.onclick = () => { fim(true); const ni = document.getElementById('nicho'); if (ni) ni.value = melhor.nome; if (local) { const lo = document.getElementById('local'); if (lo) lo.value = local; } try { buscar(); } catch (e) {} };
+        const seguir = prEl('button', 'ps-acao', `Seguir com ${atual.nome}`); seguir.type = 'button'; seguir.onclick = () => fim(false);
+        const bts = prEl('div', 'nf-bts'); bts.append(trocar, seguir); cx.appendChild(bts);
+        m.appendChild(cx); m.onclick = e => { if (e.target === m) fim(false); };
+        m.hidden = false;
+    });
+}
+async function campanhaComMelhores() {
     const melhores = melhoresParaCampanha();
     if (!melhores.length) { showToast('Nenhum lead novo e bom nesta busca', 'err'); return; }
+    try { if (await nichoFracoTrocar(document.getElementById('nicho')?.value || '', document.getElementById('local')?.value || '')) return; } catch (e) {}
     _filtroDor = null;
     // tira os filtros da tabela para a lista da IA conter todos os leads da busca
     const busca = document.getElementById('search-leads'); if (busca) busca.value = '';

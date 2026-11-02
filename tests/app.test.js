@@ -1309,11 +1309,11 @@ test('Pendências no Plano: automáticas + tarefas com ✅, e campanhas antigas 
     const r = await a.pagina.evaluate(async () => {
       _produtos = [{ id: 'p1', nome: 'Kaizen Connect', instrucoes: 'x', padrao: true }, { id: 'p2', nome: 'Maquininha Stone', instrucoes: '' }];
       campanhas = [{ id: 'l1', nome: 'Serralheiro – SJC', leads: [] }];
-      phContar = async (t, f) => t === 'fila_followups' ? 67 : t === 'fila_sugestoes' ? 0 : t === 'pipeline_leads' ? 12 : 0;
+      phContar = async (t, f) => t === 'fila_followups' ? 67 : t === 'fila_sugestoes' ? 0 : t === 'pipeline_leads' && f.some(x => x[2] === 'respondeu') ? 12 : 0; pendChecarParou = async () => [];
       _histRes = { ld: {}, pk: {}, wa: {} }; _histBuscas = [];
       trocarAba('plano', document.querySelector(`.nav-item[onclick*="'plano'"]`) || document.body);
       await new Promise(r => setTimeout(r, 300));
-      phContar = async (t, f) => t === 'fila_followups' ? 67 : t === 'fila_sugestoes' ? 0 : t === 'pipeline_leads' ? 12 : 0;
+      phContar = async (t, f) => t === 'fila_followups' ? 67 : t === 'fila_sugestoes' ? 0 : t === 'pipeline_leads' && f.some(x => x[2] === 'respondeu') ? 12 : 0; pendChecarParou = async () => [];
       await pendCarregar();
       const txt1 = document.getElementById('pend-card').innerText;
       const n1 = document.getElementById('pend-n').textContent;
@@ -1381,6 +1381,95 @@ test('follow-ups saem pela fila com intervalo: tocar vários cards rápido não 
     assert.match(r.estado3.txt, /Na fila \(\d+º\)/); assert.strictEqual(r.estado3.off, true);
     assert.match(r.todos, /Parar \(\d na fila\)/);
     assert.strictEqual(r.avisoFim, true); assert.strictEqual(r.todosFim, '📤 Enviar todos');
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('reunião combinada na conversa é reconhecida (dia + hora) e não inventa reunião sem hora', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(() => {
+      const seg = new Date(2026, 10, 2, 11, 0).getTime();   // segunda 02/11 11h
+      const f = t => { const v = reuniaoDetectar(t, seg); return v ? new Date(v).toLocaleString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : null; };
+      return [f('Pode ser quinta às 15h?'), f('amanhã 10:30 fica bom'), f('dia 12/11 às 9h'), f('Hoje 14h'), f('segunda 9h'), f('Pode ser quinta?'), f('tenho 3 lojas'), f('ligo às 2h')];
+    });
+    assert.match(r[0], /qui.*05\/11.*15:00/);
+    assert.match(r[1], /ter.*03\/11.*10:30/);
+    assert.match(r[2], /12\/11.*09:00/);
+    assert.match(r[3], /02\/11.*14:00/);
+    assert.match(r[4], /seg.*09\/11.*09:00/, 'segunda 9h já passou hoje: próxima semana');
+    assert.deepStrictEqual(r.slice(5), [null, null, null]);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('follow-up não envelhece: etapa velha sai quando chega a nova, vencidos ganham selo e botão', async () => {
+  const a = await abrirApp({ largura: 390, rotas: [[/\/responder-followup$/, () => ({ ok: true })]] });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      trocarAba('respostas', document.querySelector(`.nav-item[onclick*="'respostas'"]`) || document.body);
+      await new Promise(r => setTimeout(r, 1500));
+      const velho = new Date(Date.now() - 9 * 86400000).toISOString(), novo = new Date().toISOString();
+      _filaFollowupsCache = [
+        { id: 1, phone: '5511999990001', lead_nome: 'A', dia_etapa: 3, mensagem: 'x', criado_em: velho },
+        { id: 2, phone: '11999990001', lead_nome: 'A', dia_etapa: 7, mensagem: 'y', criado_em: novo },
+        { id: 3, phone: '11999990002', lead_nome: 'B', dia_etapa: 3, mensagem: 'z', criado_em: velho },
+      ];
+      fuTirarSuperados(); renderizarFilaFollowups();
+      await new Promise(r => setTimeout(r, 100));
+      return { ids: _filaFollowupsCache.map(i => i.id), aviso: document.getElementById('fu-vencidos').innerText, selo: !!document.querySelector('.fila-card[data-fu="3"] .fu-selo-vencido'), seloNovo: !!document.querySelector('.fila-card[data-fu="2"] .fu-selo-vencido') };
+    });
+    assert.deepStrictEqual(r.ids, [2, 3]);
+    assert.ok(a.pedidos.some(p => p.corpo.filaId === 1 && p.corpo.acao === 'pular'), 'etapa velha pulada no servidor');
+    assert.match(r.aviso, /1 follow-up esperando há mais de 5 dias[\s\S]*Pular os 1 vencidos/);
+    assert.strictEqual(r.selo, true); assert.strictEqual(r.seloNovo, false);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('Pendências avisam quando parou (WhatsApp caiu, dias sem campanha) e interessado não é descartado sem motivo', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      const seg = new Date(2026, 10, 2, 13, 0);   // segunda 13h
+      const dias = diasUteisSem('2026-10-21T14:00:00Z', seg);
+      pendChecarParou = async () => [{ id: 'a-wa', n: 1, urgente: true, texto: '📵 WhatsApp desconectado: campanhas e follow-ups não estão saindo', aba: 'integracoes', ir: 'Conectar' }];
+      phContar = async (t, f) => t === 'fila_sugestoes' && f.some(x => x[0] === 'in') ? 2 : t === 'pipeline_leads' && f.some(x => x[2] === 'negociando') ? 3 : 0;
+      _histRes = { ld: {}, pk: {}, wa: {} }; _histBuscas = [];
+      await pendCarregar();
+      const itens = [...document.querySelectorAll('#pend-lista .pend-item.urgente')].map(li => li.innerText.replace(/\s+/g, ' '));
+      // descartar interessado abre o motivo
+      let abriu = false; const orig = rsSemInteresse; rsSemInteresse = (g, v) => { abriu = v === true; };
+      await rsDescartar({ interessado: true, itens: [{ id: 9 }], nome: 'X', ultimo: { phone: '11999990001' } });
+      rsSemInteresse = orig;
+      return { dias, itens, abriu };
+    });
+    assert.strictEqual(r.dias, 8, 'de 21/10 a segunda 02/11 13h: 22, 23, 26 a 30/10 e hoje = 8 dias úteis');
+    assert.match(r.itens[0], /WhatsApp desconectado/);
+    assert.ok(r.itens.some(t => /2 interessados esperando sua resposta/.test(t)));
+    assert.ok(r.itens.some(t => /3 negociações paradas há mais de 7 dias/.test(t)));
+    assert.strictEqual(r.abriu, true);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('criar campanha num nicho fraco oferece trocar pelo melhor nicho', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      _statsNicho = [{ nome: 'PetShop', env: 39, hum: 9 }, { nome: 'Contabilidade', env: 240, hum: 37 }, { nome: 'Facilities', env: 98, hum: 10 }];
+      let buscou = null; buscar = () => { buscou = document.getElementById('nicho').value + ' | ' + document.getElementById('local').value; };
+      const p = nichoFracoTrocar('Facilities', 'São Paulo');
+      await new Promise(r => setTimeout(r, 50));
+      const txt = document.getElementById('nicho-fraco-modal').innerText;
+      [...document.querySelectorAll('#nicho-fraco-modal button')].find(b => /Buscar PetShop/.test(b.textContent)).click();
+      const trocou = await p;
+      const semAviso = await nichoFracoTrocar('Contabilidade', 'SP');
+      return { txt, trocou, buscou, semAviso };
+    });
+    assert.match(r.txt, /Facilities trouxe 10,2% de interessados[\s\S]*PetShop, o seu melhor, trouxe 23,1%/);
+    assert.strictEqual(r.trocou, true); assert.strictEqual(r.buscou, 'PetShop | São Paulo');
+    assert.strictEqual(r.semAviso, false, 'Contabilidade rende 15%: acima de 60% do melhor');
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
