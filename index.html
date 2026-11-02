@@ -1417,6 +1417,25 @@
 .ps-chip { font-family:'Inter',sans-serif; font-size:0.6rem; font-weight:700; padding:4px 10px; border-radius:20px; border:1.5px solid #d1d5db; background:#fff; color:#6b7280; cursor:pointer; white-space:nowrap; }
 .ps-chip[aria-pressed="true"] { border-color:#165DFF; background:#EBF0FF; color:#165DFF; }
 .pend { margin-bottom:16px; }
+.prod-cargo-linha { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin:0 0 10px; }
+.prod-cargo-linha select { width:auto; padding:5px 8px; font-size:0.72rem; }
+.prod-cargo-dica { font-family:'Inter',sans-serif; font-size:0.6rem; color:var(--muted); }
+.pq-perfil { color:#0A66C2; font-weight:700; text-decoration:none; }
+.li-placar { display:flex; gap:8px; flex-wrap:wrap; margin:0 0 12px; }
+.li-dec { background:var(--surface); border:1.5px solid #BFDBFE; border-radius:14px; padding:12px 14px; margin:0 0 14px; font-family:'Inter',sans-serif; }
+.li-dec-cab { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.li-dec-cab h3 { margin:0; font-size:0.95rem; }
+.li-dec-n { font-size:0.62rem; font-weight:800; background:#0A66C2; color:#fff; border-radius:99px; padding:2px 9px; }
+.li-dec-item { display:flex; align-items:center; gap:10px; padding:9px 0; border-top:1px solid #E0ECFB; flex-wrap:wrap; }
+.li-dec-meio { flex:1; min-width:180px; display:flex; flex-direction:column; gap:2px; }
+.li-dec-meio b { font-size:0.8rem; color:var(--text); }
+.li-dec-meio span { font-size:0.66rem; color:var(--muted); }
+.li-dec-meio .li-dec-etapa { color:#0A66C2; font-weight:700; font-size:0.7rem; }
+.li-dec-bts { display:flex; gap:6px; flex-wrap:wrap; }
+.li-audio { margin:6px 0 4px; }
+.li-audio-player { width:100%; margin:4px 0; }
+.li-audio-bts { display:flex; gap:8px; flex-wrap:wrap; }
+.rs-decisor-sug { color:#1e3a8a; background:#EFF6FF; border-color:#BFDBFE; }
 .pk-prioridades { display:flex; gap:8px; overflow-x:auto; padding:10px 14px; background:#FFFBEB; border-bottom:1px solid #FDE68A; font-family:'Inter',sans-serif; }
 .pk-prioridades[hidden] { display:none; }
 .pk-prio-tit { flex-shrink:0; align-self:center; font-size:0.7rem; font-weight:800; color:#92400e; white-space:nowrap; }
@@ -3472,6 +3491,56 @@ function rsDepoisSugerido(g) {
     });
     return box;
 }
+// "Quem cuida disso é o Carlos", "fala com a Dra. Ana", "manda pro e-mail do Ricardo": o nome de quem decide vem na conversa
+// (muitas vezes de robô ou secretária). Vira decisor e entra na fila do LinkedIn.
+var _NOME = '([A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]+(?:\\s+(?:d[aeo]s?\\s+)?[A-ZÁÉÍÓÚÂÊÔÃÕÇ][a-záéíóúâêôãõç]+)?)';
+var RE_DECISOR = [
+    new RegExp('(?:fal(?:e|a|ar)|conversar|tratar|ver(?: isso)?|resolver(?: isso)?)\\s+com\\s+(?:o|a)\\s+(?:sr\\.?|sra\\.?|senhor|senhora|dr\\.?|dra\\.?)?\\s*' + _NOME, 'i'),
+    new RegExp('(?:respons[aá]vel|quem (?:cuida|decide|resolve|v[eê])(?: disso| dessa parte| isso)?|dono|propriet[aá]ri[oa]|gerente|diretor(?:a)?|s[oó]ci[oa])\\s+(?:aqui\\s+|disso\\s+)?(?:é|e|seria|fica com)\\s+(?:o|a)\\s+(?:sr\\.?|sra\\.?|dr\\.?|dra\\.?)?\\s*' + _NOME, 'i'),
+    new RegExp('(?:procur(?:e|ar)|chame|chamar|ligue para|ligar para|e-?mail d[oa]|contato d[oa])\\s+(?:(?:o|a)\\s+)?(?:sr\\.?|sra\\.?|dr\\.?|dra\\.?)?\\s*' + _NOME, 'i'),
+];
+var _NAO_NOME = /^(Whats|Whatsapp|Senhor|Senhora|Setor|Departamento|Comercial|Financeiro|Gerente|Diretor|Diretora|Respons[aá]vel|Equipe|Pessoal|Recep[cç][aã]o|Atendimento|Mesmo|Mesma)$/i;
+function decisorDoTexto(t) {
+    const txt = String(t || '');
+    for (const re of RE_DECISOR) {
+        const m = txt.match(re);
+        if (!m || !m[1]) continue;
+        // com o "i" o gatilho aceita "Quem"/"quem"; o nome tem de começar com maiúscula (corta o que vier em minúscula depois)
+        const ws = m[1].trim().split(/\s+/), nome = [];
+        for (const w of ws) { if (/^[A-ZÁÉÍÓÚÂÊÔÃÕÇ]/.test(w)) nome.push(w); else if (/^d[aeo]s?$/.test(w) && nome.length) nome.push(w); else break; }
+        while (nome.length && /^d[aeo]s?$/.test(nome[nome.length - 1])) nome.pop();
+        if (nome.length && !_NAO_NOME.test(nome[0])) return nome.join(' ');
+    }
+    return null;
+}
+function rsDecisorIndicado(g) {
+    const msgs = (_rsCtx.hist[g.k] || []).filter(m => m.direcao === 'recebida').slice(-3).map(m => m.mensagem);
+    const textos = msgs.length ? msgs : g.itens.map(i => i.mensagem_recebida);
+    let nome = null;
+    for (let i = textos.length - 1; i >= 0 && !nome; i--) nome = decisorDoTexto(textos[i]);
+    if (!nome) return null;
+    const box = prEl('div', 'rs-reuniao-sug rs-decisor-sug');
+    box.appendChild(prEl('span', '', `👔 Indicaram quem decide: ${nome}.`));
+    const b = prEl('button', 'rs-btn', 'Ir direto pelo LinkedIn'); b.type = 'button';
+    b.onclick = async () => {
+        const lead = decisorExtraSalvar({ title: g.nome, phone: formatPhoneBR(g.ultimo.phone) }, { nome, cargo: '', fonte: 'whatsapp' });
+        await rsPipeline(g, l => { l.nota = ((l.nota ? l.nota + '\n' : '') + `[${new Date().toLocaleDateString('pt-BR')}] Quem decide: ${nome} (indicado no WhatsApp)`).slice(-4000); }, '👔 ' + nome + ' salvo como quem decide');
+        box.replaceChildren(prEl('span', '', `✅ ${nome} entrou na fila "Decisores do dia" (aba LinkedIn).`));
+        try { liAbordar([lead], { contexto: 'Na conversa do WhatsApp com a empresa, indicaram que quem cuida disso é ' + nome + '. Cite de leve que falou com a equipe deles.' }); } catch (e) {}
+    };
+    box.appendChild(b);
+    return box;
+}
+// Decisores que não vieram de uma busca (indicados no WhatsApp): ficam guardados para a fila do LinkedIn
+function decisorExtraSalvar(base, dec) {
+    const lst = userGet('li_decisores_extra', []) || [];
+    const k = pkTel(base.phone) || _normNicho(base.title);
+    let l = lst.find(x => (pkTel(x.phone) || _normNicho(x.title)) === k);
+    if (!l) { l = { title: base.title, phone: base.phone || '', decisores: [], extra: true }; lst.unshift(l); }
+    if (!l.decisores.some(d => _normNicho(d.nome) === _normNicho(dec.nome))) l.decisores.unshift(dec);
+    userSet('li_decisores_extra', lst.slice(0, 200));
+    return l;
+}
 function rsReuniaoSugerida(g) {
     const msgs = (_rsCtx.hist[g.k] || []).filter(m => m.direcao === 'recebida').slice(-3).map(m => m.mensagem);
     const textos = msgs.length ? msgs : g.itens.map(i => i.mensagem_recebida);
@@ -3507,6 +3576,7 @@ function rsCard(g) {
     card.appendChild(topo);
     card.appendChild(rsBolhas(g));
     try { const sug = rsReuniaoSugerida(g) || rsDepoisSugerido(g); if (sug) card.appendChild(sug); } catch (e) {}
+    try { const dec = rsDecisorIndicado(g); if (dec) card.appendChild(dec); } catch (e) {}
 
     if (g.classif === 'menu' || g.robo) card.appendChild(prEl('div', 'rs-dica', '🤖 Robô de atendimento da empresa. A sugestão tenta chegar no comercial ou no responsável.'));
 
@@ -5281,6 +5351,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button type="button" class="prod-btn" onclick="prodRenomear()" title="Renomear">✏️</button>
                         <button type="button" class="prod-btn" id="prod-btn-padrao" onclick="prodTornarPadrao()" title="Usar este como padrão (respostas de quem não veio de campanha)">⭐</button>
                         <button type="button" class="prod-btn" onclick="prodExcluir()" title="Excluir produto">🗑</button>
+                    </div>
+                    <div class="prod-cargo-linha">
+                        <label class="field-label" for="prod-cargo" style="margin:0;font-size:0.55rem;">Quem compra</label>
+                        <select id="prod-cargo" onchange="prodCargoTrocar(this.value)" aria-label="Cargo de quem compra este produto">
+                            <option value="dono">Dono / sócio</option><option value="comercial">Comercial / vendas</option><option value="marketing">Marketing</option>
+                            <option value="financeiro">Financeiro</option><option value="rh">RH</option><option value="ti">TI / tecnologia</option><option value="operacoes">Operações</option>
+                        </select>
+                        <span class="prod-cargo-dica">o app procura essa pessoa no LinkedIn</span>
                     </div>
                     <label class="field-label" style="margin-bottom:6px;font-size:0.55rem;">Instruções para a IA <span id="prod-salvo" style="font-weight:500;color:var(--muted);"></span></label>
                     <textarea id="ia-prompt-livre" placeholder="" autocomplete="off" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:10px;font-size:0.78rem;margin-bottom:8px;resize:vertical;min-height:80px;font-family:'Inter',sans-serif;line-height:1.5;background:var(--surface);color:var(--text);outline:none;transition:border-color 0.2s;" onfocus="this.style.borderColor='#FF6A00';this.style.boxShadow='0 0 0 3px rgba(255,106,0,0.10)'" onblur="this.style.borderColor='#E4E7EF';this.style.boxShadow='none'"></textarea>
@@ -7358,7 +7436,7 @@ async function buscarDecisores(l) {
     if (l.decisoresBuscados) return [];
     const d = await _apiOficial('/leads/redes-google', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ leads: [{ id: '0', nome: l.title || l.name || '', cidade: cidadeDoLead(l), telefone: l.telefone_maps || l.phone || '', site: l.website || '', faltam: ['decisor'].concat(l.linkedin ? [] : ['linkedin']) }] })
+        body: JSON.stringify({ leads: [{ id: '0', cargos: prodCargoTermos(), nome: l.title || l.name || '', cidade: cidadeDoLead(l), telefone: l.telefone_maps || l.phone || '', site: l.website || '', faltam: ['decisor'].concat(l.linkedin ? [] : ['linkedin']) }] })
     });
     const r = (d.resultados || {})['0'] || {};
     if (r.erro) throw new Error(r.erro);
@@ -13372,22 +13450,30 @@ function liChave(l) { const u = liUrl(l); if (u) return u.toLowerCase(); const n
 // Onde achar quem decide: a aba "Pessoas" da página da empresa, ou a busca de pessoas pelo nome da empresa
 function liPessoasUrl(l) {
     const u = liUrl(l);
-    const cargos = 'sócio OR proprietário OR dono OR CEO OR fundador OR diretor';
+    const extra = prodCargoTermos();
+    const cargos = extra.length ? extra.map(t => '"' + t + '"').join(' OR ') + ' OR sócio OR CEO' : 'sócio OR proprietário OR dono OR CEO OR fundador OR diretor';
+    // já sabemos o nome de quem decide (Receita, site ou WhatsApp): procura a pessoa direto
+    const dec = Array.isArray(l && l.decisores) ? l.decisores.find(d => d && d.nome && !liPerfilOk(d.linkedin)) : null;
+    if (dec && !(/\/in\//.test(u))) return 'https://www.linkedin.com/search/results/people/?keywords=' + encodeURIComponent('"' + dec.nome + '" ' + ((l.title || l.name) ? '"' + (l.title || l.name) + '"' : ''));
     if (/\/company\//.test(u)) return u + 'people/?keywords=' + encodeURIComponent(cargos);
     if (/\/in\//.test(u)) return u;
     return 'https://www.linkedin.com/search/results/people/?keywords=' + encodeURIComponent('"' + ((l && (l.title || l.name)) || '') + '" ' + cargos);
 }
 async function liCarregarFeitos(forcar) {
     if (_liFeitos && !forcar) return _liFeitos;
-    _liFeitos = new Set(); _liHoje = 0;
+    _liFeitos = new Set(); _liHoje = 0; _liSemana = 0;
     if (!currentUser) return _liFeitos;
     try {
         const { data } = await supabaseClient.from('abordagens_linkedin').select('chave,criado_em').eq('user_id', currentUser.id).order('criado_em', { ascending: false }).limit(5000);
         const ini = new Date(); ini.setHours(0, 0, 0, 0);
-        (data || []).forEach(r => { _liFeitos.add(r.chave); if (new Date(r.criado_em) >= ini) _liHoje++; });
+        const sem = Date.now() - 7 * 86400000;
+        (data || []).forEach(r => { _liFeitos.add(r.chave); const t = new Date(r.criado_em); if (t >= ini) _liHoje++; if (t.getTime() >= sem) _liSemana++; });
     } catch (e) {}
     return _liFeitos;
 }
+// O LinkedIn conta convites por semana (por volta de 100): passar disso restringe a conta
+var _liSemana = 0;
+function liLimiteSemana() { const n = Number(userGet('li_limite_semana', 100)); return n >= 10 && n <= 300 ? n : 100; }
 function liJaAbordado(l) { const k = liChave(l); return !!k && !!_liFeitos && _liFeitos.has(k); }
 function liFila() {
     const base = (_leadsBase && _leadsBase.length) ? _leadsBase : todosLeads;
@@ -13485,8 +13571,10 @@ async function liAbordar(fila, opcoes) {
         const mudar = prEl('button', 'ig-link', 'mudar limite');
         mudar.onclick = () => { const v = prompt('Quantos convites pelo LinkedIn por dia? (recomendado: até 15)', String(lim)); const n = Number(v); if (n >= 1 && n <= 100) { userSet('li_limite', Math.round(n)); mostrar(); } };
         cont.appendChild(mudar); m.appendChild(cont);
+        if (_liSemana >= liLimiteSemana()) m.appendChild(prEl('div', 'ig-aviso', `Você já mandou ${_liSemana} convites nos últimos 7 dias (limite da semana: ${liLimiteSemana()}). O LinkedIn restringe quem passa disso: espere alguns dias ou mande sem convite novo, só para quem já aceitou.`));
         if (_liHoje >= lim) m.appendChild(prEl('div', 'ig-aviso', 'Você já chegou no limite de hoje. Convites demais seguidos fazem o LinkedIn restringir a conta: o melhor é continuar amanhã.'));
-        if (!opcoes.aoRegistrar && !l._aqAgora && aqPasso(m, 'li', l, (liUrl(l) && /\/in\//.test(liUrl(l))) ? liUrl(l) : liPessoasUrl(l), () => { i++; mostrar(); }, () => { l._aqAgora = true; mostrar(); })) return;
+        const perfilDec = (Array.isArray(l.decisores) ? l.decisores : []).map(d => d && liPerfilOk(d.linkedin)).find(Boolean);
+        if (!opcoes.aoRegistrar && !l._aqAgora && aqPasso(m, 'li', l, perfilDec || ((liUrl(l) && /\/in\//.test(liUrl(l))) ? liUrl(l) : liPessoasUrl(l)), () => { i++; mostrar(); }, () => { l._aqAgora = true; mostrar(); })) return;
         if (aqPronto('li', l)) m.appendChild(prEl('div', 'aq-pronto', '🔥 Aquecido em ' + new Date(aqEm('li', l)).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) + '. Hora do convite.'));
         // 1) achar quem decide
         m.appendChild(prEl('div', 'ig-rot', '1. Ache quem decide'));
@@ -13511,8 +13599,8 @@ async function liAbordar(fila, opcoes) {
             if (!lista.length) { sug.appendChild(prEl('span', 'li-sug-rot', 'Não achei o dono no site nem no Google: use o botão acima.')); return; }
             sug.appendChild(prEl('span', 'li-sug-rot', 'Provável decisor:'));
             lista.forEach(p => {
-                const b = prEl('button', 'li-sug-p', p.nome + (p.cargo ? ' · ' + p.cargo : '')); b.type = 'button'; b._p = p;
-                b.title = p.fonte === 'site' ? 'Achado no site da empresa' : 'Achado no Google (LinkedIn)';
+                const b = prEl('button', 'li-sug-p', (p.confirmado || liPerfilOk(p.linkedin) ? '✓ ' : '') + p.nome + (p.cargo ? ' · ' + p.cargo : '')); b.type = 'button'; b._p = p;
+                b.title = p.fonte === 'site' ? 'Achado no site da empresa' : p.fonte === 'receita' ? 'Sócio na Receita' + (p.linkedin ? ' · perfil do LinkedIn confirmado' : '') : p.fonte === 'whatsapp' ? 'Indicado na conversa do WhatsApp' : 'Achado no Google (LinkedIn)';
                 b.onclick = () => { usar(p); gerar(); };
                 sug.appendChild(b);
             });
@@ -13534,6 +13622,7 @@ async function liAbordar(fila, opcoes) {
         m.appendChild(prEl('div', 'ig-rot', '3. Mensagem para quando ele aceitar (fica nas notas do Pipeline)'));
         const msg = document.createElement('textarea'); msg.className = 'ig-texto'; msg.rows = 4; msg.maxLength = 1500; msg.disabled = true;
         m.appendChild(msg);
+        m.appendChild(audioArquivoBotao(() => msg.value, () => (pessoa.value || l.title || 'linkedin')));
         m.appendChild(prEl('div', 'ig-passo', 'No perfil da pessoa: Conectar → Adicionar nota → colar o convite → Enviar. Conta grátis tem poucos convites com nota por mês: se acabar, conecte sem nota e mande a mensagem quando aceitar.'));
         const acoes = prEl('div', 'modal-actions');
         const pular = prEl('button', 'modal-btn', fila.length > 1 ? 'Pular' : 'Cancelar');
@@ -13660,6 +13749,7 @@ async function canalRetomar(aba, r, op) {
     if (aba === 'linkedin' && r.pessoa) m.appendChild(prEl('div', 'ig-quem', 'Pessoa: ' + r.pessoa));
     const ta = document.createElement('textarea'); ta.className = 'ig-texto'; ta.rows = 4; ta.maxLength = aba === 'insta' ? 300 : 1500;
     m.appendChild(ta);
+    if (aba === 'linkedin') m.appendChild(audioArquivoBotao(() => ta.value, () => (r.pessoa || r.nome || 'linkedin')));
     let card = null;
     try { if (typeof pkLoad === 'function') pkLoad(); const n = String(r.nome || '').toLowerCase().trim(); card = pkVisiveis().find(k => (k.name || '').toLowerCase().trim() === n) || null; } catch (e) {}
     const link = aba === 'insta' ? (igHandle(r.instagram) ? 'https://ig.me/m/' + igHandle(r.instagram) : '') : ((card && card.liPerfil) || r.linkedin || '');
@@ -13762,6 +13852,92 @@ async function canalAbrir(aba, forcar) {
     } catch (e) {}
     canalDesenhar(aba, buscas, feitos);
 }
+// ── LinkedIn: placar e "Decisores do dia" ──
+function liAceitos() { return userGet('li_aceitos', {}) || {}; }
+function liPlacar(box, feitos) {
+    const sete = Date.now() - 7 * 86400000, tres = Date.now() - 3 * 86400000;
+    const semana = (feitos || []).filter(r => new Date(r.criado_em).getTime() >= sete).length;
+    const maduros = (feitos || []).filter(r => new Date(r.criado_em).getTime() <= tres);
+    const ac = liAceitos();
+    const aceitaram = maduros.filter(r => ac[r.chave] || r.resultado === 'respondeu').length;
+    let reunioes = 0; try { reunioes = (pkLeads || []).filter(k => k.canal === 'linkedin' && (k.reuniaoEm || ['negociando', 'fechado'].includes(k.col))).length; } catch (e) {}
+    const lim = liLimiteSemana();
+    const p = prEl('div', 'li-placar');
+    const n = (v, rot, cls) => { const d = prEl('div', 'canal-num' + (cls ? ' ' + cls : '')); d.append(prEl('b', '', v), prEl('span', '', rot)); p.appendChild(d); };
+    n(`${semana} de ${lim}`, 'convites na semana', semana >= lim ? 'passou' : '');
+    n(maduros.length ? prPctTxt(aceitaram, maduros.length) : '—', `aceitaram (${aceitaram} de ${maduros.length})`);
+    n(String(reunioes), 'reuniões e negociações pelo LinkedIn');
+    box.appendChild(p);
+}
+// Os decisores do dia: aquecer → convite (amanhã) → "aceitou?" no 3º dia → 2º sócio se não aceitou em 7 dias
+function liDecisoresDia(buscas, feitos) {
+    const porChave = {}; (feitos || []).forEach(r => { if (!porChave[r.chave]) porChave[r.chave] = r; });
+    const ac = liAceitos(), adiar = userGet('li_aceito_adiar', {}) || {}, segundo = userGet('li_segundo', {}) || {};
+    const fontes = [(_leadsBase && _leadsBase.length) ? _leadsBase : (todosLeads || [])].concat((buscas || []).map(b => b.leads || [])).concat([userGet('li_decisores_extra', []) || []]);
+    const vistos = new Set(), out = [];
+    fontes.forEach(ls => (ls || []).forEach(l => {
+        if (!l) return;
+        const dec = Array.isArray(l.decisores) ? l.decisores.filter(d => d && d.nome) : [];
+        if (!dec.length) return;
+        const k = liChave(l);
+        if (!k || vistos.has(k) || bloqueadoLead(l)) return;
+        vistos.add(k);
+        const r = porChave[k];
+        let etapa = null;
+        if (r) {
+            if (r.resultado) return;
+            const d = Math.floor((Date.now() - new Date(r.criado_em).getTime()) / 86400000);
+            if (ac[k]) return;   // aceitou: a mensagem segue no "Retomar"
+            if (d >= 7 && dec.length > 1 && !segundo[k]) etapa = { ord: 4, ic: '🔁', txt: `${d} dias sem aceitar: tentar ${dec[1].nome}${dec[1].cargo ? ' (' + dec[1].cargo + ')' : ''}`, acao: 'segundo' };
+            else if (d >= 3 && !(adiar[k] && Date.now() < adiar[k])) etapa = { ord: 1, ic: '✅', txt: `Convite há ${d} dias: ${dec[0].nome} aceitou?`, acao: 'aceitou', r };
+            else return;
+        } else if (aqAquecendo('li', l)) etapa = { ord: 5, ic: '🔥', txt: 'Aquecido hoje · convite amanhã', acao: '' };
+        else if (aqPronto('li', l)) etapa = { ord: 2, ic: '✉️', txt: 'Convite hoje', acao: 'convite' };
+        else etapa = { ord: 3, ic: '👀', txt: 'Aquecer hoje: ver o perfil e curtir um post', acao: 'aquecer' };
+        out.push({ l, dec: dec[0], etapa, sc: calcScore(l) });
+    }));
+    return out.sort((a, b) => a.etapa.ord - b.etapa.ord || b.sc - a.sc);
+}
+function liDecisoresSecao(buscas, feitos) {
+    const sec = prEl('section', 'li-dec');
+    const lst = liDecisoresDia(buscas, feitos);
+    const hoje = lst.filter(x => x.etapa.acao).length;
+    const cab = prEl('div', 'li-dec-cab');
+    cab.appendChild(prEl('h3', '', '👔 Decisores do dia'));
+    cab.appendChild(prEl('span', 'li-dec-n', hoje ? `${hoje} para fazer hoje` : 'tudo em dia ✓'));
+    sec.appendChild(cab);
+    if (!lst.length) {
+        sec.appendChild(prEl('div', 'ph-linha', 'Ainda não há decisores com nome. Depois de cada busca o app puxa os sócios pelo CNPJ das melhores empresas; indicações do WhatsApp ("fala com o Carlos") também entram aqui.'));
+        return sec;
+    }
+    lst.slice(0, 15).forEach(x => {
+        const li = prEl('div', 'li-dec-item');
+        const meio = prEl('div', 'li-dec-meio');
+        meio.appendChild(prEl('b', '', x.dec.nome + (x.dec.cargo ? ' · ' + x.dec.cargo : '')));
+        meio.appendChild(prEl('span', '', (x.l.title || x.l.name || '') + (x.dec.fonte === 'whatsapp' ? ' · indicado no WhatsApp' : x.dec.fonte === 'receita' ? ' · sócio na Receita' : '') + (liPerfilOk(x.dec.linkedin) ? ' · perfil ✓' : '')));
+        meio.appendChild(prEl('span', 'li-dec-etapa', x.etapa.ic + ' ' + x.etapa.txt));
+        li.appendChild(meio);
+        const bts = prEl('div', 'li-dec-bts');
+        const bt = (t, fn, cls) => { const b = prEl('button', 'ps-acao' + (cls ? ' ' + cls : ''), t); b.type = 'button'; b.onclick = fn; bts.appendChild(b); };
+        const recarregar = () => canalAbrir('linkedin', true);
+        if (x.etapa.acao === 'aquecer') bt('👀 Aquecer', () => liAbordar([x.l], { aoFechar: recarregar }), 'principal');
+        if (x.etapa.acao === 'convite') bt('✉️ Convite', () => liAbordar([x.l], { aoFechar: recarregar }), 'principal');
+        if (x.etapa.acao === 'aceitou') {
+            bt('Aceitou ✓', () => { const a = liAceitos(); a[liChave(x.l)] = Date.now(); userSet('li_aceitos', a); canalRetomar('linkedin', x.etapa.r); }, 'principal');
+            bt('Ainda não', () => { const a = userGet('li_aceito_adiar', {}) || {}; a[liChave(x.l)] = Date.now() + 2 * 86400000; userSet('li_aceito_adiar', a); recarregar(); });
+        }
+        if (x.etapa.acao === 'segundo') bt('🔁 Tentar ' + String(x.l.decisores.filter(d => d && d.nome)[1].nome).split(' ')[0], () => {
+            const s2 = userGet('li_segundo', {}) || {}; s2[liChave(x.l)] = Date.now(); userSet('li_segundo', s2);
+            const ds = x.l.decisores.filter(d => d && d.nome);
+            const copia = Object.assign({}, x.l, { decisores: [ds[1], ds[0]].concat(ds.slice(2)) });
+            liAbordar([copia], { aoRegistrar: async () => {}, contexto: 'Você já tentou conectar com ' + ds[0].nome + ', da mesma empresa, sem retorno. Não cite isso.' });
+        }, 'principal');
+        li.appendChild(bts);
+        sec.appendChild(li);
+    });
+    if (lst.length > 15) sec.appendChild(prEl('div', 'ph-linha', `+ ${lst.length - 15} na fila para os próximos dias.`));
+    return sec;
+}
 function canalDesenhar(aba, buscas, feitos) {
     const c = CANAIS[aba], box = document.getElementById('canal-' + aba);
     box.replaceChildren();
@@ -13785,6 +13961,7 @@ function canalDesenhar(aba, buscas, feitos) {
     num(String(feitos.length >= 200 ? '200+' : feitos.length), `abordados pelo ${c.nome}`);
     num(String(responderam) + (feitos.length >= 5 ? ` · ${prPctTxt(responderam, feitos.length)}` : ''), 'responderam');
     box.appendChild(topo);
+    if (aba === 'linkedin') { try { liPlacar(box, feitos); box.appendChild(liDecisoresSecao(buscas, feitos)); } catch (e) { console.warn('[decisores]', e); } }
     // ações
     const acao = prEl('div', 'canal-acao');
     const comecar = prEl('button', 'ps-acao principal', fila.length ? `▶ Começar a abordar (${Math.min(fila.length, Math.max(lim - hoje, 0)) || fila.length})` : '▶ Começar a abordar'); comecar.type = 'button';
@@ -14373,6 +14550,39 @@ var _audioTocando = null;
 // Um silêncio curtinho para "destravar" o player no próprio toque: o iPhone só deixa tocar som que começou num toque,
 // e o áudio da IA chega segundos depois.
 var AUDIO_SILENCIO = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+// Áudio para o LinkedIn: o app do LinkedIn deixa mandar mensagem de voz para quem aceitou o convite.
+// A IA fala o texto com a voz escolhida e o arquivo vai para o compartilhar do celular (ou baixa no computador).
+function audioArquivoBotao(textoFn, nomeFn) {
+    const box = prEl('div', 'li-audio');
+    const b = prEl('button', 'ig-link li-audio-btn', '🎙️ Gerar áudio desta mensagem (para mandar no app do LinkedIn)'); b.type = 'button';
+    b.onclick = async () => {
+        const t = audioTexto(textoFn()); if (!audioChecar(t)) return;
+        b.disabled = true; b.textContent = '🎙️ Gerando…';
+        try {
+            const r = await _audioReq('/tts', { texto: t, voz: audioVoz(), formato: 'mp3' });
+            if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.error || 'HTTP ' + r.status); }
+            const blob = await r.blob();
+            const nome = String(nomeFn() || 'audio').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w]+/g, '-').slice(0, 40) + '.mp3';
+            const arq = new File([blob], nome, { type: 'audio/mpeg' });
+            const url = URL.createObjectURL(blob);
+            box.replaceChildren();
+            const ouvir = document.createElement('audio'); ouvir.controls = true; ouvir.src = url; ouvir.className = 'li-audio-player';
+            box.appendChild(ouvir);
+            const bts = prEl('div', 'li-audio-bts');
+            if (navigator.canShare && navigator.canShare({ files: [arq] })) {
+                const sh = prEl('button', 'modal-btn primary', '📤 Mandar o áudio'); sh.type = 'button';
+                sh.onclick = () => navigator.share({ files: [arq], title: 'Áudio para o LinkedIn' }).catch(() => {});
+                bts.appendChild(sh);
+            }
+            const dl = document.createElement('a'); dl.href = url; dl.download = nome; dl.className = 'modal-btn'; dl.textContent = '⬇️ Baixar';
+            bts.appendChild(dl);
+            box.appendChild(bts);
+            box.appendChild(prEl('div', 'ig-passo', 'No app do LinkedIn: abra a conversa com a pessoa → clipe (anexar) → escolha o áudio. Só funciona depois que ela aceitar o convite.'));
+        } catch (e) { showToast('❌ Áudio: ' + (e.message || e), 'err'); b.disabled = false; b.textContent = '🎙️ Gerar áudio desta mensagem (para mandar no app do LinkedIn)'; }
+    };
+    box.appendChild(b);
+    return box;
+}
 async function audioOuvir(texto, btn) {
     const t = audioTexto(texto); if (!audioChecar(t)) return;
     const antes = btn ? btn.textContent : '';
@@ -14718,6 +14928,14 @@ const MANUAL = {
                     dicas: ['Use palavras claras no nome ou nas instruções do produto (ex.: "site", "energia", "maquininha"): é assim que o app sabe que a dor combina com ele.']
                 },
                 {
+                    titulo: 'Chegar no decisor pelo LinkedIn', resumo: 'Quem decide, o perfil certo e a rotina do dia', aba: 'linkedin',
+                    blocos: [
+                        { t: '👤 Quem decide', l: ['Depois de cada busca, o app puxa os sócios pelo CNPJ das 20 melhores empresas e procura o perfil do sócio-administrador no LinkedIn ("✓ perfil confirmado").', 'Quando o WhatsApp responde "quem cuida disso é o Carlos" ou "fala com a Dra. Ana", aparece "👔 Indicaram quem decide" com o botão "Ir direto pelo LinkedIn".', 'No produto, escolha **Quem compra** (dono, comercial, marketing, financeiro, RH, TI, operações): a busca de pessoas procura esse cargo.'] },
+                        { t: '👔 Decisores do dia (aba LinkedIn)', l: ['A rotina: 👀 aquecer hoje (ver o perfil e curtir) → ✉️ convite amanhã → ✅ no 3º dia "aceitou?" (sim: abre a mensagem; ainda não: pergunta de novo em 2 dias) → 🔁 depois de 7 dias sem aceitar, tenta o 2º sócio.', 'Placar: convites na semana (limite de 100), % de quem aceitou e reuniões pelo LinkedIn.'] },
+                        { t: '🎙️ Áudio no LinkedIn', l: ['Na mensagem para quem aceitou: "Gerar áudio desta mensagem". A IA fala com a sua voz escolhida e o arquivo vai para o compartilhar do celular; no app do LinkedIn, anexe na conversa.'] }
+                    ]
+                },
+                {
                     titulo: 'Pipeline que diz o próximo passo', resumo: 'Prioridades, proposta, copiloto e time', aba: 'pipeline',
                     blocos: [
                         { t: '⭐ Prioridades de hoje', l: ['No topo do Pipeline, os 5 negócios com o passo mais importante agora: confirmar reunião, registrar o resultado, ligar para negociação parada, mandar proposta, propor reunião para quem respondeu com interesse.', 'Cada card mostra "👉 Próximo passo" com o botão certo.'] },
@@ -14888,12 +15106,26 @@ const MANUAL = {
 var _prodTimer = null;
 function prodAtual() { const id = userGet('produto_atual', ''); return _produtos.find(p => p.id === id) || prodPadrao(); }
 function prodPadrao() { return _produtos.find(p => p.padrao) || _produtos[0] || null; }
+// Quem compra cada produto: o LinkedIn procura esse cargo (além do dono) e a busca de pessoas usa esses termos
+var CARGOS_ALVO = {
+    dono: { rot: 'Dono / sócio', termos: [] },
+    comercial: { rot: 'Comercial', termos: ['diretor comercial', 'gerente comercial', 'head de vendas'] },
+    marketing: { rot: 'Marketing', termos: ['diretor de marketing', 'gerente de marketing', 'head de marketing'] },
+    financeiro: { rot: 'Financeiro', termos: ['diretor financeiro', 'gerente financeiro', 'CFO'] },
+    rh: { rot: 'RH', termos: ['gerente de RH', 'diretor de RH', 'recursos humanos'] },
+    ti: { rot: 'TI', termos: ['diretor de TI', 'gerente de TI', 'CTO'] },
+    operacoes: { rot: 'Operações', termos: ['diretor de operações', 'gerente de operações', 'COO'] },
+};
+function prodCargo(prod) { const p = prod || (typeof prodAtual === 'function' ? prodAtual() : null); const v = p ? userGet('prod_cargo_' + p.id, 'dono') : 'dono'; return CARGOS_ALVO[v] ? v : 'dono'; }
+function prodCargoTermos(prod) { return CARGOS_ALVO[prodCargo(prod)].termos; }
+function prodCargoTrocar(v) { const p = prodAtual(); if (!p || !CARGOS_ALVO[v]) return; userSet('prod_cargo_' + p.id, v); showToast('👔 ' + p.nome + ': o LinkedIn procura ' + (v === 'dono' ? 'o dono ou sócio' : 'quem cuida de ' + CARGOS_ALVO[v].rot.toLowerCase()), 'ok'); }
 function prodPintar() {
     const sel = document.getElementById('ia-produto'); if (!sel) return;
     const atual = prodAtual();
     sel.innerHTML = '';
     _produtos.forEach(p => { const o = document.createElement('option'); o.value = p.id; o.textContent = (p.padrao ? '⭐ ' : '') + p.nome; sel.appendChild(o); });
     if (atual) sel.value = atual.id;
+    const sc = document.getElementById('prod-cargo'); if (sc) sc.value = prodCargo(atual);
     const bp = document.getElementById('prod-btn-padrao'); if (bp) bp.classList.toggle('ativo', !!(atual && atual.padrao));
     prodTopoPintar();
 }
@@ -19276,8 +19508,14 @@ async function cnpjBuscar(l, cnpjDigitado) {
     return { site, cnpj, avisoSite };
 }
 // O sócio-administrador vira "quem decide" (o LinkedIn e a IA usam)
-function cnpjDecisorNoLead(l, soc) {
-    if (soc && !(Array.isArray(l.decisores) && l.decisores.some(d => _normNicho(d.nome) === _normNicho(soc.nome)))) l.decisores = [{ nome: soc.nome, cargo: soc.cargo, fonte: 'receita' }].concat(Array.isArray(l.decisores) ? l.decisores : []).slice(0, 4);
+function cnpjDecisorNoLead(l, soc, cnpj) {
+    // o sócio-administrador primeiro; os outros sócios ficam como 2ª opção (a fila do LinkedIn tenta o próximo se o 1º não aceitar)
+    const outros = ((cnpj && cnpj.socios) || []).map(x => ({ nome: nomeProprio(x.nome), cargo: String(x.qualificacao || '').replace(/^\d+-/, '').trim(), fonte: 'receita' }))
+        .filter(x => x.nome && (!soc || _normNicho(x.nome) !== _normNicho(soc.nome))).slice(0, 2);
+    const novos = (soc ? [{ nome: soc.nome, cargo: soc.cargo, fonte: 'receita' }] : []).concat(outros);
+    const atuais = Array.isArray(l.decisores) ? l.decisores : [];
+    const lst = novos.filter(n => !atuais.some(d => _normNicho(d.nome) === _normNicho(n.nome)));
+    if (lst.length) l.decisores = (soc ? lst.slice(0, 1) : []).concat(atuais).concat(soc ? lst.slice(1) : lst).slice(0, 5);
 }
 async function pesquisarLead(l, cnpjDigitado) {
     const { site, cnpj, avisoSite } = await cnpjBuscar(l, cnpjDigitado);
@@ -19287,19 +19525,35 @@ async function pesquisarLead(l, cnpjDigitado) {
     const soc = socioPrincipal(cnpj);
     const p = { oque_faz: r.oque_faz || '', publico: r.publico || '', dor: r.dor || '', gancho: r.gancho || '', decisor: soc, cnpj, semCnpj: !cnpj, site: site ? { titulo: site.titulo } : null, avisoSite, em: Date.now() };
     pesqSalvar(l, p);
-    cnpjDecisorNoLead(l, soc);
-    return p;
+    cnpjDecisorNoLead(l, soc, cnpj);
+    try { await decisorPerfil(l); } catch (e) {}
+    return pesqDe(l) || p;
 }
 // Depois de cada busca: CNPJ, sócios, porte e idade das 20 melhores empresas, sozinho e em segundo plano
 // (sem IA; o gancho continua no "Pesquisar com IA"). Cada uma só uma vez: o resultado fica guardado.
 var CNPJ_AUTO_MAX = 20, _cnpjAutoRodando = false;
+// Com o nome de quem decide (sócio da Receita), acha o perfil dele no LinkedIn pelo Google (nome no título + empresa)
+async function decisorPerfil(l) {
+    const d = Array.isArray(l && l.decisores) ? l.decisores[0] : null;
+    if (!d || !d.nome || liPerfilOk(d.linkedin) || d.perfilBuscado || String(d.nome).trim().split(/\s+/).length < 2) return null;
+    d.perfilBuscado = true;
+    try {
+        const r = await _apiOficial('/leads/decisor-perfil', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pessoa: d.nome, empresa: l.title || l.name || '', cidade: cidadeDoLead(l) || '' }) });
+        if (r && liPerfilOk(r.linkedin)) {
+            d.linkedin = liPerfilOk(r.linkedin); d.confirmado = true; if (!d.cargo && r.cargo) d.cargo = r.cargo;
+            const p = pesqDe(l); if (p && p.decisor && _normNicho(p.decisor.nome) === _normNicho(d.nome)) { p.decisor.linkedin = d.linkedin; pesqSalvar(l, p); }
+            return d.linkedin;
+        }
+    } catch (e) {}
+    return null;
+}
 async function cnpjAutoMelhores(leads) {
     if (_cnpjAutoRodando || !currentUser || !config?.uazapi?.url) return;
     const alvo = (leads || []).filter(l => l && (l.title || l.name) && !l._cnpjTentado && !bloqueadoLead(l) && !(pesqDe(l) && (pesqDe(l).cnpj || pesqDe(l).semCnpj)))
         .map(l => ({ l, sc: calcScore(l) })).sort((a, b) => b.sc - a.sc).slice(0, CNPJ_AUTO_MAX).map(x => x.l);
     if (!alvo.length) return;
     _cnpjAutoRodando = true;
-    let achou = 0;
+    let achou = 0, perfis = 0;
     try {
         for (const l of alvo) {
             l._cnpjTentado = true;
@@ -19308,11 +19562,11 @@ async function cnpjAutoMelhores(leads) {
                 const ant = pesqDe(l);
                 const p = Object.assign({}, ant || {}, { parcial: !ant || !!ant.parcial, cnpj, semCnpj: !cnpj, decisor: socioPrincipal(cnpj) || (ant || {}).decisor || null, em: (ant || {}).em || Date.now() });
                 pesqSalvar(l, p);
-                if (cnpj) { achou++; cnpjDecisorNoLead(l, p.decisor); }
+                if (cnpj) { achou++; cnpjDecisorNoLead(l, p.decisor, cnpj); if (await decisorPerfil(l)) perfis++; }
             } catch (e) { if (/precisa atualizar/.test(e.message || '')) break; }
         }
     } finally { _cnpjAutoRodando = false; }
-    if (achou) showToast(`🧾 CNPJ de ${achou} empresa${achou === 1 ? '' : 's'} encontrado: sócios, porte e idade no detalhe do lead`, 'ok');
+    if (achou) showToast(`🧾 CNPJ de ${achou} empresa${achou === 1 ? '' : 's'} encontrado` + (perfis ? ` · 👔 ${perfis} decisor${perfis === 1 ? '' : 'es'} com perfil do LinkedIn` : '') + ': no detalhe do lead e na aba LinkedIn', 'ok');
 }
 var _pesqLeads = {};
 function blocoPesquisa(l, idx) {
@@ -19336,6 +19590,7 @@ function pesqHtml(p) {
     const socios = c && c.socios && c.socios.length ? c.socios.slice(0, 3).map(s => nomeProprio(s.nome)).join(', ') : '';
     return lin('🏢', 'O que faz', p.oque_faz) + lin('👥', 'Para quem', p.publico) +
         lin('👤', 'Quem decide', p.decisor ? p.decisor.nome + (p.decisor.cargo ? ' (' + p.decisor.cargo + ')' : '') : '') +
+        (p.decisor && p.decisor.linkedin ? `<div class="pq-lin"><a class="pq-perfil" href="${escapeHtml(p.decisor.linkedin)}" target="_blank" rel="noopener">🔗 Perfil do LinkedIn confirmado</a></div>` : '') +
         lin('🎯', 'Dor provável', p.dor) + lin('🧾', 'Receita', rec ? rec + (c.fonte === 'Google' ? ' (achado no Google pelo nome)' : '') : '') +
         (p.semCnpj ? '<div class="pq-vazio">🧾 CNPJ não apareceu no site nem no Google. Se você souber, digite abaixo e pesquise de novo.</div>' : '') + (socios && (!p.decisor || c.socios.length > 1) ? lin('🤝', 'Sócios', socios) : '') +
         (p.gancho ? `<div class="pq-gancho">💬 "${escapeHtml(p.gancho)}" <button type="button" class="dor-btn" onclick="dorCopiarTexto(${JSON.stringify(p.gancho).replace(/"/g, '&quot;')})">📋 Copiar</button></div>` : '') +

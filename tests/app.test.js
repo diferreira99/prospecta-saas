@@ -1653,7 +1653,7 @@ test('CNPJ é procurado sozinho no Google quando o site não mostra', async () =
       _srv = async c => { chamadas.push(c); if (c === '/site-texto') return { titulo: 'X', texto: 'sem cnpj aqui', cnpjs: [] };
         return { cnpj: '11222333000181', razao_social: 'LUA LTDA', porte: 'ME', abertura: '2015-01-01', atividade: 'Oficina', situacao: 'ATIVA', socios: [{ nome: 'ANA LUZ', qualificacao: 'Sócio-Administrador' }] }; };
       let pedidoGoogle = null;
-      _apiOficial = async (c, o) => { pedidoGoogle = { c, corpo: JSON.parse(o.body) }; return { cnpj: '11222333000181' }; };
+      _apiOficial = async (c, o) => { if (c === '/leads/cnpj-google') pedidoGoogle = { c, corpo: JSON.parse(o.body) }; return c === '/leads/cnpj-google' ? { cnpj: '11222333000181' } : { linkedin: null }; };
       iaServidor = async () => '{"oque_faz":"Oficina","publico":"motoristas","dor":"x","gancho":"y"}';
       const l = { title: 'Oficina Lua', phone: '11999990002', website: 'https://lua.com.br', address: 'Rua A, 10 - Centro, Campinas - SP', place_id: 'pLua' };
       const p = await pesquisarLead(l);
@@ -1697,6 +1697,42 @@ test('depois da busca, CNPJ das melhores empresas é puxado sozinho (sem IA) e a
     assert.match(r.card, /CNPJ puxado sozinho depois da busca[\s\S]*Pesquisar com IA/);
     assert.strictEqual(r.dec, 'Jose Pao');
     assert.strictEqual(r.sem, true);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('decisor no LinkedIn: perfil do sócio confirmado, nome indicado no WhatsApp, fila "Decisores do dia", cargo por produto e placar', async () => {
+  const a = await abrirApp({ largura: 390, aquecer: true });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      // 1) perfil do sócio achado pelo nome
+      const pedidos = [];
+      _apiOficial = async (c, o) => { pedidos.push({ c, corpo: JSON.parse(o.body) }); return { linkedin: 'https://br.linkedin.com/in/josepao', cargo: 'Sócio' }; };
+      const lead = { title: 'Padaria Sol', phone: '11999990001', address: 'Rua A - Centro, Campinas - SP', decisores: [{ nome: 'Jose Pao', cargo: 'Sócio-Administrador', fonte: 'receita' }, { nome: 'Ana Pao', cargo: 'Sócio', fonte: 'receita' }] };
+      const url = await decisorPerfil(lead);
+      // 2) nome indicado na conversa
+      const nomes = ['Quem cuida disso é o Carlos Mendes, ele volta segunda', 'Fala com a Dra. Ana', 'Manda pro e-mail do Ricardo', 'Fale com o comercial', 'Oi, tudo bem?'].map(decisorDoTexto);
+      // 4) cargo por produto
+      _produtos = [{ id: 'p1', nome: 'Kaizen', instrucoes: 'x', padrao: true }];
+      prodCargoTrocar('comercial');
+      const termos = prodCargoTermos(); const busca = decodeURIComponent(liPessoasUrl({ title: 'Outra', linkedin: 'https://www.linkedin.com/company/outra/' }));
+      // 3) fila: Jose aquecer hoje; Beta convite há 4 dias (aceitou?); Gama 8 dias sem aceitar com 2º sócio
+      const B = { title: 'Beta', phone: '11999990002', decisores: [{ nome: 'Bia Beta' }] }, G = { title: 'Gama', phone: '11999990003', decisores: [{ nome: 'Gil Gama' }, { nome: 'Gui Gama' }] };
+      todosLeads = [lead, B, G]; _leadsBase = [lead, B, G];
+      const dias = d => new Date(Date.now() - d * 86400000).toISOString();
+      const feitos = [{ chave: liChave(B), criado_em: dias(4) }, { chave: liChave(G), criado_em: dias(8) }];
+      const fila = liDecisoresDia([], feitos).map(x => x.dec.nome + ' | ' + x.etapa.txt);
+      const box = document.createElement('div'); liPlacar(box, feitos);
+      const placar = box.innerText.replace(/\s+/g, ' ');
+      return { url, pedido: pedidos[0], nomes, termos, busca, fila, placar };
+    });
+    assert.strictEqual(r.url, 'https://www.linkedin.com/in/josepao/');
+    assert.deepStrictEqual(r.pedido, { c: '/leads/decisor-perfil', corpo: { pessoa: 'Jose Pao', empresa: 'Padaria Sol', cidade: r.pedido.corpo.cidade } });
+    assert.deepStrictEqual(r.nomes, ['Carlos Mendes', 'Ana', 'Ricardo', null, null]);
+    assert.deepStrictEqual(r.termos, ['diretor comercial', 'gerente comercial', 'head de vendas']);
+    assert.match(r.busca, /people\/\?keywords="diretor comercial" OR "gerente comercial"/);
+    assert.deepStrictEqual(r.fila, ['Bia Beta | Convite há 4 dias: Bia Beta aceitou?', 'Jose Pao | Aquecer hoje: ver o perfil e curtir um post', 'Gil Gama | 8 dias sem aceitar: tentar Gui Gama']);
+    assert.match(r.placar, /1 de 100\s*convites na semana/); assert.match(r.placar, /aceitaram \(0 de 2\)/);
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
