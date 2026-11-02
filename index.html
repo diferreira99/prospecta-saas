@@ -19528,18 +19528,20 @@ function pesqPrompt(l, site, cnpj) {
 // Acha o CNPJ do lead: no site primeiro, depois no Google pelo nome + cidade; e puxa os dados da Receita.
 async function cnpjBuscar(l, cnpjDigitado) {
     let site = null, cnpj = null, avisoSite = '';
-    if (l.website) { try { site = await _srv('/site-texto', { url: l.website }); } catch (e) { if (/precisa atualizar/.test(e.message)) throw e; avisoSite = e.message; } }
+    const motivos = [];   // por que não achou (vai para o registro de erros quando nada dá certo)
+    if (l.website) { try { site = await _srv('/site-texto', { url: l.website }); if (!(site.cnpjs || []).length) motivos.push('site sem CNPJ'); } catch (e) { if (/precisa atualizar/.test(e.message)) throw e; avisoSite = e.message; motivos.push('site: ' + e.message); } }
+    else motivos.push('sem site');
     let n = String(cnpjDigitado || (site && site.cnpjs && site.cnpjs[0]) || (pesqDe(l) && pesqDe(l).cnpj && pesqDe(l).cnpj.cnpj) || '').replace(/\D/g, '');
     let cnpjFonte = cnpjDigitado ? 'digitado' : n ? 'site' : '';
     // Sem CNPJ no site: procura no Google pelo nome + cidade (só aceita quando o nome da empresa aparece junto)
     if (!n) {
         try {
             const g = await _apiOficial('/leads/cnpj-google', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome: l.title || l.name || '', cidade: cidadeDoLead(l) || '' }) });
-            if (g && g.cnpj) { n = String(g.cnpj).replace(/\D/g, ''); cnpjFonte = 'Google'; }
-        } catch (e) {}
+            if (g && g.cnpj) { n = String(g.cnpj).replace(/\D/g, ''); cnpjFonte = 'Google'; } else motivos.push('Google sem CNPJ');
+        } catch (e) { motivos.push('Google: ' + (e.status || '') + ' ' + e.message); }
     }
-    if (n) { try { cnpj = await _srv('/cnpj?n=' + n); if (cnpj) cnpj.fonte = cnpjFonte; } catch (e) {} }
-    return { site, cnpj, avisoSite };
+    if (n) { try { cnpj = await _srv('/cnpj?n=' + n); if (cnpj) cnpj.fonte = cnpjFonte; } catch (e) { motivos.push('Receita: ' + e.message); } }
+    return { site, cnpj, avisoSite, motivos };
 }
 // O sócio-administrador vira "quem decide" (o LinkedIn e a IA usam)
 function cnpjDecisorNoLead(l, soc, cnpj) {
@@ -19592,11 +19594,14 @@ function decisorChip(l, idx) {
 }
 async function cnpjAutoMelhores(leads) {
     if (_cnpjAutoRodando || !currentUser || !config?.uazapi?.url) return;
-    const alvo = (leads || []).filter(l => l && (l.title || l.name) && !l._cnpjTentado && !bloqueadoLead(l) && !(pesqDe(l) && (pesqDe(l).cnpj || pesqDe(l).semCnpj)))
+    // sem CNPJ não é para sempre: tenta de novo depois de 1 dia (e as tentativas antigas, de antes da 2ª fonte, de novo já)
+    const desistiu = p => p && p.semCnpj && p.v === 2 && Date.now() - (p.tentouEm || p.em || 0) < 86400000;
+    const alvo = (leads || []).filter(l => l && (l.title || l.name) && !l._cnpjTentado && !bloqueadoLead(l) && !(pesqDe(l) && (pesqDe(l).cnpj || desistiu(pesqDe(l)))))
         .map(l => ({ l, sc: calcScore(l) })).sort((a, b) => b.sc - a.sc).slice(0, CNPJ_AUTO_MAX).map(x => x.l);
     if (!alvo.length) return;
     _cnpjAutoRodando = true;
     let achou = 0, perfis = 0;
+    const contaMotivo = {};
     const repintar = () => { try { renderPagina(paginaAtual || 1); atualizarAcoesBusca(); } catch (e) {} };
     alvo.forEach(l => { l._cnpjBuscando = true; });
     repintar();
@@ -19606,15 +19611,17 @@ async function cnpjAutoMelhores(leads) {
             l._cnpjTentado = true;
             try {
                 l._cnpjBuscando = false;
-                const { cnpj } = await cnpjBuscar(l);
+                const { cnpj, motivos } = await cnpjBuscar(l);
+                if (!cnpj) (motivos || []).forEach(m => { const k = String(m).replace(/\d{3,}/g, '#').slice(0, 80); contaMotivo[k] = (contaMotivo[k] || 0) + 1; });
                 const ant = pesqDe(l);
-                const p = Object.assign({}, ant || {}, { parcial: !ant || !!ant.parcial, cnpj, semCnpj: !cnpj, decisor: socioPrincipal(cnpj) || (ant || {}).decisor || null, em: (ant || {}).em || Date.now() });
+                const p = Object.assign({}, ant || {}, { parcial: !ant || !!ant.parcial, cnpj, semCnpj: !cnpj, v: 2, tentouEm: Date.now(), decisor: socioPrincipal(cnpj) || (ant || {}).decisor || null, em: (ant || {}).em || Date.now() });
                 pesqSalvar(l, p);
                 if (cnpj) { achou++; cnpjDecisorNoLead(l, p.decisor, cnpj); if (await decisorPerfil(l)) perfis++; }
             } catch (e) { if (/precisa atualizar/.test(e.message || '')) break; }
             repintar();
         }
     } finally { _cnpjAutoRodando = false; alvo.forEach(l => { l._cnpjBuscando = false; }); repintar(); }
+    if (alvo.length >= 3 && achou < alvo.length / 3) registrarErroApp(`CNPJ automático: achou ${achou} de ${alvo.length}`, Object.entries(contaMotivo).sort((a, b) => b[1] - a[1]).map(([k, v]) => v + '× ' + k).join(' | '));
     if (achou) showToast(`🧾 CNPJ de ${achou} empresa${achou === 1 ? '' : 's'} encontrado` + (perfis ? ` · 👔 ${perfis} decisor${perfis === 1 ? '' : 'es'} com perfil do LinkedIn` : '') + ': no detalhe do lead e na aba LinkedIn', 'ok');
 }
 var _pesqLeads = {};
