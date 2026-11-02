@@ -1846,3 +1846,148 @@ test('recuperação judicial vira aviso no card e no decisor, e o fim da busca a
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('LinkedIn x WhatsApp: quem respondeu no WhatsApp sai do LinkedIn, WhatsApp recente espera 5 dias e o sem resposta sobe com aviso', async () => {
+  const dias = d => new Date(Date.now() - d * 86400000).toISOString();
+  const a = await abrirApp({ largura: 390, aquecer: true, db: { leads: [
+    { user_id: 'u1', phone: '5511999990001', enviado_em: dias(2), respondeu: false },
+    { user_id: 'u1', phone: '5511999990002', enviado_em: dias(6), respondeu: false },
+    { user_id: 'u1', phone: '5511999990003', enviado_em: dias(6), respondeu: true },
+  ] } });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      const A = { title: 'Alfa', phone: '11999990001', decisores: [{ nome: 'Ana Alfa' }] };
+      const B = { title: 'Beta', phone: '11999990002', decisores: [{ nome: 'Bia Beta' }] };
+      const C = { title: 'Gama', phone: '11999990003', decisores: [{ nome: 'Gil Gama' }] };
+      // sem decisor no lead, mas com o sócio guardado na pesquisa da empresa
+      const D = { title: 'Delta', phone: '11999990004', place_id: 'd1' };
+      pesqSalvar(D, { parcial: true, cnpj: { cnpj: '1', socios: [{ nome: 'DIEGO DELTA', qualificacao: 'Sócio-Administrador' }] }, decisor: { nome: 'Diego Delta', cargo: 'Sócio-Administrador' } });
+      todosLeads = [A, B, C, D]; _leadsBase = [A, B, C, D]; _liFeitos = new Set();
+      await waEstadoCarregar(true);
+      const dia = liDecisoresDia([], []).map(x => x.dec.nome + ' | ' + x.etapa.ic + ' ' + x.etapa.txt);
+      return { dia, fila: liFila().map(l => l.title), entra: [A, B, C].map(l => CANAIS.linkedin.entra(l)) };
+    });
+    assert.strictEqual(r.dia.length, 3);
+    assert.match(r.dia[0], /^Bia Beta \| 👀 📵 Sem resposta no WhatsApp há 6 dias · Aquecer hoje/);
+    assert.ok(r.dia.some(x => /^Diego Delta \| 👀 Aquecer hoje/.test(x)), r.dia.join('\n'));
+    assert.ok(r.dia.some(x => /^Ana Alfa \| ⏳ WhatsApp há 2 dias sem resposta: o LinkedIn entra no 5º dia/.test(x)), r.dia.join('\n'));
+    assert.ok(!r.dia.some(x => /Gil Gama/.test(x)), 'quem respondeu no WhatsApp não recebe convite frio');
+    assert.deepStrictEqual(r.fila.sort(), ['Beta', 'Delta']);
+    assert.deepStrictEqual(r.entra, [false, true, false]);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('LinkedIn: "Quem aceitou?" em lote, cadência depois do aceite e rotina na aba', async () => {
+  const dias = d => new Date(Date.now() - d * 86400000).toISOString();
+  const a = await abrirApp({ largura: 390, db: { abordagens_linkedin: [
+    { user_id: 'u1', chave: 'k1', nome: 'Alfa', pessoa: 'Ana Alfa', telefone: '11999990001', linkedin: 'https://www.linkedin.com/in/anaalfa/', criado_em: dias(3), etapa: 0 },
+    { user_id: 'u1', chave: 'k2', nome: 'Beta', pessoa: 'Bia Beta', telefone: '11999990002', criado_em: dias(25), etapa: 0 },
+    { user_id: 'u1', chave: 'k3', nome: 'Gama', pessoa: 'Gil', telefone: '11999990003', criado_em: dias(1), etapa: 0 },
+  ] } });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      iaServidor = async () => 'CONVITE: Olá\nMENSAGEM: Vi que vocês atendem condomínios. Faz sentido conversarmos 15 min?';
+      window._abertos = []; window.open = u => { window._abertos.push(u); return null; };
+      const espera = ms => new Promise(x => setTimeout(x, ms));
+      await liRowsCarregar(true);
+      const esperando = liEsperandoAceite(_liRows).map(x => x.chave);
+      liAceitesLote(liEsperandoAceite(_liRows));
+      const textoLote = document.querySelector('.li-lote-modal').textContent;
+      document.querySelector('.li-lote-modal input[data-chave="k1"]').click();
+      const botao = [...document.querySelectorAll('.li-lote-modal button')].find(b => /Confirmar/.test(b.textContent));
+      const rot = botao.textContent; botao.click(); await espera(300);
+      const k1 = _db.abordagens_linkedin.find(x => x.chave === 'k1'), k2 = _db.abordagens_linkedin.find(x => x.chave === 'k2');
+      const depoisLote = { k1: { etapa: k1.etapa, aceito: !!k1.aceito_em }, k2: k2.resultado };
+      const hoje = liParaHoje(_liRows).map(x => x.chave);
+      // mensagem 1 (depois do aceite)
+      liMsgModal(_liRows.find(x => x.chave === 'k1')); await espera(200);
+      const m1 = document.querySelector('.li-msg-modal .li-msg-texto').value;
+      [...document.querySelectorAll('.li-msg-modal button')].find(b => /Copiar e abrir perfil/.test(b.textContent)).click(); await espera(50);
+      [...document.querySelectorAll('.li-msg-modal button')].find(b => /Mandei/.test(b.textContent)).click(); await espera(300);
+      const prox = (new Date(k1.proxima_em).getTime() - Date.now()) / 86400000;
+      // aba LinkedIn: rotina + funil
+      trocarAba('linkedin', document.querySelector(`.nav-item[onclick*="'linkedin'"]`)); await canalAbrir('linkedin', true); await espera(200);
+      return { esperando, textoLote, rot, depoisLote, hoje, m1, aberto: window._abertos[0], etapa: k1.etapa, prox, retomado: !!k1.retomado_em,
+        rotina: (document.querySelector('#canal-linkedin .li-rotina') || {}).textContent || '', funil: ((document.querySelector('#canal-linkedin .li-funil') || {}).textContent || '').replace(/\s+/g, ' ') };
+    });
+    assert.deepStrictEqual(r.esperando, ['k2', 'k1'], 'convite de 1 dia ainda não entra');
+    assert.match(r.textoLote, /Arquivar quem não aceitou em 21 dias \(1\)/);
+    assert.strictEqual(r.rot, 'Confirmar 1 aceite');
+    assert.deepStrictEqual(r.depoisLote, { k1: { etapa: 1, aceito: true }, k2: 'nao_aceitou' });
+    assert.deepStrictEqual(r.hoje, ['k1']);
+    assert.match(r.m1, /Faz sentido conversarmos/);
+    assert.strictEqual(r.aberto, 'https://www.linkedin.com/in/anaalfa/');
+    assert.strictEqual(r.etapa, 2); assert.ok(r.prox > 3 && r.prox < 4.2, 'follow-up no dia 4: ' + r.prox); assert.strictEqual(r.retomado, true);
+    assert.match(r.rotina, /Rotina do LinkedIn de hoje/);
+    assert.match(r.funil, /3\s*convites/); assert.match(r.funil, /1\s*aceitaram50% de aceite/);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('LinkedIn: resposta colada vira reunião no Pipeline, indicação vira decisor, e o WhatsApp para de mandar follow-up', async () => {
+  const dias = d => new Date(Date.now() - d * 86400000).toISOString();
+  const a = await abrirApp({ largura: 390, db: { abordagens_linkedin: [
+    { user_id: 'u1', chave: 'k1', nome: 'Alfa', pessoa: 'Ana Alfa', telefone: '11999990001', criado_em: dias(6), etapa: 2, aceito_em: dias(4) },
+    { user_id: 'u1', chave: 'nome:beta|99990002', nome: 'Beta', pessoa: 'Bia Beta', telefone: '11999990002', criado_em: dias(6), etapa: 0 },
+  ] } });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      const espera = ms => new Promise(x => setTimeout(x, ms));
+      iaServidor = async () => '{"classe":"interessado","nome_indicado":"","resposta":"Ótimo, Ana! Quinta às 15h fica confirmado."}';
+      window.open = () => null;
+      pkLeads = [{ id: 1, name: 'Alfa', phone: '11999990001', col: 'contatado', canal: 'linkedin', movedAt: Date.now() }]; pkSave();
+      liRespostaModal(null); await espera(200);
+      const sel = document.querySelector('.li-resp-quem'); sel.value = 'k1'; sel.dispatchEvent(new Event('change'));
+      document.querySelector('.li-resp-texto').value = 'Oi! Tenho interesse sim, pode ser quinta às 15h?';
+      [...document.querySelectorAll('.li-resp-modal button')].find(b => /Entender/.test(b.textContent)).click(); await espera(200);
+      const classe = document.querySelector('.li-resp-classe').value, sug = document.querySelector('.li-resp-sug').value, data = document.querySelector('.li-resp-data').value;
+      document.querySelector('.li-resp-aplicar').click(); await espera(300);
+      pkLoad(); const card = pkLeads.find(k => k.name === 'Alfa');
+      const k1 = _db.abordagens_linkedin.find(x => x.chave === 'k1');
+      // indicação
+      await liRowsCarregar(true);
+      await liAplicarResposta(_liRows.find(x => x.nome === 'Beta'), 'Quem cuida disso é o Carlos Mendes', 'indicou', { nome: 'Carlos Mendes' });
+      const extra = (userGet('li_decisores_extra', []) || []).map(l => l.title + ': ' + l.decisores[0].nome);
+      await liRowsCarregar(true);
+      const dia = liDecisoresDia([], _liRows).map(x => x.dec.nome + ' | ' + x.etapa.acao);
+      // follow-up do WhatsApp de quem respondeu no LinkedIn sai da fila
+      _filaFollowupsCache = [{ id: 7, phone: '5511999990001', lead_nome: 'Alfa', canal: null, dia_etapa: 3, criado_em: new Date().toISOString() }, { id: 8, phone: '5511999990009', lead_nome: 'Outra', canal: null, dia_etapa: 3, criado_em: new Date().toISOString() }];
+      fuTirarSuperados();
+      return { classe, sug, data: !!data, col: card.col, reuniao: !!card.reuniaoEm, eventos: (card.eventos || []).map(e => e.txt), resultado: k1.resultado, k1classe: k1.classe, resposta: k1.resposta, extra, dia, fila: _filaFollowupsCache.map(i => i.id) };
+    });
+    assert.strictEqual(r.classe, 'reuniao', 'horário na resposta vence a IA');
+    assert.match(r.sug, /Quinta às 15h/); assert.strictEqual(r.data, true);
+    assert.strictEqual(r.col, 'negociando'); assert.strictEqual(r.reuniao, true);
+    assert.ok(r.eventos.some(t => /Respondeu no LinkedIn/.test(t)), r.eventos.join('|'));
+    assert.strictEqual(r.resultado, 'respondeu'); assert.strictEqual(r.k1classe, 'reuniao'); assert.match(r.resposta, /quinta às 15h/);
+    assert.deepStrictEqual(r.extra, ['Beta: Carlos Mendes']);
+    assert.ok(r.dia.includes('Carlos Mendes | indicado'), r.dia.join('\n'));
+    assert.deepStrictEqual(r.fila, [8]);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('LinkedIn: teste A/B do convite alterna as versões e passa a usar a que mais é aceita; funil no Painel', async () => {
+  const dias = d => new Date(Date.now() - d * 86400000).toISOString();
+  const linhas = [];
+  ['gancho', 'curta', 'sem_nota'].forEach((v, j) => { for (let i = 0; i < 15; i++) linhas.push({ user_id: 'u1', chave: v + i, nome: v + i, criado_em: dias(5), etapa: 0, variante: v, aceito_em: i < [3, 9, 5][j] ? dias(4) : null }); });
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(async (linhas) => {
+      _liRows = [];
+      const inicio = liAbEscolher();
+      _liRows = [{ variante: 'gancho', criado_em: new Date(Date.now() - 5 * 86400000).toISOString() }];
+      const segundo = liAbEscolher();
+      _liRows = linhas;
+      const melhor = liAbEscolher();
+      const prompt = liPrompt({ title: 'X' }, null, '', '', 'curta');
+      const el = liFunilEl(linhas, { env: 100, resp: 12 });
+      return { inicio, segundo, melhor, prompt: /110 caracteres/.test(prompt), funil: el.textContent.replace(/\s+/g, ' ') };
+    }, linhas);
+    assert.strictEqual(r.inicio, 'gancho'); assert.notStrictEqual(r.segundo, 'gancho');
+    assert.strictEqual(r.melhor, 'curta'); assert.strictEqual(r.prompt, true);
+    assert.match(r.funil, /Nota curta 🏆/); assert.match(r.funil, /No WhatsApp, no mesmo período: 100 mensagens · 12% responderam/);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
