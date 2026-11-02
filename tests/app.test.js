@@ -504,6 +504,7 @@ test('Instagram/LinkedIn: marcar Respondeu/Sem interesse move o Pipeline; Retoma
     assert.match(await a.pagina.textContent('#canal-insta .canal-retomar'), /Retomar hoje \(1\).*Clínica Sol/s);
     // 1) marcar resultado
     await a.pagina.click('#canal-insta li:has-text("Escritório Alfa") .cl-res.sim');
+    await a.pagina.click('.li-resp-modal .li-resp-so');
     await a.pagina.waitForTimeout(300);
     await a.pagina.click('#canal-insta li:has-text("Contábil Beta") .cl-res.nao');
     await a.pagina.waitForTimeout(400);
@@ -1988,6 +1989,150 @@ test('LinkedIn: teste A/B do convite alterna as versões e passa a usar a que ma
     assert.strictEqual(r.inicio, 'gancho'); assert.notStrictEqual(r.segundo, 'gancho');
     assert.strictEqual(r.melhor, 'curta'); assert.strictEqual(r.prompt, true);
     assert.match(r.funil, /Nota curta 🏆/); assert.match(r.funil, /No WhatsApp, no mesmo período: 100 mensagens · 12% responderam/);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('sinais de compra, canal certo por nicho e dor do Instagram', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      const canais = ['Indústria de plástico', 'Clínica de estética', 'Mercado'].map(t => canalRecomendado(t).canal);
+      const meses = d => new Date(Date.now() - d * 30.4 * 86400000).toISOString().slice(0, 10);
+      const l = { title: 'Plásticos Alfa', phone: '11999990001', place_id: 'pa', decisores: [{ nome: 'João Alfa', cargo: 'Sócio' }] };
+      pesqSalvar(l, { parcial: true, cnpj: { cnpj: '1', abertura: meses(6), porte: 'EMPRESA DE PEQUENO PORTE', socios: [] } });
+      _apiOficial = async (c) => c === '/leads/vagas' ? { vagas: [{ titulo: 'Vendedor Externo - Plásticos Alfa', link: 'x' }] } : {};
+      await vagasMelhores([l]);
+      const sinais = liSinais(l).map(s => s.id), prompt = liPrompt(l, null, 'João', '');
+      const ig = doresLead({ title: 'Studio X', instagram: 'https://instagram.com/x', website: 'https://x.com', igSeguidores: 300, igPosts: 12 }).find(d => d.id === 'igfraco');
+      const leads = [{ title: 'Clínica A', category: 'Clínica de estética', phone: '1' }, { title: 'Clínica B', category: 'Clínica de estética', phone: '2' }, { title: 'Salão C', category: 'Salão de beleza', phone: '3' }];
+      todosLeads = leads; _leadsBase = leads.slice();
+      trocarAba('prospeccao', document.querySelector(`.nav-item[onclick*="'prospeccao'"]`)); renderPagina(1); atualizarAcoesBusca();
+      return { canais, sinais, prompt, ig: ig && ig.rot({ igSeguidores: 300, igPosts: 12 }), rec: (document.getElementById('ps-canal-rec') || {}).textContent || '' };
+    });
+    assert.deepStrictEqual(r.canais, ['linkedin', 'instagram', 'whatsapp']);
+    assert.deepStrictEqual(r.sinais, ['nova', 'vaga', 'porte']);
+    assert.match(r.prompt, /SINAL DE MOMENTO.*empresa nova.*está contratando \(vaga aberta: Vendedor Externo/);
+    assert.strictEqual(r.ig, 'Instagram fraco: 300 seguidores · 12 publicações');
+    assert.match(r.rec, /Instagram costuma render mais/);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('prospectar começando pelo LinkedIn (pelo Google): busca, coloca na rotina e puxa CNPJ e telefone', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      const espera = ms => new Promise(x => setTimeout(x, ms));
+      config.uazapi = Object.assign({}, config.uazapi, { url: 'https://srv.test', token: 't' });
+      const pedidos = [];
+      _apiOficial = async (c, o) => {
+        pedidos.push(c);
+        if (c === '/leads/linkedin-pessoas') return { pessoas: [
+          { nome: 'João Carlos Silva', cargo: 'Sócio-diretor', empresa: 'Plásticos Alfa', linkedin: 'https://www.linkedin.com/in/joaocarlos/', local: 'Guarulhos' },
+          { nome: 'Maria Souza', cargo: 'Diretora comercial', empresa: 'Embalagens Beta', linkedin: 'https://www.linkedin.com/in/mariasouza/', local: 'Guarulhos' }] };
+        if (c === '/leads/cnpj-google') return { cnpj: JSON.parse(o.body).nome === 'Plásticos Alfa' ? '11222333000181' : null };
+        return { vagas: [] };
+      };
+      _srv = async c => ({ cnpj: '11222333000181', porte: 'MICRO EMPRESA', abertura: '2015-01-01', situacao: 'ATIVA', socios: [{ nome: 'OUTRO SOCIO', qualificacao: 'Sócio' }], telefones: ['11987654321'] });
+      _liFeitos = new Set(); _liRows = [];
+      const box = liBuscaSecao(); document.body.appendChild(box);
+      box.querySelector('.li-busca-setor').value = 'indústria de plástico'; box.querySelector('.li-busca-cidade').value = 'Guarulhos';
+      [...box.querySelectorAll('button')].find(b => b.textContent === 'Buscar').click(); await espera(200);
+      const lista = box.querySelector('.li-busca-res').textContent;
+      [...box.querySelectorAll('button')].find(b => /Colocar 2 na rotina/.test(b.textContent)).click(); await espera(600);
+      const extra = (userGet('li_decisores_extra', []) || []).map(l => [l.title, l.decisores[0].nome, l.phone || '', l.origem]);
+      const dia = liDecisoresDia([], []).map(x => x.dec.nome);
+      return { lista, extra, dia, pedidos: [...new Set(pedidos)] };
+    });
+    assert.match(r.lista, /João Carlos Silva · Sócio-diretor/); assert.match(r.lista, /Embalagens Beta · Guarulhos/);
+    assert.deepStrictEqual(r.extra, [['Embalagens Beta', 'Maria Souza', '', 'busca LinkedIn'], ['Plásticos Alfa', 'João Carlos Silva', '5511987654321', 'busca LinkedIn']]);
+    assert.ok(r.dia.includes('João Carlos Silva') && r.dia.includes('Maria Souza'), 'quem foi achado continua sendo o alvo (não troca pelo sócio da Receita)');
+    assert.ok(r.pedidos.includes('/leads/linkedin-pessoas') && r.pedidos.includes('/leads/cnpj-google'));
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('comentar post no aquecimento, perfil e posts da semana, link da agenda e pedido de indicação', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      const espera = ms => new Promise(x => setTimeout(x, ms));
+      iaServidor = async (p) => /COMENTÁRIO/.test(p) ? 'Esse ponto do prazo de entrega é o que mais pesa. Vocês medem isso por cliente?'
+        : /3 posts/.test(p) ? 'Post 1: a dor que custa caro para quem vende para indústria todo mês sem perceber.\n---\nPost 2: um caso prático de como resolver isso em uma semana, com números.\n---\nPost 3: o erro mais comum do setor e por que ninguém fala dele.'
+        : 'Obrigado pela confiança! Conhece mais 2 donos de empresa que poderiam ter o mesmo problema?';
+      const lead = { title: 'Plásticos Alfa', decisores: [{ nome: 'João Alfa' }] };
+      const cb = aqComentarBox('li', lead); document.body.appendChild(cb); cb.open = true;
+      cb.querySelector('.aq-post').value = 'Batemos recorde de entregas no prazo este mês!';
+      [...cb.querySelectorAll('button')].find(b => /Escrever comentário/.test(b.textContent)).click(); await espera(100);
+      const comentario = cb.querySelector('.aq-coment-txt').value;
+      _liRows = [{ chave: 'x', criado_em: new Date().toISOString() }];
+      const sec = liConteudoSecao(); document.body.appendChild(sec);
+      [...sec.querySelectorAll('button')].find(b => /Gerar os 3 posts/.test(b.textContent)).click(); await espera(100);
+      const posts = sec.querySelectorAll('.li-post').length;
+      [...sec.querySelectorAll('.li-post button')].find(b => b.textContent === 'Postei ✓').click();
+      const postados = liPostsSemana().posts.filter(p => p.postado).length;
+      userSet('agenda_link', 'https://cal.com/diego');
+      const resp = agendaNaResposta('Ótimo, vamos conversar!');
+      pkLeads = [{ id: 9, name: 'Cliente Gama', phone: '5511999990009', col: 'fechado', fechadoEm: Date.now() - 10 * 86400000, liPessoa: 'Gil Gama' }]; pkSave();
+      const pend = pkIndicacaoPendentes().length;
+      await pkIndicacao(9); await espera(100);
+      const m = document.querySelector('.pk-ind-modal');
+      m.querySelector('.pk-ind-nome').value = 'carla dias'; m.querySelector('.pk-ind-emp').value = 'Distribuidora Delta';
+      [...m.querySelectorAll('button')].find(b => /Decisores do dia/.test(b.textContent)).click();
+      pkLoad();
+      const ind = (userGet('li_decisores_extra', []) || []).find(l => l.title === 'Distribuidora Delta');
+      const dia = liDecisoresDia([], []).map(x => x.dec.nome + ' | ' + x.l.title);
+      return { comentario, posts, postados, resp, pend, texto: m.querySelector('.pk-ind-texto').value, dec: ind && ind.decisores[0], dia, pedida: !!pkLeads[0].indicacaoPedidaEm, prompt: liPrompt(ind, null, 'Carla Dias', ''), depois: pkIndicacaoPendentes().length };
+    });
+    assert.match(r.comentario, /prazo de entrega/);
+    assert.strictEqual(r.posts, 3); assert.strictEqual(r.postados, 1);
+    assert.match(r.resp, /Ótimo, vamos conversar!\n\nSe ficar mais fácil, escolha o melhor horário aqui: https:\/\/cal\.com\/diego/);
+    assert.strictEqual(r.pend, 1); assert.match(r.texto, /Conhece mais 2 donos/);
+    assert.deepStrictEqual(r.dec, { nome: 'Carla Dias', cargo: '', fonte: 'indicacao', indicadoPor: 'Gil Gama' });
+    assert.ok(r.dia.includes('Carla Dias | Distribuidora Delta'), r.dia.join('\n'));
+    assert.strictEqual(r.pedida, true); assert.strictEqual(r.depois, 0);
+    assert.match(r.prompt, /INDICAÇÃO: Carla Dias foi indicado\(a\) por Gil Gama/);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('Instagram com o mesmo motor: A/B da DM, responder story, resposta colada com IA e funil', async () => {
+  const a = await abrirApp({ largura: 390, db: { abordagens_instagram: [
+    { user_id: 'u1', chave: 'sol', nome: 'Clínica Sol', telefone: '11999990001', instagram: 'https://www.instagram.com/sol/', criado_em: new Date(Date.now() - 4 * 86400000).toISOString(), variante: 'perfil' },
+  ] } });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      const espera = ms => new Promise(x => setTimeout(x, ms));
+      window.open = () => null;
+      iaServidor = async (p) => /STORY/.test(p) ? 'Que vitrine linda! Isso é coleção nova?' : /JSON/.test(p) ? '{"classe":"interessado","nome_indicado":"","resposta":"Que bom! Te mando os detalhes."}' : 'Oi, Clínica Lua! Tudo bem?';
+      _igRows = []; const ab = igAbEscolher();
+      const pr = igPrompt({ title: 'X' }, null, 'dor');
+      _igFeitos = new Set(); _igHoje = 0; _igRows = null;
+      igAbordar([{ title: 'Clínica Lua', category: 'Clínica de estética', phone: '', instagram: 'https://www.instagram.com/lua/', igSeguidores: 420, igPosts: 9 }]);
+      await espera(300);
+      const quem = document.querySelector('.ig-modal .ig-quem').textContent;
+      document.querySelector('.ig-modal .ig-story-ger').click(); await espera(200);
+      const story = { txt: document.querySelector('.ig-modal textarea.ig-texto').value, botao: [...document.querySelectorAll('.ig-modal .modal-actions button')].map(b => b.textContent).join('|') };
+      document.querySelector('.modal-backdrop').remove();
+      // resposta colada
+      pkLeads = [{ id: 1, name: 'Clínica Sol', col: 'contatado', canal: 'instagram', movedAt: 1 }]; pkSave();
+      liRespostaModal(null, null, 'instagram'); await espera(200);
+      const sel = document.querySelector('.li-resp-quem'); sel.value = 'sol'; sel.dispatchEvent(new Event('change'));
+      document.querySelector('.li-resp-texto').value = 'Tenho interesse, me manda mais detalhes';
+      [...document.querySelectorAll('.li-resp-modal button')].find(b => /Entender/.test(b.textContent)).click(); await espera(200);
+      document.querySelector('.li-resp-aplicar').click(); await espera(300);
+      pkLeads = userGet('pk_leads', []);
+      const row = _db.abordagens_instagram[0];
+      await igRowsCarregar(true);
+      return { ab, pr, quem, story, row: [row.resultado, row.classe, row.resposta], card: pkLeads[0].col, ev: (pkLeads[0].eventos || []).map(e => e.txt).join('|'), funil: igFunilEl(_igRows).textContent };
+    });
+    assert.strictEqual(r.ab, 'pergunta'); assert.match(r.pr, /VERSÃO DO TESTE: cite com cuidado uma oportunidade/);
+    assert.match(r.quem, /420 seguidores · 9 publicações/);
+    assert.match(r.story.txt, /coleção nova/); assert.match(r.story.botao, /Copiar e abrir o story/);
+    assert.deepStrictEqual(r.row, ['respondeu', 'interessado', 'Tenho interesse, me manda mais detalhes']);
+    assert.strictEqual(r.card, 'respondeu'); assert.match(r.ev, /Respondeu no Instagram/);
+    assert.match(r.funil, /1\s*responderam100%/); assert.match(r.funil, /Detalhe do perfil \+ pergunta/);
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
