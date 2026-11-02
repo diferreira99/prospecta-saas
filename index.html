@@ -1465,6 +1465,13 @@
 .ig-story { background:#FDF2F8; border:1px solid #FBCFE8; border-radius:10px; padding:8px 10px; font-size:0.72rem; margin:6px 0; }
 .ig-funil-passos { grid-template-columns:repeat(3, minmax(0,1fr)); }
 .li-resp-bts { display:flex; gap:6px; flex-wrap:wrap; }
+.canal-subs { display:flex; gap:6px; overflow-x:auto; padding:2px 0 10px; margin-bottom:6px; border-bottom:1.5px solid var(--border); scrollbar-width:none; }
+.canal-subs::-webkit-scrollbar { display:none; }
+.canal-sub { flex:none; padding:7px 13px; border-radius:20px; border:1.5px solid var(--border); background:var(--surface); color:var(--text); font-family:'Inter',sans-serif; font-size:0.74rem; font-weight:700; cursor:pointer; white-space:nowrap; }
+.canal-sub[aria-selected="true"] { background:#0D1330; border-color:#0D1330; color:#fff; }
+.canal-sub-painel { display:flex; flex-direction:column; gap:14px; }
+.canal-sub-painel[hidden] { display:none; }
+.canal-lista li .ps-acao.principal, .canal-lista li .ps-acao { flex:0 0 auto; width:auto; }
 .li-manha { display:flex; gap:8px; align-items:center; font-size:0.72rem; margin-top:8px; cursor:pointer; }
 .li-manha input { width:18px; height:18px; flex:none; }
 .ps-google-uso, .li-google-uso { font-size:0.66rem; color:var(--muted); width:100%; }
@@ -2564,6 +2571,11 @@ function iniciarAppPosLogin() {
                     <button type="button" class="ps-chip" id="pf-celular" aria-pressed="false" onclick="alternarFiltroExtra('celular')" title="Celular costuma ser o próprio dono">📱 Só celular</button>
                     <button type="button" class="ps-chip" id="pf-whats" aria-pressed="false" onclick="alternarFiltroExtra('whats')" title="Só quem tem WhatsApp confirmado">✅ WhatsApp confirmado</button>
                     <button type="button" class="ps-chip" id="pf-insta" aria-pressed="false" onclick="alternarFiltroExtra('insta')" title="Tem Instagram e não tem WhatsApp: hoje ficam de fora das campanhas">Só Instagram (sem WhatsApp)</button>
+                </div>
+                <div class="ps-grupo"><span class="ps-grupo-rot">Redes</span>
+                    <button type="button" class="ps-chip" id="pf-cominsta" aria-pressed="false" onclick="alternarFiltroExtra('cominsta')" title="Só empresas com Instagram (com ou sem WhatsApp)">📸 Tem Instagram</button>
+                    <button type="button" class="ps-chip" id="pf-comli" aria-pressed="false" onclick="alternarFiltroExtra('comli')" title="Só empresas com LinkedIn (página da empresa ou perfil de quem decide)">💼 Tem LinkedIn</button>
+                    <button type="button" class="ps-chip" id="pf-decisor" aria-pressed="false" onclick="alternarFiltroExtra('decisor')" title="Só empresas em que o app já sabe quem decide (sócio da Receita, site ou indicação)">👔 Tem decisor</button>
                 </div>
                 <div class="ps-grupo"><span class="ps-grupo-rot">Empresa</span>
                     <button type="button" class="ps-chip" id="pf-aberta" aria-pressed="false" onclick="alternarFiltroExtra('aberta')" title="Poucas avaliações, todas recentes: empresa que abriu há pouco">🌱 Abertas há pouco</button>
@@ -7437,7 +7449,6 @@ async function buscarRedesEmFundo(buscaId, leads) {
                 try { await vagasMelhores(leads.filter(l => liDecisoresDe(l).length).sort((a, b) => calcScore(b) - calcScore(a))); } catch (e) {}
                 try { await igInfoMelhores(leads); } catch (e) {}
             }
-            try { googleUsoPintar(); } catch (e) {}
             buscaFinalizadaAvisar(leads);
             return;
         }
@@ -8433,6 +8444,9 @@ function aplicarFiltroOrdem() {
     if (_filtrosExtra.aberta)   lista = lista.filter(l => abertaRecente(l));
     if (_filtrosExtra.novidade) lista = lista.filter(l => !!l._novidade);
     if (_filtrosExtra.insta)    lista = lista.filter(l => igHandle(l.instagram) && (!l.phone || l.is_whatsapp === false));
+    if (_filtrosExtra.cominsta) lista = lista.filter(l => !!igHandle(l.instagram));
+    if (_filtrosExtra.comli)    lista = lista.filter(l => !!liUrl(l) || liDecisoresDe(l).some(d => liPerfilOk(d.linkedin)));
+    if (_filtrosExtra.decisor)  lista = lista.filter(l => liDecisoresDe(l).length > 0);
     if (_filtroBairro)          lista = lista.filter(l => _normNicho(l.bairro) === _filtroBairro);
     if (_filtroDor)             lista = lista.filter(l => doresLead(l).some(d => d.id === _filtroDor));
 
@@ -15383,7 +15397,7 @@ function liPromptExtras(l) {
     return t;
 }
 // o chip do canal certo aparece junto com as ações da busca
-(function () { const o = atualizarAcoesBusca; atualizarAcoesBusca = function () { const r = o.apply(this, arguments); try { canalRecPintar(); } catch (e) {} return r; }; })();
+
 
 
 // ---- Buscas no Google (limite do dia por usuário): contador, prioridade e aviso claro ----
@@ -15431,6 +15445,42 @@ function pesqTabSalvar(k, p) {
     if (_pesqTab) _pesqTab[k] = p;
     try { supabaseClient.from('pesquisas_empresa').upsert({ user_id: currentUser.id, chave: k, dados: p, atualizado_em: new Date().toISOString() }, { onConflict: 'user_id,chave' }).then(() => {}, () => {}); } catch (e) {}
 }
+
+// ---- Abas do LinkedIn e do Instagram: cada coisa no seu lugar (Hoje · Fila · Achar mais · Resultados · Perfil e posts) ----
+var CANAL_SUBS = {
+    linkedin: [['hoje', '▶ Hoje'], ['fila', '👔 Decisores e fila'], ['achar', '🔎 Achar mais'], ['resultados', '📊 Resultados'], ['ferramentas', '✍️ Perfil e posts']],
+    insta: [['hoje', '▶ Hoje'], ['fila', '📸 Fila'], ['achar', '🔎 Completar redes'], ['resultados', '📊 Resultados']],
+};
+function canalSubDe(el) {
+    const c = el.classList;
+    if (c.contains('li-rotina') || c.contains('li-aceites') || c.contains('li-cad-hoje') || c.contains('cc-hoje') || c.contains('canal-retomar')) return 'hoje';
+    if (c.contains('canal-topo') || c.contains('li-placar') || c.contains('li-funil-card')) return 'resultados';
+    if (c.contains('li-busca') || c.contains('hr-box')) return 'achar';
+    if (c.contains('li-conteudo')) return 'ferramentas';
+    return 'fila';
+}
+function canalSeparar(aba) {
+    const box = document.getElementById('canal-' + aba), subs = CANAL_SUBS[aba];
+    if (!box || !subs) return;
+    const paineis = {};
+    subs.forEach(([k]) => { paineis[k] = prEl('div', 'canal-sub-painel'); paineis[k].dataset.sub = k; });
+    [...box.children].forEach(el => paineis[canalSubDe(el)] ? paineis[canalSubDe(el)].appendChild(el) : paineis.fila.appendChild(el));
+    const nav = prEl('div', 'canal-subs'); nav.setAttribute('role', 'tablist');
+    let atual = userGet('canal_sub_' + aba, 'hoje'); if (!paineis[atual] || !paineis[atual].childElementCount) atual = 'hoje';
+    const mostrar = k => {
+        atual = k; userSet('canal_sub_' + aba, k);
+        subs.forEach(([kk]) => { paineis[kk].hidden = kk !== k; });
+        nav.querySelectorAll('button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.sub === k)));
+    };
+    subs.forEach(([k, t]) => {
+        const b = prEl('button', 'canal-sub', t); b.type = 'button'; b.dataset.sub = k; b.setAttribute('role', 'tab');
+        b.hidden = !paineis[k].childElementCount; b.onclick = () => mostrar(k); nav.appendChild(b);
+    });
+    box.replaceChildren(nav, ...subs.map(([k]) => paineis[k]));
+    mostrar(atual);
+}
+function canalIrSub(aba, k) { const b = document.querySelector(`#canal-${aba} .canal-sub[data-sub="${k}"]`); if (b) b.click(); }
+(function () { const o = canalDesenhar; canalDesenhar = function (aba) { const r = o.apply(this, arguments); try { canalSeparar(aba); } catch (e) { console.warn('[abas do canal]', e); } return r; }; })();
 
 // ===================== COMPLETAR REDES DO HISTÓRICO =====================
 // Passa pelas buscas salvas e pelas empresas das campanhas antigas atrás de Instagram e LinkedIn:
@@ -20371,7 +20421,7 @@ function alternarFiltroExtra(k) {
     aplicarFiltroOrdem();
 }
 function pintarFiltrosExtra() {
-    ['novos', 'celular', 'whats', 'negativa', 'aberta', 'novidade', 'insta'].forEach(k => {
+    ['novos', 'celular', 'whats', 'negativa', 'aberta', 'novidade', 'insta', 'cominsta', 'comli', 'decisor'].forEach(k => {
         const b = document.getElementById('pf-' + k);
         if (b) b.setAttribute('aria-pressed', String(!!_filtrosExtra[k]));
     });

@@ -428,6 +428,7 @@ test('abas Prospecção Instagram e LinkedIn: menu com os 3 canais, fila da busc
     await a.pagina.click('.nav-trilha:has-text("Conecte")');
     assert.strictEqual(await a.pagina.getAttribute('.nav-trilha:has-text("Conecte")', 'aria-expanded'), 'true');
     await a.pagina.click('.nav-item:has-text("Prospecção Instagram")');
+    await a.pagina.click('#canal-insta .canal-sub[data-sub="fila"]');
     await a.pagina.waitForSelector('#canal-insta .canal-lista');
     const ig = await a.pagina.evaluate(() => ({
       titulo: document.getElementById('page-title').textContent,
@@ -446,6 +447,7 @@ test('abas Prospecção Instagram e LinkedIn: menu com os 3 canais, fila da busc
     await a.pagina.evaluate(() => document.querySelector('.modal-backdrop.active')?.remove());
     // LinkedIn: só quem tem LinkedIn, com o decisor achado
     await a.pagina.click('.nav-item:has-text("Prospecção LinkedIn")');
+    await a.pagina.click('#canal-linkedin .canal-sub[data-sub="fila"]');
     await a.pagina.waitForSelector('#canal-linkedin .canal-lista');
     const li = await a.pagina.evaluate(() => [...document.querySelectorAll('#canal-linkedin .canal-grade > .ph-card li')].map(x => x.textContent));
     assert.strictEqual(li.length, 1);
@@ -502,6 +504,7 @@ test('Instagram/LinkedIn: marcar Respondeu/Sem interesse move o Pipeline; Retoma
     });
     await a.pagina.waitForSelector('#canal-insta .canal-retomar');
     assert.match(await a.pagina.textContent('#canal-insta .canal-retomar'), /Retomar hoje \(1\).*Clínica Sol/s);
+    await a.pagina.click('#canal-insta .canal-sub[data-sub="fila"]');
     // 1) marcar resultado
     await a.pagina.click('#canal-insta li:has-text("Escritório Alfa") .cl-res.sim');
     await a.pagina.click('.li-resp-modal .li-resp-so');
@@ -515,6 +518,7 @@ test('Instagram/LinkedIn: marcar Respondeu/Sem interesse move o Pipeline; Retoma
     assert.ok(r1.selos.includes('respondeu') && r1.selos.includes('sem interesse'));
     assert.strictEqual(r1.topo, '1');
     // 2) retomar: a IA escreve o 2º contato usando a bio; "Mandei" tira da lista
+    await a.pagina.click('#canal-insta .canal-sub[data-sub="hoje"]');
     await a.pagina.click('#canal-insta .canal-retomar button:has-text("Retomar")');
     await a.pagina.waitForSelector('.ig-modal textarea:not([disabled])');
     assert.match(await a.pagina.inputValue('.ig-modal textarea'), /Quer ver um exemplo/);
@@ -903,6 +907,7 @@ test('campanha adota as abordagens avulsas no Retomar (contando da 1ª DM) e a D
     await a.pagina.evaluate(() => { window.open = () => null; Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => {} }, configurable: true }); });
     // aba Prospecção Instagram avisa das avulsas sem campanha e o botão já abre a campanha com elas
     await a.pagina.evaluate(() => trocarAba('insta', document.querySelector(`.nav-item[onclick*="'insta'"]`)));
+    await a.pagina.click('#canal-insta .canal-sub[data-sub="fila"]');
     await a.pagina.waitForSelector('#canal-insta .cc-avulsas');
     assert.match(await a.pagina.textContent('#canal-insta .cc-avulsas'), /1 abordagem avulsa no Instagram sem campanha/);
     await a.pagina.click('#canal-insta .cc-avulsas button');
@@ -2005,16 +2010,23 @@ test('sinais de compra, canal certo por nicho e dor do Instagram', async () => {
       await vagasMelhores([l]);
       const sinais = liSinais(l).map(s => s.id), prompt = liPrompt(l, null, 'João', '');
       const ig = doresLead({ title: 'Studio X', instagram: 'https://instagram.com/x', website: 'https://x.com', igSeguidores: 300, igPosts: 12 }).find(d => d.id === 'igfraco');
-      const leads = [{ title: 'Clínica A', category: 'Clínica de estética', phone: '1' }, { title: 'Clínica B', category: 'Clínica de estética', phone: '2' }, { title: 'Salão C', category: 'Salão de beleza', phone: '3' }];
-      todosLeads = leads; _leadsBase = leads.slice();
+      // filtros de redes na Prospecção
+      const leads = [{ title: 'Clínica A', category: 'Clínica de estética', phone: '11999990011', is_whatsapp: true, instagram: 'https://www.instagram.com/clinicaa/' },
+        { title: 'Indústria B', category: 'Indústria', phone: '11999990012', is_whatsapp: true, linkedin: 'https://www.linkedin.com/company/industriab/' },
+        { title: 'Loja C', category: 'Loja', phone: '11999990013', is_whatsapp: true, decisores: [{ nome: 'Carla C', linkedin: 'https://www.linkedin.com/in/carlac/' }] },
+        { title: 'Bar D', category: 'Bar', phone: '11999990014', is_whatsapp: true }];
+      todosLeads = leads.slice(); _leadsBase = leads.slice();
       trocarAba('prospeccao', document.querySelector(`.nav-item[onclick*="'prospeccao'"]`)); renderPagina(1); atualizarAcoesBusca();
-      return { canais, sinais, prompt, ig: ig && ig.rot({ igSeguidores: 300, igPosts: 12 }), rec: (document.getElementById('ps-canal-rec') || {}).textContent || '' };
+      const filtrar = k => { alternarFiltroExtra(k); const n = todosLeads.map(l => l.title); alternarFiltroExtra(k); return n; };
+      return { canais, sinais, prompt, ig: ig && ig.rot({ igSeguidores: 300, igPosts: 12 }), rec: !!document.getElementById('ps-canal-rec'),
+        fInsta: filtrar('cominsta'), fLi: filtrar('comli'), fDec: filtrar('decisor'), todos: todosLeads.length };
     });
     assert.deepStrictEqual(r.canais, ['linkedin', 'instagram', 'whatsapp']);
     assert.deepStrictEqual(r.sinais, ['nova', 'vaga', 'porte']);
     assert.match(r.prompt, /SINAL DE MOMENTO.*empresa nova.*está contratando \(vaga aberta: Vendedor Externo/);
     assert.strictEqual(r.ig, 'Instagram fraco: 300 seguidores · 12 publicações');
-    assert.match(r.rec, /Instagram costuma render mais/);
+    assert.strictEqual(r.rec, false, 'a Prospecção fica como sempre foi');
+    assert.deepStrictEqual(r.fInsta, ['Clínica A']); assert.deepStrictEqual(r.fLi.sort(), ['Indústria B', 'Loja C']); assert.deepStrictEqual(r.fDec, ['Loja C']); assert.strictEqual(r.todos, 4);
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
