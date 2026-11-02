@@ -252,7 +252,7 @@ test('LinkedIn: acha quem decide, IA escreve convite e mensagem, registra com a 
     assert.match(tx[0], /^Olá! Acompanho/); assert.match(tx[1], /Obrigado por aceitar/);
     await a.pagina.click('.li-modal button:has-text("Ver sócios e donos")');
     const ab = await a.pagina.evaluate(() => window._abertos[0]);
-    assert.match(ab, /^https:\/\/www\.linkedin\.com\/company\/contabil-alfa\/people\/\?keywords=/);
+    assert.strictEqual(ab, 'https://www.linkedin.com/company/contabil-alfa/people/', 'aba Pessoas da empresa, sem termos que zeram a busca');
     await a.pagina.fill('.li-modal .li-perfil', 'https://br.linkedin.com/in/joao-alfa?utm=x');
     await a.pagina.click('.li-modal button:has-text("Mandei o convite")');
     await a.pagina.waitForTimeout(400);
@@ -1730,7 +1730,7 @@ test('decisor no LinkedIn: perfil do sócio confirmado, nome indicado no WhatsAp
     assert.deepStrictEqual(r.pedido, { c: '/leads/decisor-perfil', corpo: { pessoa: 'Jose Pao', empresa: 'Padaria Sol', cidade: r.pedido.corpo.cidade } });
     assert.deepStrictEqual(r.nomes, ['Carlos Mendes', 'Ana', 'Ricardo', null, null]);
     assert.deepStrictEqual(r.termos, ['diretor comercial', 'gerente comercial', 'head de vendas']);
-    assert.match(r.busca, /people\/\?keywords="diretor comercial" OR "gerente comercial"/);
+    assert.strictEqual(r.busca, 'https://www.linkedin.com/company/outra/people/?keywords=diretor comercial');
     assert.deepStrictEqual(r.fila, ['Bia Beta | Convite há 4 dias: Bia Beta aceitou?', 'Jose Pao | Aquecer hoje: ver o perfil e curtir um post', 'Gil Gama | 8 dias sem aceitar: tentar Gui Gama']);
     assert.match(r.placar, /1 de 100\s*convites na semana/); assert.match(r.placar, /aceitaram \(0 de 2\)/);
     assert.deepStrictEqual(a.errosReais(), []);
@@ -1753,6 +1753,21 @@ test('na lista da busca aparece quem decide (com LinkedIn) e o botão "Decisores
     });
     assert.match(r.chip, /👔 Jose Pao · Sócio-Administrador · in ✓ · ME/);
     assert.match(r.botao, /Decisores no LinkedIn \(1\)/); assert.strictEqual(r.visivel, true);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('busca de pessoas no LinkedIn sem aspas nem OR (o LinkedIn dava "Nenhum resultado") e plano B pelo Google', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(() => [
+      decodeURIComponent(liPessoasUrl({ title: 'LMC Facilities LTDA', address: 'Rua A - Centro, São Paulo - SP' })),
+      decodeURIComponent(liPessoasUrl({ title: 'LMC Facilities', decisores: [{ nome: 'Luiz Melo' }] })),
+      decodeURIComponent(liGoogleUrl({ title: 'LMC Facilities LTDA', address: 'Rua A - Centro, São Paulo - SP' })),
+    ]);
+    assert.strictEqual(r[0], 'https://www.linkedin.com/search/results/people/?keywords=LMC Facilities');
+    assert.strictEqual(r[1], 'https://www.linkedin.com/search/results/people/?keywords=Luiz Melo');
+    assert.match(r[2], /^https:\/\/www\.google\.com\/search\?q=site:linkedin\.com\/in "LMC Facilities" \(sócio OR sócia OR proprietário/);
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });

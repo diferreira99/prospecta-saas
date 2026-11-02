@@ -13453,16 +13453,26 @@ function liUrl(l) {
 }
 function liChave(l) { const u = liUrl(l); if (u) return u.toLowerCase(); const n = String((l && (l.title || l.name)) || '').toLowerCase().trim(); return n ? 'nome:' + n + '|' + String((l && l.phone) || '').replace(/\D/g, '').slice(-8) : ''; }
 // Onde achar quem decide: a aba "Pessoas" da página da empresa, ou a busca de pessoas pelo nome da empresa
+// Busca de pessoas no LinkedIn. O LinkedIn não aceita aspas + vários "OR" juntos (dava "Nenhum resultado"):
+// por isso vai só o nome da pessoa, ou só o nome da empresa (sem LTDA/ME), ou a aba Pessoas da página da empresa.
+function liNomeEmpresa(l) {
+    return String((l && (l.title || l.name)) || '').replace(/\s[-–|].*$/, '').replace(/\b(ltda|eireli|me|epp|s\/?a|ss|mei)\b\.?/gi, '').replace(/[^\wÀ-ú&\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
 function liPessoasUrl(l) {
     const u = liUrl(l);
-    const extra = prodCargoTermos();
-    const cargos = extra.length ? extra.map(t => '"' + t + '"').join(' OR ') + ' OR sócio OR CEO' : 'sócio OR proprietário OR dono OR CEO OR fundador OR diretor';
-    // já sabemos o nome de quem decide (Receita, site ou WhatsApp): procura a pessoa direto
-    const dec = Array.isArray(l && l.decisores) ? l.decisores.find(d => d && d.nome && !liPerfilOk(d.linkedin)) : null;
-    if (dec && !(/\/in\//.test(u))) return 'https://www.linkedin.com/search/results/people/?keywords=' + encodeURIComponent('"' + dec.nome + '" ' + ((l.title || l.name) ? '"' + (l.title || l.name) + '"' : ''));
-    if (/\/company\//.test(u)) return u + 'people/?keywords=' + encodeURIComponent(cargos);
     if (/\/in\//.test(u)) return u;
-    return 'https://www.linkedin.com/search/results/people/?keywords=' + encodeURIComponent('"' + ((l && (l.title || l.name)) || '') + '" ' + cargos);
+    // já sabemos o nome de quem decide (Receita, site ou WhatsApp): procura a pessoa pelo nome
+    const dec = Array.isArray(l && l.decisores) ? l.decisores.find(d => d && d.nome && !liPerfilOk(d.linkedin)) : null;
+    if (dec) return 'https://www.linkedin.com/search/results/people/?keywords=' + encodeURIComponent(dec.nome);
+    const extra = prodCargoTermos();
+    if (/\/company\//.test(u)) return u.replace(/\/?$/, '/') + 'people/' + (extra.length ? '?keywords=' + encodeURIComponent(extra[0]) : '');
+    return 'https://www.linkedin.com/search/results/people/?keywords=' + encodeURIComponent(liNomeEmpresa(l));
+}
+// Plano B: o Google acha perfil de dono de empresa pequena que a busca do LinkedIn não mostra
+function liGoogleUrl(l) {
+    const extra = prodCargoTermos();
+    const cargos = extra.length ? extra.map(t => '"' + t + '"').join(' OR ') : 'sócio OR sócia OR proprietário OR dono OR diretor OR CEO';
+    return 'https://www.google.com/search?q=' + encodeURIComponent('site:linkedin.com/in "' + liNomeEmpresa(l) + '" (' + cargos + ') ' + (cidadeDoLead(l) || '').split(',')[0]);
 }
 async function liCarregarFeitos(forcar) {
     if (_liFeitos && !forcar) return _liFeitos;
@@ -13590,6 +13600,9 @@ async function liAbordar(fila, opcoes) {
         achar.onclick = () => window.open(liPerfilOk(perfil.value) || liPessoasUrl(l), '_blank', 'noopener');
         const pessoa = document.createElement('input'); pessoa.className = 'ig-texto li-pessoa'; pessoa.placeholder = 'Nome da pessoa (opcional, a IA personaliza)'; pessoa.maxLength = 80;
         l1.append(achar, pessoa); m.appendChild(l1);
+        const viaGoogle = document.createElement('a'); viaGoogle.className = 'ig-link li-google'; viaGoogle.href = liGoogleUrl(l); viaGoogle.target = '_blank'; viaGoogle.rel = 'noopener';
+        viaGoogle.textContent = 'Não achou no LinkedIn? Procurar o dono pelo Google';
+        m.appendChild(viaGoogle);
         const perfil = document.createElement('input'); perfil.className = 'ig-texto li-perfil'; perfil.type = 'url'; perfil.maxLength = 300;
         perfil.placeholder = 'Link do perfil da pessoa (opcional: o card do Pipeline abre direto nele)';
         m.appendChild(perfil);
