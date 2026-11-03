@@ -2177,9 +2177,11 @@ test('Campanhas é só do WhatsApp: Instagram e LinkedIn ficam na rotina de cada
   try {
     const r = await a.pagina.evaluate(async () => {
       trocarAba('campanhas', document.querySelector(`.nav-item[onclick*="'campanhas'"]`));
-      return { canais: document.getElementById('cc-canais').hidden, wa: !document.getElementById('cp-whats') || !document.getElementById('cp-whats').hidden };
+      const tab = document.getElementById('tab-campanhas');
+      return { botoes: [...tab.querySelectorAll('button')].filter(b => b.getClientRects().length && /^(Instagram|LinkedIn)$/.test(b.textContent.trim())).length,
+        wa: !document.getElementById('cp-whats') || !document.getElementById('cp-whats').hidden };
     });
-    assert.deepStrictEqual(r, { canais: true, wa: true });
+    assert.deepStrictEqual(r, { botoes: 0, wa: true }, 'nenhum botão de Instagram/LinkedIn visível em Campanhas');
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });

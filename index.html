@@ -5312,11 +5312,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <!-- CAMPANHAS -->
         <div class="tab-content" id="tab-campanhas">
-            <div id="cc-canais" class="cc-canais" role="tablist" aria-label="Canal das campanhas" hidden>
-                <button type="button" role="tab" data-c="whatsapp" aria-selected="true" onclick="ccTrocarCanal('whatsapp')"><span class="nav-canal tag-zap" aria-hidden="true"></span>WhatsApp</button>
-                <button type="button" role="tab" data-c="instagram" aria-selected="false" onclick="ccTrocarCanal('instagram')"><span class="nav-canal tag-ig" aria-hidden="true"></span>Instagram</button>
-                <button type="button" role="tab" data-c="linkedin" aria-selected="false" onclick="ccTrocarCanal('linkedin')"><span class="nav-canal tag-in" aria-hidden="true"></span>LinkedIn</button>
-            </div>
+            <!-- Campanhas é só do WhatsApp: Instagram e LinkedIn têm a rotina própria nas abas Prospecção Instagram/LinkedIn -->
             <section id="cc-box" class="cc-box" hidden></section>
             <div id="cp-whats">
             <!-- CAMPANHAS REAIS (da nuvem): ao vivo, placar agrupado por nicho+cidade, leads, mensagens e repescagem -->
@@ -15978,6 +15974,7 @@ function ccSecaoHoje(aba) {
 // ---- Aba Campanhas: WhatsApp | Instagram | LinkedIn ----
 var _ccCanalAba = 'whatsapp';
 function ccTrocarCanal(canal) {
+    canal = 'whatsapp';   // Campanhas é só do WhatsApp
     _ccCanalAba = canal;
     document.querySelectorAll('#cc-canais button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.c === canal)));
     const wa = document.getElementById('cp-whats'), box = document.getElementById('cc-box');
