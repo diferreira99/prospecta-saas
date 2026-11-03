@@ -1495,6 +1495,23 @@
 .cx-dica { font-size:0.64rem; opacity:0.8; margin-top:10px; }
 .cx-hero .li-manha { color:#fff; opacity:0.9; }
 .cx-av { flex:none; width:34px; height:34px; border-radius:50%; color:#fff; font-family:'Inter',sans-serif; font-size:0.72rem; font-weight:800; display:inline-flex; align-items:center; justify-content:center; letter-spacing:0.5px; }
+.cx-trilha { position:relative; }
+.cx-et { position:relative; margin-left:14px; padding-left:22px; border-left:2px solid #BFDBFE; }
+.cx-et.fim { border-left-color:transparent; }
+.cx-et::before { content:''; position:absolute; left:-8px; top:12px; width:14px; height:14px; border-radius:50%; background:#0A66C2; box-shadow:0 0 0 3px var(--surface, #fff); }
+.cx-et.vazia::before { background:#CBD5E1; }
+.cx-et.fim::before { background:#16a34a; }
+.cx-et summary { list-style:none; display:flex; align-items:center; gap:10px; padding:8px 0; cursor:pointer; }
+.cx-et summary::-webkit-details-marker { display:none; }
+.cx-et-ic { font-size:1.15rem; }
+.cx-et-t { flex:1; min-width:0; display:flex; flex-direction:column; }
+.cx-et-t b { font-size:0.82rem; color:var(--text, #0f172a); }
+.cx-et.vazia .cx-et-t b { color:var(--muted, #94a3b8); }
+.cx-et-t small { font-size:0.62rem; color:var(--muted); }
+.cx-et-n { flex:none; font-size:0.7rem; font-weight:800; background:#EFF6FF; color:#1E40AF; border-radius:99px; padding:3px 10px; }
+.cx-et-n.hoje { background:#FF6A00; color:#fff; }
+.cx-et.vazia .cx-et-n { background:#F1F5F9; color:#94A3B8; }
+.cx-et .canal-lista { margin:0 0 8px; }
 .cx-pill { display:inline-block; margin-top:4px; font-size:0.6rem; font-weight:800; border-radius:99px; padding:2px 8px; }
 .cx-pill.ambar { background:#FEF3C7; color:#92400E; }
 .cx-pill.azul { background:#DBEAFE; color:#1E40AF; }
@@ -14646,6 +14663,74 @@ function liSituacao(r) {
     const d = r.criado_em ? Math.floor((Date.now() - new Date(r.criado_em).getTime()) / LI_DIA_MS) : 0;
     return ['convite enviado' + (d ? ` há ${d}d` : ' hoje'), 'ambar'];
 }
+// ---- Trilha: cada etapa da cadência e quem está em cada uma (com a data do próximo passo) ----
+function _dataCurta(ms) { return ms ? new Date(ms).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : ''; }
+function cxTrilhaEl(titulo, etapas, aba) {
+    const s = prEl('section', 'ph-card cx-trilha');
+    s.appendChild(prEl('h3', '', titulo));
+    s.appendChild(prEl('div', 'ph-linha', 'O caminho de cada pessoa. O app avisa no dia certo de cada passo (no ▶ Hoje e no resumo das 8h).'));
+    const hoje = new Date(); hoje.setHours(23, 59, 59, 999);
+    etapas.forEach((e, i) => {
+        const d = document.createElement('details'); d.className = 'cx-et' + (e.fim ? ' fim' : '') + (e.pessoas.length ? '' : ' vazia');
+        const sm = document.createElement('summary');
+        const vence = e.pessoas.filter(p => p.prox && p.prox <= hoje.getTime()).length;
+        sm.append(prEl('span', 'cx-et-ic', e.ic), (() => { const t = prEl('span', 'cx-et-t'); t.append(prEl('b', '', e.nome), prEl('small', '', e.quando)); return t; })(),
+            prEl('span', 'cx-et-n' + (vence ? ' hoje' : ''), vence ? `${e.pessoas.length} · ${vence} hoje` : String(e.pessoas.length)));
+        d.appendChild(sm);
+        if (vence) d.open = true;
+        if (e.pessoas.length) {
+            const ul = prEl('ul', 'canal-lista');
+            e.pessoas.slice().sort((a, b) => (a.prox || 9e15) - (b.prox || 9e15)).slice(0, 40).forEach(p => {
+                const li = prEl('li'); li.appendChild(cxAvatar(p.nome));
+                const meio = prEl('div', 'cl-meio'); meio.append(prEl('div', 'cl-nome', p.nome), prEl('div', 'cl-sub', p.emp || ''));
+                li.appendChild(meio);
+                if (p.prox) li.appendChild(prEl('span', 'cx-pill ' + (p.prox <= hoje.getTime() ? 'ambar' : 'azul'), p.prox <= hoje.getTime() ? 'hoje' : _dataCurta(p.prox)));
+                ul.appendChild(li);
+            });
+            if (e.pessoas.length > 40) ul.appendChild(prEl('li', 'ph-mudo', `+ ${e.pessoas.length - 40}`));
+            d.appendChild(ul);
+        }
+        s.appendChild(d);
+    });
+    return s;
+}
+function liTrilhaEl(rows) {
+    const et = [
+        { ic: '✉️', nome: 'Convite enviado', quando: 'esperando aceitar · o app pergunta no 2º dia', pessoas: [] },
+        { ic: '💬', nome: 'Aceitou: mensagem', quando: 'no dia do aceite', pessoas: [] },
+        { ic: '🔁', nome: 'Follow-up', quando: 'dia 4 depois do aceite', pessoas: [] },
+        { ic: '🎙️', nome: 'Áudio', quando: 'dia 9', pessoas: [] },
+        { ic: '👋', nome: 'Última mensagem', quando: 'dia 16', pessoas: [] },
+        { ic: '✅', nome: 'Respondeu', quando: 'vai para o Pipeline', pessoas: [], fim: true },
+        { ic: '⚪', nome: 'Encerrado', quando: 'não aceitou, sem resposta ou sem interesse', pessoas: [], fim: true },
+    ];
+    (rows || []).forEach(r => {
+        if (r.resultado === 'duplicado') return;
+        const p = { nome: r.pessoa || r.nome || r.chave, emp: r.pessoa ? r.nome : '' };
+        if (r.resposta || ['respondeu', 'depois', 'indicou'].includes(r.resultado)) return et[5].pessoas.push(p);
+        if (r.resultado) return et[6].pessoas.push(p);
+        const e = liEstado(r);
+        if (!e.aceito) { p.prox = r.criado_em ? new Date(r.criado_em).getTime() + 2 * LI_DIA_MS : 0; return et[0].pessoas.push(p); }
+        p.prox = e.prox; et[Math.min(Math.max(e.etapa, 1), 4)].pessoas.push(p);
+    });
+    return cxTrilhaEl('🧭 Trilha do LinkedIn', et, 'linkedin');
+}
+function igTrilhaEl(rows) {
+    const et = [
+        { ic: '📸', nome: 'DM enviada', quando: 'esperando resposta · retomar no dia 3', pessoas: [] },
+        { ic: '🔁', nome: 'Retomada feita', quando: '2ª mensagem enviada', pessoas: [] },
+        { ic: '✅', nome: 'Respondeu', quando: 'vai para o Pipeline', pessoas: [], fim: true },
+        { ic: '⚪', nome: 'Encerrado', quando: 'sem interesse', pessoas: [], fim: true },
+    ];
+    (rows || []).forEach(r => {
+        const p = { nome: r.nome || r.chave, emp: '' };
+        if (r.resposta || ['respondeu', 'depois', 'indicou'].includes(r.resultado)) return et[2].pessoas.push(p);
+        if (r.resultado) return et[3].pessoas.push(p);
+        if (r.retomado_em) return et[1].pessoas.push(p);
+        p.prox = r.criado_em ? new Date(r.criado_em).getTime() + 3 * LI_DIA_MS : 0; et[0].pessoas.push(p);
+    });
+    return cxTrilhaEl('🧭 Trilha do Instagram', et, 'insta');
+}
 function canalBadges(aba, buscas) {
     try {
         if (aba === 'linkedin') {
@@ -15115,6 +15200,7 @@ function liPainelTopo(box, buscas) {
         const n = prEl('button', 'ig-link', 'Não, só curti'); n.type = 'button'; n.onclick = () => { userSet('li_aq_revisto', new Date().toLocaleDateString('pt-BR')); sq.remove(); };
         sq.append(b, n); box.appendChild(sq);
     }
+    box.appendChild(liTrilhaEl(rows));
     const sf = prEl('section', 'ph-card li-funil-card');
     sf.appendChild(prEl('h3', '', '📊 Funil do LinkedIn · 30 dias'));
     sf.appendChild(liFunilEl(rows, null));
@@ -15576,6 +15662,7 @@ function igPainelTopo(box, fila, feitos) {
         onComecar: (retomar.length || dms) ? () => { let i = 0; const um = () => { if (i < retomar.length) canalRetomar('insta', retomar[i++], { aoFechar: um }); else dmsPasso(); }; um(); } : null,
         dica: 'Tem story no ar? Dentro da janela, "Responder o story": cai na conversa principal, não em Solicitações.',
     }));
+    box.appendChild(igTrilhaEl(_igRows || feitos));
     const sf = prEl('section', 'ph-card li-funil-card'); sf.appendChild(prEl('h3', '', '📊 Funil do Instagram · 30 dias')); sf.appendChild(igFunilEl(_igRows || feitos)); box.appendChild(sf);
 }
 // ---- 9) Dor do Instagram: números públicos do perfil (o que o Google mostra) ----
@@ -15666,13 +15753,13 @@ function pesqTabSalvar(k, p) {
 
 // ---- Abas do LinkedIn e do Instagram: cada coisa no seu lugar (Hoje · Fila · Achar mais · Resultados · Perfil e posts) ----
 var CANAL_SUBS = {
-    linkedin: [['hoje', '▶ Hoje'], ['fila', '👔 Fila'], ['achar', '🔎 Achar'], ['resultados', '📊 Números'], ['ferramentas', '✍️ Perfil']],
-    insta: [['hoje', '▶ Hoje'], ['fila', '📸 Fila'], ['achar', '🔎 Redes'], ['resultados', '📊 Números']],
+    linkedin: [['hoje', '▶ Hoje'], ['fila', '👔 Fila'], ['achar', '🔎 Achar'], ['resultados', '🧭 Trilha'], ['ferramentas', '✍️ Perfil']],
+    insta: [['hoje', '▶ Hoje'], ['fila', '📸 Fila'], ['achar', '🔎 Redes'], ['resultados', '🧭 Trilha']],
 };
 function canalSubDe(el) {
     const c = el.classList;
     if (c.contains('li-rotina') || c.contains('li-aceites') || c.contains('li-aceitou-busca') || c.contains('li-cad-hoje') || c.contains('cc-hoje') || c.contains('canal-retomar')) return 'hoje';
-    if (c.contains('canal-topo') || c.contains('li-placar') || c.contains('li-funil-card')) return 'resultados';
+    if (c.contains('cx-trilha') || c.contains('canal-topo') || c.contains('li-placar') || c.contains('li-funil-card')) return 'resultados';
     if (c.contains('li-busca') || c.contains('hr-box')) return 'achar';
     if (c.contains('li-conteudo')) return 'ferramentas';
     return 'fila';
@@ -15697,6 +15784,8 @@ function canalSeparar(aba, buscas) {
         const nb = badges[k]; if (nb) b.appendChild(prEl('span', 'cs-badge', nb > 99 ? '99+' : String(nb)));
         b.hidden = !paineis[k].childElementCount; b.onclick = () => mostrar(k); nav.appendChild(b);
     });
+    const tr = paineis.resultados && paineis.resultados.querySelector(':scope > .cx-trilha');
+    if (tr) paineis.resultados.prepend(tr);   // a trilha vem primeiro; os números embaixo
     box.replaceChildren(nav, ...subs.map(([k]) => paineis[k]));
     mostrar(atual);
 }

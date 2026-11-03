@@ -2185,3 +2185,23 @@ test('Campanhas é só do WhatsApp: Instagram e LinkedIn ficam na rotina de cada
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('Trilha do LinkedIn: cada pessoa na etapa certa da cadência, com a data do próximo passo', async () => {
+  const dias = d => new Date(Date.now() - d * 86400000).toISOString();
+  const a = await abrirApp({ largura: 390, db: { abordagens_linkedin: [
+    { user_id: 'u1', chave: 'k1', nome: 'Alfa', pessoa: 'Ana Alfa', criado_em: dias(1), etapa: 0 },
+    { user_id: 'u1', chave: 'k2', nome: 'WR', pessoa: 'Rogerio Pereira', criado_em: dias(1), etapa: 2, aceito_em: dias(0), proxima_em: new Date(Date.now() + 4 * 86400000).toISOString() },
+    { user_id: 'u1', chave: 'k3', nome: 'Beta', pessoa: 'Bia Beta', criado_em: dias(9), etapa: 0, resultado: 'respondeu', resposta: 'Tenho interesse' },
+    { user_id: 'u1', chave: 'k4', nome: 'Alfa', pessoa: 'Ana Alfa', criado_em: dias(1), etapa: 0, resultado: 'duplicado' }] } });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      trocarAba('linkedin', document.querySelector(`.nav-item[onclick*="'linkedin'"]`)); await canalAbrir('linkedin', true);
+      const painel = document.querySelector('#canal-linkedin .canal-sub-painel[data-sub="resultados"]');
+      return { primeiro: painel.firstElementChild.classList.contains('cx-trilha'), aba: document.querySelector('#canal-linkedin .canal-sub[data-sub="resultados"]').textContent,
+        etapas: [...painel.querySelectorAll('.cx-et')].map(e => e.querySelector('b').textContent + '=' + e.querySelector('.cx-et-n').textContent) };
+    });
+    assert.strictEqual(r.primeiro, true); assert.match(r.aba, /Trilha/);
+    assert.deepStrictEqual(r.etapas, ['Convite enviado=1', 'Aceitou: mensagem=0', 'Follow-up=1', 'Áudio=0', 'Última mensagem=0', 'Respondeu=1', 'Encerrado=0']);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
