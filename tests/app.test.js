@@ -703,81 +703,6 @@ test('completar redes do histórico: site primeiro, Google depois (quem não res
   } finally { await a.fechar(); }
 });
 
-test('campanha no Instagram com cadência: nasce de quem não respondeu no WhatsApp, Dia 0 → 3 → 7, tarefas do dia e resultado tiram da cadência', async () => {
-  const db = {
-    leads: [
-      { id: 'L1', user_id: 'u1', campanha_id: 'c1', title: 'Pet Um', phone: '5511988880001', instagram: 'https://www.instagram.com/petum/', enviado_em: '2026-10-10T10:00:00Z', respondeu: false, opt_out: false },
-      { id: 'L2', user_id: 'u1', campanha_id: 'c1', title: 'Pet Dois', phone: '5511988880002', instagram: 'https://www.instagram.com/petdois/', enviado_em: '2026-10-10T10:00:00Z', respondeu: false, opt_out: false },
-      { id: 'L3', user_id: 'u1', campanha_id: 'c1', title: 'Respondeu', phone: '5511988880003', instagram: 'https://www.instagram.com/resp/', enviado_em: '2026-10-10T10:00:00Z', respondeu: true, opt_out: false },
-      { id: 'L4', user_id: 'u1', campanha_id: 'c1', title: 'Sem Insta', phone: '5511988880004', enviado_em: '2026-10-10T10:00:00Z', respondeu: false, opt_out: false } ],
-    campanhas: [{ id: 'c1', user_id: 'u1', nome: 'PetShop · São Paulo', local: 'São Paulo' }],
-  };
-  const a = await abrirApp({ db, largura: 1280, rotas: [[/\/ia$/, (j) => ({ texto: /ÚLTIMA mensagem/.test(JSON.stringify(j)) ? 'Vou parar por aqui. Se fizer sentido, me chama!' : /SEGUNDO contato/.test(JSON.stringify(j)) ? 'Um exemplo rápido: pets atendidos dobraram. Quer ver?' : 'Oi! Te chamei no WhatsApp também. Posso mostrar uma ideia?' })]] });
-  try {
-    await a.pagina.evaluate(() => { config.uazapi = { url: 'https://srv.test', token: 't' }; window.open = () => null; Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => {} }, configurable: true }); window.confirm = () => true; });
-    // aba Campanhas → Instagram → nova campanha
-    await a.pagina.evaluate(() => trocarAba('campanhas', document.querySelector(`.nav-item[onclick*="'campanhas'"]`)));
-    await a.pagina.click('#cc-canais button[data-c="instagram"]');
-    await a.pagina.click('#cc-box button:has-text("Nova campanha no Instagram")');
-    await a.pagina.waitForSelector('.cc-modal select');
-    const opcoes = await a.pagina.$$eval('.cc-modal select option', os => os.map(o => o.textContent));
-    assert.match(opcoes[0], /Quem não respondeu no WhatsApp · todas as campanhas \(3\)/);
-    assert.match(await a.pagina.textContent('.cc-modal'), /2 empresas entram na campanha\. 1 ainda sem Instagram/);
-    assert.strictEqual(await a.pagina.isChecked('.cc-modal .cc-opcao:not(.cc-opcao-avulsas) input'), false, 'citar o WhatsApp vem desligado');
-    await a.pagina.check('.cc-modal .cc-opcao:not(.cc-opcao-avulsas) input');
-    await a.pagina.click('.cc-modal button:has-text("Criar campanha")');
-    await a.pagina.waitForTimeout(600);
-    const r1 = await a.pagina.evaluate(() => ({ camp: _db.campanhas_canal[0], leads: _db.campanhas_canal_leads.map(x => [x.chave, x.etapa, x.status, x.lead.mencionarWa]), card: document.querySelector('#cc-box .cc-card').innerText }));
-    assert.deepStrictEqual(r1.camp.etapas, [0, 3, 7]);
-    assert.deepStrictEqual(r1.leads, [['petum', 0, 'pendente', true], ['petdois', 0, 'pendente', true]]);
-    assert.match(r1.card, /2\s*empresas/);
-    // aba Prospecção Instagram: tarefas de hoje; a fila livre não repete quem está na campanha
-    await a.pagina.evaluate(() => trocarAba('insta', document.querySelector(`.nav-item[onclick*="'insta'"]`)));
-    await a.pagina.waitForSelector('#canal-insta .cc-hoje');
-    assert.match(await a.pagina.textContent('#canal-insta .cc-hoje'), /Campanhas · hoje \(2\).*Pet Um.*Primeira mensagem/s);
-    // Dia 0: primeira DM (com o WhatsApp sem resposta no prompt) → registra e agenda o Dia 3
-    await a.pagina.click('#canal-insta .cc-hoje li:has-text("Pet Um") button:has-text("Fazer")');
-    await a.pagina.waitForSelector('.ig-modal textarea:not([disabled])');
-    const ia1 = a.pedidos.filter(p => /\/ia$/.test(p.caminho)).pop();
-    assert.match(JSON.stringify(ia1.corpo), /WhatsApp há alguns dias e não teve resposta/);
-    await a.pagina.evaluate(async () => { const l = { title: 'Pet Um', instagram: 'https://www.instagram.com/petum/' }; await igRegistrar(l); });
-    await a.pagina.evaluate(async () => { const it = ccHoje('instagram').find(x => x.r.chave === 'petum'); await ccAvancar(it.r, it.camp); document.querySelector('.modal-backdrop.active')?.remove(); });
-    let lp = await a.pagina.evaluate(() => _db.campanhas_canal_leads.find(x => x.chave === 'petum'));
-    assert.strictEqual(lp.etapa, 1);
-    const diasAte = Math.round((new Date(lp.proxima_em) - Date.now()) / 86400000);
-    assert.ok(diasAte >= 2 && diasAte <= 3, 'próxima etapa em 3 dias: ' + diasAte);
-    // Dia 3 chegou: Retomar → Mandei → Dia 7
-    await a.pagina.evaluate(() => { const x = _db.campanhas_canal_leads.find(x => x.chave === 'petum'); x.proxima_em = new Date(Date.now() - 1000).toISOString(); _cc = null; canalAbrir('insta', true); });
-    await a.pagina.waitForTimeout(500);
-    await a.pagina.click('#canal-insta .cc-hoje li:has-text("Pet Um") button:has-text("Fazer")');
-    await a.pagina.waitForSelector('.ig-modal textarea:not([disabled])');
-    assert.match(await a.pagina.inputValue('.ig-modal textarea'), /Quer ver\?/);
-    await a.pagina.click('.ig-modal button:has-text("Mandei")');
-    await a.pagina.waitForTimeout(500);
-    lp = await a.pagina.evaluate(() => _db.campanhas_canal_leads.find(x => x.chave === 'petum'));
-    assert.strictEqual(lp.etapa, 2);
-    // Dia 7: Último toque → Mandei → concluído
-    await a.pagina.evaluate(() => { const x = _db.campanhas_canal_leads.find(x => x.chave === 'petum'); x.proxima_em = new Date(Date.now() - 1000).toISOString(); _cc = null; canalAbrir('insta', true); });
-    await a.pagina.waitForTimeout(500);
-    assert.match(await a.pagina.textContent('#canal-insta .cc-hoje'), /Último toque/);
-    await a.pagina.click('#canal-insta .cc-hoje li:has-text("Pet Um") button:has-text("Fazer")');
-    await a.pagina.waitForSelector('.ig-modal textarea:not([disabled])');
-    assert.match(await a.pagina.inputValue('.ig-modal textarea'), /Vou parar por aqui/);
-    await a.pagina.click('.ig-modal button:has-text("Mandei")');
-    await a.pagina.waitForTimeout(500);
-    lp = await a.pagina.evaluate(() => _db.campanhas_canal_leads.find(x => x.chave === 'petum'));
-    assert.strictEqual(lp.status, 'concluido');
-    // com a opção desligada, a DM não liga ao WhatsApp
-    const p0 = await a.pagina.evaluate(() => igPrompt({ title: 'X', waSemResposta: true, mencionarWa: false }, null));
-    assert.ok(!/WhatsApp/.test(p0));
-    // resultado marcado na aba tira da cadência
-    await a.pagina.evaluate(async () => { await ccMarcarResultado('instagram', 'petdois', 'respondeu'); });
-    const pd = await a.pagina.evaluate(() => _db.campanhas_canal_leads.find(x => x.chave === 'petdois').status);
-    assert.strictEqual(pd, 'respondeu');
-    assert.deepStrictEqual(a.errosReais(), []);
-  } finally { await a.fechar(); }
-});
-
 test('cadência multicanal: etapa de Instagram vira tarefa em Respostas e conta como feita ao registrar', async () => {
   const db = { fila_followups: [
     { id: 5, user_id: 'u1', phone: '5511999990000', lead_nome: 'Clínica Sol', campanha_id: 'c1', campanha_nome: 'Dentistas', dia_etapa: 6, status: 'pendente', canal: 'instagram', extra: { instagram: 'https://www.instagram.com/clinicasol/' }, mensagem: 'Oi! Te mandei um WhatsApp, vi que vocês usam mais o Instagram. Posso te mostrar em 2 min?', criado_em: new Date().toISOString() },
@@ -892,47 +817,6 @@ test('Pipeline: a leitura da nuvem de 45 em 45s não apaga o card criado enquant
     });
     assert.deepStrictEqual(r.local, ['Card antigo', 'Grupo Facility']);
     assert.deepStrictEqual(r.nuvem, ['Card antigo', 'Grupo Facility']);
-  } finally { await a.fechar(); }
-});
-
-test('campanha adota as abordagens avulsas no Retomar (contando da 1ª DM) e a DM seguinte respeita o intervalo de segurança', async () => {
-  const dois = new Date(Date.now() - 2 * 86400000).toISOString();
-  const db = {
-    abordagens_instagram: [
-      { id: 1, user_id: 'u1', chave: 'gfacility', nome: 'Grupo Facility', telefone: '11911110009', instagram: 'https://www.instagram.com/gfacility/', bio: 'RH e facilities', criado_em: dois, resultado: null },
-      { id: 2, user_id: 'u1', chave: 'jarespondeu', nome: 'Já Respondeu', instagram: 'https://www.instagram.com/jarespondeu/', criado_em: dois, resultado: 'respondeu' } ],
-  };
-  const a = await abrirApp({ db, largura: 1280, rotas: [[/\/ia$/, () => ({ texto: 'Oi! Posso mostrar uma ideia?' })]] });
-  try {
-    await a.pagina.evaluate(() => { window.open = () => null; Object.defineProperty(navigator, 'clipboard', { value: { writeText: async () => {} }, configurable: true }); });
-    // aba Prospecção Instagram avisa das avulsas sem campanha e o botão já abre a campanha com elas
-    await a.pagina.evaluate(() => trocarAba('insta', document.querySelector(`.nav-item[onclick*="'insta'"]`)));
-    await a.pagina.click('#canal-insta .canal-sub[data-sub="fila"]');
-    await a.pagina.waitForSelector('#canal-insta .cc-avulsas');
-    assert.match(await a.pagina.textContent('#canal-insta .cc-avulsas'), /1 abordagem avulsa no Instagram sem campanha/);
-    await a.pagina.click('#canal-insta .cc-avulsas button');
-    await a.pagina.waitForSelector('.cc-modal select');
-    assert.match(await a.pagina.$eval('.cc-modal select', s => s.selectedOptions[0].textContent), /Abordados avulsos no Instagram, sem campanha \(1\)/);
-    assert.match(await a.pagina.textContent('.cc-modal'), /1 empresas entram na campanha \(1 já abordadas avulso entram no Retomar\)/);
-    await a.pagina.click('.cc-modal button:has-text("Criar campanha")');
-    await a.pagina.waitForTimeout(600);
-    const r = await a.pagina.evaluate(() => _db.campanhas_canal_leads.map(x => ({ chave: x.chave, etapa: x.etapa, quando: x.proxima_em, primeira: x.lead.primeiraEm })));
-    assert.strictEqual(r.length, 1);
-    assert.strictEqual(r[0].chave, 'gfacility'); assert.strictEqual(r[0].etapa, 1);
-    const dias = (new Date(r[0].quando) - new Date(r[0].primeira)) / 86400000;
-    assert.ok(dias > 2 && dias < 4, 'Retomar no 3º dia depois da 1ª DM: ' + dias);
-    // intervalo: acabou de mandar uma DM → o botão da próxima espera
-    await a.pagina.evaluate(() => { userSet('ig_ultima_dm', Date.now()); userSet('ig_intervalo', 90); igAbordar([{ title: 'Nova', instagram: 'https://www.instagram.com/nova/' }]); });
-    await a.pagina.waitForSelector('.ig-modal textarea:not([disabled])');
-    const b = await a.pagina.$eval('.ig-modal .modal-btn.primary', x => ({ txt: x.textContent, dis: x.disabled }));
-    assert.match(b.txt, /Próxima DM em 1:(2|3)\d/); assert.strictEqual(b.dis, true);
-    assert.match(await a.pagina.textContent('.ig-modal'), /Intervalo de segurança: 90s/);
-    // passou o intervalo → libera
-    await a.pagina.evaluate(() => userSet('ig_ultima_dm', Date.now() - 91000));
-    await a.pagina.waitForTimeout(1300);
-    const b2 = await a.pagina.$eval('.ig-modal .modal-btn.primary', x => ({ txt: x.textContent, dis: x.disabled }));
-    assert.deepStrictEqual(b2, { txt: 'Copiar e abrir conversa', dis: false });
-    assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
 
@@ -2284,6 +2168,18 @@ test('LinkedIn: não registra a mesma empresa e pessoa duas vezes (chave diferen
       return _db.abordagens_linkedin.length;
     });
     assert.strictEqual(n, 1);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('Campanhas é só do WhatsApp: Instagram e LinkedIn ficam na rotina de cada aba', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      trocarAba('campanhas', document.querySelector(`.nav-item[onclick*="'campanhas'"]`));
+      return { canais: document.getElementById('cc-canais').hidden, wa: !document.getElementById('cp-whats') || !document.getElementById('cp-whats').hidden };
+    });
+    assert.deepStrictEqual(r, { canais: true, wa: true });
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
