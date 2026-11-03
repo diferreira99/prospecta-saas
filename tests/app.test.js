@@ -2205,3 +2205,30 @@ test('Trilha do LinkedIn: cada pessoa na etapa certa da cadência, com a data do
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('Trilha do WhatsApp: cada empresa da campanha no ponto certo da cadência (dia 3, 7, 14)', async () => {
+  const dias = d => new Date(Date.now() - d * 86400000).toISOString();
+  const a = await abrirApp({ largura: 390, db: {
+    leads: [
+      { user_id: 'u1', phone: '5511999990001', title: 'Alfa', enviado_em: dias(1), respondeu: false },
+      { user_id: 'u1', phone: '5511999990002', title: 'Beta', enviado_em: dias(5), respondeu: false },
+      { user_id: 'u1', phone: '5511999990003', title: 'Gama', enviado_em: dias(4), respondeu: true },
+      { user_id: 'u1', phone: '5511999990004', title: 'Delta', enviado_em: dias(4), respondeu: true, resposta_suspeita_bot: true },
+      { user_id: 'u1', phone: '5511999990005', title: 'Eco', enviado_em: dias(8), respondeu: false }],
+    followups_enviados: [{ user_id: 'u1', phone: '5511999990002', dia_etapa: 3, enviado_em: dias(2) }],
+    fila_followups: [{ user_id: 'u1', phone: '5511999990005', dia_etapa: 7, status: 'pendente' }],
+  } });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      trocarAba('campanhas', document.querySelector(`.nav-item[onclick*="'campanhas'"]`));
+      document.querySelector('#cp-whats .canal-sub[data-sub="trilha"]').click();
+      await new Promise(x => setTimeout(x, 400));
+      const t = document.getElementById('wa-trilha');
+      return { visivel: !t.hidden, camps: getComputedStyle(document.querySelector('#cp-whats .cp-topo')).display,
+        etapas: [...t.querySelectorAll('.cx-et')].map(e => e.querySelector('b').textContent + '=' + e.querySelector('.cx-et-n').textContent) };
+    });
+    assert.strictEqual(r.visivel, true); assert.strictEqual(r.camps, 'none');
+    assert.deepStrictEqual(r.etapas, ['1ª mensagem enviada=2 · 1 hoje', 'Follow-up 1 · dia 3=1', 'Follow-up 2 · dia 7=0', 'Último follow-up · dia 14=0', 'Respondeu=1', 'Só o robô respondeu=1', 'Encerrado=0']);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});

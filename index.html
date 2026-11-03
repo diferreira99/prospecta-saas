@@ -1496,6 +1496,7 @@
 .cx-hero .li-manha { color:#fff; opacity:0.9; }
 .cx-av { flex:none; width:34px; height:34px; border-radius:50%; color:#fff; font-family:'Inter',sans-serif; font-size:0.72rem; font-weight:800; display:inline-flex; align-items:center; justify-content:center; letter-spacing:0.5px; }
 .cx-trilha { position:relative; }
+#cp-whats.cp-modo-trilha > *:not(.cp-subs):not(#wa-trilha) { display:none !important; }
 .cx-et { position:relative; margin-left:14px; padding-left:22px; border-left:2px solid #BFDBFE; }
 .cx-et.fim { border-left-color:transparent; }
 .cx-et::before { content:''; position:absolute; left:-8px; top:12px; width:14px; height:14px; border-radius:50%; background:#0A66C2; box-shadow:0 0 0 3px var(--surface, #fff); }
@@ -5332,6 +5333,11 @@ document.addEventListener('DOMContentLoaded', () => {
             <!-- Campanhas é só do WhatsApp: Instagram e LinkedIn têm a rotina própria nas abas Prospecção Instagram/LinkedIn -->
             <section id="cc-box" class="cc-box" hidden></section>
             <div id="cp-whats">
+            <div class="canal-subs cp-subs" role="tablist" aria-label="Campanhas ou trilha">
+                <button type="button" class="canal-sub" role="tab" data-sub="camp" aria-selected="true" onclick="cpSub('camp')"><span class="cs-ic">📋</span><span class="cs-rot">Campanhas</span></button>
+                <button type="button" class="canal-sub" role="tab" data-sub="trilha" aria-selected="false" onclick="cpSub('trilha')"><span class="cs-ic">🧭</span><span class="cs-rot">Trilha</span></button>
+            </div>
+            <div id="wa-trilha" hidden></div>
             <!-- CAMPANHAS REAIS (da nuvem): ao vivo, placar agrupado por nicho+cidade, leads, mensagens e repescagem -->
             <section id="cp-aovivo" class="cp-aovivo" aria-live="polite" hidden></section>
             <div class="cp-topo">
@@ -14665,10 +14671,10 @@ function liSituacao(r) {
 }
 // ---- Trilha: cada etapa da cadência e quem está em cada uma (com a data do próximo passo) ----
 function _dataCurta(ms) { return ms ? new Date(ms).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : ''; }
-function cxTrilhaEl(titulo, etapas, aba) {
+function cxTrilhaEl(titulo, etapas, aba, desc) {
     const s = prEl('section', 'ph-card cx-trilha');
     s.appendChild(prEl('h3', '', titulo));
-    s.appendChild(prEl('div', 'ph-linha', 'O caminho de cada pessoa. O app avisa no dia certo de cada passo (no ▶ Hoje e no resumo das 8h).'));
+    s.appendChild(prEl('div', 'ph-linha', desc || 'O caminho de cada pessoa. O app avisa no dia certo de cada passo (no ▶ Hoje e no resumo das 8h).'));
     const hoje = new Date(); hoje.setHours(23, 59, 59, 999);
     etapas.forEach((e, i) => {
         const d = document.createElement('details'); d.className = 'cx-et' + (e.fim ? ' fim' : '') + (e.pessoas.length ? '' : ' vazia');
@@ -14730,6 +14736,54 @@ function igTrilhaEl(rows) {
         p.prox = r.criado_em ? new Date(r.criado_em).getTime() + 3 * LI_DIA_MS : 0; et[0].pessoas.push(p);
     });
     return cxTrilhaEl('🧭 Trilha do Instagram', et, 'insta');
+}
+// ---- Trilha do WhatsApp (aba Campanhas): 1ª mensagem → follow-ups da cadência → respondeu ----
+function waTrilhaEl(leads, fus, fila) {
+    const dias = cadenciaPadrao().map(e => Number(e.dia)).filter(n => n > 0).sort((a, b) => a - b).slice(0, 6);
+    const et = [{ ic: '📤', nome: '1ª mensagem enviada', quando: dias.length ? `próximo: follow-up no dia ${dias[0]}` : 'sem follow-up na cadência', pessoas: [] }];
+    dias.forEach((d, i) => {
+        const ultimo = i === dias.length - 1 && dias.length > 1;
+        et.push({ ic: ultimo ? '👋' : '🔁', nome: (ultimo ? 'Último follow-up' : `Follow-up ${i + 1}`) + ` · dia ${d}`, quando: ultimo ? 'fim da cadência' : `próximo: dia ${dias[i + 1]}`, pessoas: [] });
+    });
+    const iResp = et.length; et.push({ ic: '✅', nome: 'Respondeu', quando: 'Respostas e Pipeline', pessoas: [], fim: true });
+    const iBot = et.length; et.push({ ic: '🤖', nome: 'Só o robô respondeu', quando: 'sem pessoa em 48 h, a retomada entra em Respostas', pessoas: [], fim: true });
+    const iFim = et.length; et.push({ ic: '⚪', nome: 'Encerrado', quando: 'pediu para sair', pessoas: [], fim: true });
+    const feitos = {}; (fus || []).forEach(f => { const k = pkTel(f.phone); if (k) feitos[k] = Math.max(feitos[k] || 0, Number(f.dia_etapa) || 0); });
+    const pend = {}; (fila || []).forEach(f => { const k = pkTel(f.phone); if (k) pend[k] = true; });
+    const vistos = new Set();
+    (leads || []).slice().sort((a, b) => new Date(b.enviado_em) - new Date(a.enviado_em)).forEach(l => {
+        const k = pkTel(l.phone); if (!k || vistos.has(k)) return; vistos.add(k);
+        const p = { nome: l.title || formatPhoneBR(l.phone), emp: '' };
+        if (l.opt_out) return et[iFim].pessoas.push(p);
+        if (l.respondeu && !l.resposta_suspeita_bot) return et[iResp].pessoas.push(p);
+        if (l.respondeu) return et[iBot].pessoas.push(p);
+        const ult = feitos[k] || 0; let idx = 0;
+        dias.forEach((d, i) => { if (ult >= d) idx = i + 1; });
+        const t0 = new Date(l.enviado_em).getTime();
+        if (pend[k]) { p.prox = Date.now(); p.emp = 'follow-up esperando sua aprovação em Respostas'; }
+        else if (idx < dias.length) p.prox = t0 + dias[idx] * LI_DIA_MS;
+        et[idx].pessoas.push(p);
+    });
+    return cxTrilhaEl('🧭 Trilha do WhatsApp · 30 dias', et, 'whatsapp', 'Cada empresa que recebeu campanha nos últimos 30 dias e em que ponto da cadência ela está. Os follow-ups chegam em Respostas para você aprovar.');
+}
+async function waTrilhaCarregar() {
+    const box = document.getElementById('wa-trilha'); if (!box || !currentUser) return;
+    box.replaceChildren(prEl('div', 'ph-mudo', 'Carregando a trilha…'));
+    const uid = currentUser.id, desde = new Date(Date.now() - 30 * LI_DIA_MS).toISOString();
+    const [leads, fus, fila] = await Promise.all([
+        prBuscarTudo(() => supabaseClient.from('leads').select('phone,title,enviado_em,respondeu,resposta_suspeita_bot,opt_out').eq('user_id', uid).gte('enviado_em', desde).order('id')).catch(() => []),
+        prBuscarTudo(() => supabaseClient.from('followups_enviados').select('phone,dia_etapa,enviado_em').eq('user_id', uid).gte('enviado_em', desde).order('id')).catch(() => []),
+        prBuscarTudo(() => supabaseClient.from('fila_followups').select('phone,dia_etapa').eq('user_id', uid).eq('status', 'pendente').order('id')).catch(() => []),
+    ]);
+    box.replaceChildren(waTrilhaEl(leads.filter(l => l.enviado_em), fus, fila));
+}
+function cpSub(k) {
+    const wa = document.getElementById('cp-whats'); if (!wa) return;
+    wa.classList.toggle('cp-modo-trilha', k === 'trilha');
+    wa.querySelectorAll('.cp-subs .canal-sub').forEach(b => b.setAttribute('aria-selected', String(b.dataset.sub === k)));
+    const t = document.getElementById('wa-trilha'); if (t) t.hidden = k !== 'trilha';
+    userSet('cp_sub', k);
+    if (k === 'trilha') waTrilhaCarregar();
 }
 function canalBadges(aba, buscas) {
     try {
