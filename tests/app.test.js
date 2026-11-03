@@ -2300,3 +2300,39 @@ test('Arquivar ciclo: buscas antigas saem do Histórico, das filas e de Meus Lea
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('Arquivar ciclo com "zerar o que está em andamento": pula follow-ups, encerra cadências, limpa o Pipeline parado e mantém quem está quente', async () => {
+  const dias = d => new Date(Date.now() - d * 86400000).toISOString();
+  const pedidos = [];
+  const a = await abrirApp({ largura: 390, rotas: [[/responder-followup/, j => { pedidos.push(j); return { ok: true }; }]], db: {
+    fila_followups: [{ id: 'f1', user_id: 'u1', phone: '5511999990001', status: 'pendente', dia_etapa: 3, criado_em: dias(9) }],
+    abordagens_linkedin: [{ user_id: 'u1', chave: 'k1', nome: 'Alfa', pessoa: 'Ana Alfa', criado_em: dias(1), etapa: 0 }, { user_id: 'u1', chave: 'k2', nome: 'Beta', criado_em: dias(9), resultado: 'respondeu' }],
+    abordagens_instagram: [{ user_id: 'u1', chave: 'sol', nome: 'Sol', criado_em: dias(5) }],
+  } });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      const espera = ms => new Promise(x => setTimeout(x, ms));
+      pkLeads = [
+        { id: 1, name: 'Novo', col: 'contatado', movedAt: Date.now() },
+        { id: 2, name: 'Parado', col: 'respondeu', movedAt: Date.now() - 20 * 86400000 },
+        { id: 3, name: 'Quente', col: 'negociando', movedAt: Date.now() - 2 * 86400000 },
+        { id: 4, name: 'Ganho', col: 'fechado', movedAt: Date.now() - 30 * 86400000 }]; pkSave();
+      pkSincronizarDaNuvem = async () => {};
+      trocarAba('historico', document.querySelector(`.nav-item[onclick*="'historico'"]`));
+      await cicloArquivarAbrir();
+      document.querySelector('.ciclo-modal .ciclo-tudo input').click();
+      [...document.querySelectorAll('.ciclo-modal button')].find(b => /Arquivar/.test(b.textContent)).click(); await espera(800);
+      pkLoad();
+      // aceitou depois de arquivado: volta para a cadência
+      await liRowsCarregar(true);
+      const k1 = _liRows.find(x => x.chave === 'k1'); await liAceitou(k1);
+      return { pk: pkLeads.map(k => k.name + ':' + k.col + (k.motivoPerda ? '/' + k.motivoPerda : '')),
+        li: _db.abordagens_linkedin.map(x => x.chave + ':' + (x.resultado || '-')), ig: _db.abordagens_instagram[0].resultado };
+    });
+    assert.deepStrictEqual(r.pk, ['Novo:descartado/arquivado', 'Parado:descartado/arquivado', 'Quente:negociando', 'Ganho:fechado']);
+    assert.deepStrictEqual(r.li, ['k1:-', 'k2:respondeu'], 'arquivado e depois aceitou: volta; quem respondeu fica como está');
+    assert.strictEqual(r.ig, 'arquivado');
+    assert.strictEqual(pedidos.length, 1); assert.strictEqual(pedidos[0].acao, 'pular');
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});

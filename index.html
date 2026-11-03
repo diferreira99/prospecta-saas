@@ -5042,6 +5042,7 @@ let _pkConversasEm = 0;
 let _pkFiltro = { q: '', nicho: '', camp: '', ordem: 'quente' };
 let _pkPerdidoAberto = false;
 const PK_MOTIVOS = [['sem_interesse', 'Sem interesse'], ['tem_fornecedor', 'Já tem fornecedor'], ['preco', 'Preço'], ['nao_responde', 'Não responde'], ['robo', 'Só robô'], ['momento', 'Não é o momento'], ['outro', 'Outro']];
+const PK_MOTIVO_ARQ = 'arquivado';   // arquivado ao fechar um ciclo: não é perda de verdade (fica fora dos motivos de perda)
 const PK_CLASSIF = { quente: ['🔥 Quente', '#fee2e2', '#b91c1c'], duvida: ['❓ Dúvida', '#fef3c7', '#92400e'], morno: ['🙂 Morno', '#e0f2fe', '#075985'], frio: ['❄️ Frio', '#f1f5f9', '#475569'], menu: ['🤖 Robô', '#f1f5f9', '#475569'], pare: ['🛑 Pediu para parar', '#fee2e2', '#991b1b'] };
 // ── Próxima melhor ação ──
 // Para cada negócio aberto, o passo que mais aproxima do fechamento agora, com peso (o que vem primeiro hoje).
@@ -5152,7 +5153,7 @@ function pkChipsCard(l, acao) {
     if (acao) out.push(`<span class="pk-chip ${acao.tipo === 'futura' ? '' : 'pk-chip-alerta'}" title="${escapeHtml(l.proximaAcaoTxt || '')}">${acao.texto}</span>`);
     if (l.reuniaoEm) out.push(`<span class="pk-chip pk-chip-reuniao">📅 ${new Date(l.reuniaoEm).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>`);
     if (l.valor > 0) out.push(`<span class="pk-chip pk-chip-valor">${_brl(l.valor)}</span>`);
-    if (l.col === 'descartado' && l.motivoPerda) { const m = PK_MOTIVOS.find(x => x[0] === l.motivoPerda); if (m) out.push(`<span class="pk-chip">${m[1]}</span>`); }
+    if (l.col === 'descartado' && l.motivoPerda) { const m = l.motivoPerda === PK_MOTIVO_ARQ ? [0, '🗄️ Ciclo arquivado'] : PK_MOTIVOS.find(x => x[0] === l.motivoPerda); if (m) out.push(`<span class="pk-chip">${m[1]}</span>`); }
     if (l.canal === 'instagram') out.push(`<span class="pk-chip pk-chip-ig" title="Primeiro contato pelo Instagram">${_IG_GLIFO} Instagram</span>`);
     if (l.canal === 'linkedin') out.push(`<span class="pk-chip pk-chip-li" title="Primeiro contato pelo LinkedIn">${_LI_GLIFO} LinkedIn</span>`);
     return out.length ? `<div class="pk-chips">${out.join('')}</div>` : '';
@@ -14602,6 +14603,7 @@ async function liAceitou(r, op) {
     const patch = op.mandou
         ? { aceito_em: iso, etapa: 2, proxima_em: new Date(agora + LI_CAD[2].dia * LI_DIA_MS).toISOString(), retomado_em: iso }
         : { aceito_em: iso, etapa: 1, proxima_em: iso };
+    if (r.resultado === 'arquivado') { patch.resultado = null; patch.resultado_em = null; }
     try { await liAtualizarRow(r, patch); } catch (e) { showToast('Não consegui marcar o aceite: ' + e.message, 'err'); }
     try {
         const c = liCardDe(r);
@@ -14910,6 +14912,36 @@ function histPintarCiclo(lista) {
     b.onclick = () => { userSet('hist_ver_ciclos', !ver); _histBuscas = !ver ? _histBuscasTodas : _histBuscasTodas.filter(x => !cicloArquivado(x.criado_em)); histPintar(); };
     d.appendChild(b); lista.appendChild(d);
 }
+// "Tela limpa": pula follow-ups pendentes, encerra cadências do Instagram/LinkedIn e tira do Pipeline o que não anda
+async function cicloZerarAndamento(progresso) {
+    const uid = currentUser.id, out = { fu: 0, cad: 0, pk: 0 };
+    const fus = await prBuscarTudo(() => supabaseClient.from('fila_followups').select('id').eq('user_id', uid).eq('status', 'pendente').order('id')).catch(() => []);
+    for (let i = 0; i < fus.length; i += 10) {
+        await Promise.all(fus.slice(i, i + 10).map(f => fetch(`${N8N_BASE}/responder-followup`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filaId: f.id, userId: uid, acao: 'pular' }) }).catch(() => {})));
+        out.fu = Math.min(fus.length, i + 10); if (progresso) progresso(`Pulando follow-ups… ${out.fu}/${fus.length}`);
+    }
+    try { _filaFollowupsCache = []; } catch (e) {}
+    const agoraIso = new Date().toISOString();
+    for (const tab of ['abordagens_linkedin', 'abordagens_instagram']) {
+        const rows = await prBuscarTudo(() => supabaseClient.from(tab).select('chave,resultado').eq('user_id', uid).order('id')).catch(() => []);
+        const ativos = rows.filter(r => !r.resultado);
+        for (const r of ativos) { const { error } = await supabaseClient.from(tab).update({ resultado: 'arquivado', resultado_em: agoraIso, proxima_em: tab === 'abordagens_linkedin' ? null : undefined }).eq('user_id', uid).eq('chave', r.chave); if (!error) out.cad++; }
+        if (progresso) progresso(`Encerrando cadências… ${out.cad}`);
+    }
+    try { await supabaseClient.from('campanhas_canal_leads').update({ status: 'pulado', atualizado_em: agoraIso }).eq('user_id', uid).eq('status', 'pendente'); } catch (e) {}
+    _liRows = null; _igRows = null;
+    try { if (typeof pkSincronizarDaNuvem === 'function') await pkSincronizarDaNuvem(); } catch (e) {}
+    pkLoad();
+    const limite = Date.now() - 14 * LI_DIA_MS;
+    pkLeads.forEach(k => {
+        const parado = (k.movedAt || 0) < limite;
+        if (['novo', 'contatado'].includes(k.col) || (['respondeu', 'negociando'].includes(k.col) && parado)) {
+            k.col = 'descartado'; k.motivoPerda = PK_MOTIVO_ARQ; k.movedAt = Date.now(); k.proximaAcaoEm = null; k.proximaAcaoTxt = ''; out.pk++;
+        }
+    });
+    pkSave();
+    return out;
+}
 async function cicloArquivarAbrir() {
     if (!currentUser) return;
     if (!_histRes) { try { await histCarregar(); } catch (e) {} }
@@ -14929,10 +14961,17 @@ async function cicloArquivarAbrir() {
         .forEach(([ic, t]) => ul.appendChild(prEl('li', '', ic + ' ' + t)));
     m.appendChild(ul);
     if (faltam) m.appendChild(prEl('div', 'ig-aviso', `⚠️ Ainda faltam ${faltam} empresas deste ciclo que nunca receberam nada. Se arquivar agora, elas saem das filas. O ideal é arquivar quando zerar.`));
+    const lbTudo = document.createElement('label'); lbTudo.className = 'li-lote-arq ciclo-tudo';
+    const cbTudo = document.createElement('input'); cbTudo.type = 'checkbox';
+    lbTudo.append(cbTudo, ' 🧹 Zerar também o que está em andamento: pula os follow-ups pendentes, encerra as cadências do Instagram e do LinkedIn e tira do Pipeline os cards sem movimento (Novo, Contatado e parados há mais de 14 dias). Quem negociou ou respondeu nos últimos 14 dias, os Ganhos e as Respostas ficam.');
+    m.appendChild(lbTudo);
     const acoes = prEl('div', 'modal-actions');
     const canc = prEl('button', 'modal-btn', 'Agora não'); canc.type = 'button'; canc.onclick = fechar;
     const ok = prEl('button', 'modal-btn primary', faltam ? 'Arquivar mesmo assim' : 'Arquivar ciclo'); ok.type = 'button';
-    ok.onclick = () => {
+    ok.onclick = async () => {
+        ok.disabled = true; canc.disabled = true;
+        let zerado = null;
+        if (cbTudo.checked) { ok.textContent = 'Zerando…'; try { zerado = await cicloZerarAndamento(t => { ok.textContent = t; }); } catch (e) { showToast('Parte não foi zerada: ' + e.message, 'err'); } }
         const agora = Date.now();
         const ciclos = userGet('ciclos', []) || [];
         ciclos.push({ inicio: Number(userGet('ciclo_atual_inicio', 0)) || null, fim: agora, nichos: grupos.map(g => g.titulo).slice(0, 50), empresas, responderam: resp, faltavam: faltam });
@@ -14940,7 +14979,7 @@ async function cicloArquivarAbrir() {
         userSet('ciclo_inicio', agora); userSet('ciclo_atual_inicio', agora); userSet('hist_ver_ciclos', false);
         _canalBuscas = null; _mlVerCiclos = false;
         fechar();
-        showToast('🗄️ Ciclo arquivado. Faça as buscas dos nichos novos: quem já recebeu mensagem aparece marcado e não recebe de novo.', 'ok');
+        showToast('🗄️ Ciclo arquivado' + (zerado ? ` e zerado (${zerado.fu} follow-ups, ${zerado.cad} cadências, ${zerado.pk} cards)` : '') + '. Faça as buscas dos nichos novos: quem já recebeu mensagem aparece marcado e não recebe de novo.', 'ok');
         try { histCarregar().then(histPintar); } catch (e) {}
     };
     acoes.append(canc, ok); m.appendChild(acoes);
@@ -14956,7 +14995,8 @@ function liAceitouBusca(aoFechar) {
     const pintar = () => {
         ul.replaceChildren();
         const q = norm(inp.value.trim()); if (q.length < 2) return;
-        const achados = (_liRows || []).filter(r => !r.resultado && !liEstado(r).aceito && (norm(r.pessoa).includes(q) || norm(r.nome).includes(q))).slice(0, 8);
+        // convite de ciclo arquivado também vale: aceitou depois, volta para a cadência
+        const achados = (_liRows || []).filter(r => (!r.resultado || r.resultado === 'arquivado') && !liEstado(r).aceito && (norm(r.pessoa).includes(q) || norm(r.nome).includes(q))).slice(0, 8);
         if (!achados.length) { ul.appendChild(prEl('li', 'ph-mudo', 'Ninguém com convite pendente com esse nome.')); return; }
         achados.forEach(r => {
             const li = prEl('li'), meio = prEl('div', 'cl-meio');
@@ -15394,7 +15434,7 @@ function liPainelTopo(box, buscas) {
         })(),
     }));
     if (hoje.length) box.appendChild(liListaCadencia(hoje, () => canalAbrir('linkedin', true)));
-    if (rows.some(r => !r.resultado && !liEstado(r).aceito)) box.appendChild(liAceitouBusca(() => canalAbrir('linkedin', true)));
+    if (rows.some(r => (!r.resultado || r.resultado === 'arquivado') && !liEstado(r).aceito)) box.appendChild(liAceitouBusca(() => canalAbrir('linkedin', true)));
     const aqh = liAquecidosHoje();
     if (aqh.length && userGet('li_aq_revisto', '') !== new Date().toLocaleDateString('pt-BR')) {
         const sq = prEl('section', 'ph-card li-aceites li-aq-hoje');
@@ -20247,7 +20287,7 @@ function prDesenharFunil(d) {
     box.appendChild(prEl('div', 'ph-linha', 'Ganho no mês: ' + _brl(ganhoMes) + ' · ganho total: ' + _brl(totalGanho) +
         ' · em negociação: ' + _brl(prev) + (semValor ? ` (${semValor} sem valor)` : '') + '. A porcentagem pequena embaixo de cada número é em relação à linha de cima. No Instagram e no LinkedIn, resposta é o que você marcou ou moveu no Pipeline.'));
     const motivos = {};
-    d.pipeline.filter(p => p.col === 'descartado' && p.motivo_perda).forEach(p => { motivos[p.motivo_perda] = (motivos[p.motivo_perda] || 0) + 1; });
+    d.pipeline.filter(p => p.col === 'descartado' && p.motivo_perda && p.motivo_perda !== PK_MOTIVO_ARQ).forEach(p => { motivos[p.motivo_perda] = (motivos[p.motivo_perda] || 0) + 1; });
     const nomesMot = { sem_interesse: 'sem interesse', tem_fornecedor: 'já tem fornecedor', preco: 'preço', nao_responde: 'não responde', robo: 'só robô', momento: 'não é o momento', outro: 'outro' };
     const topMot = Object.entries(motivos).sort((a, b) => b[1] - a[1]).slice(0, 3);
     if (topMot.length) box.appendChild(prEl('div', 'ph-linha', 'Por que perde: ' + topMot.map(([k, n]) => (nomesMot[k] || k) + ' ' + n).join(' · ') + '.'));
