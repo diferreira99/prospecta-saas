@@ -1496,6 +1496,13 @@
 .cx-hero .li-manha { color:#fff; opacity:0.9; }
 .cx-av { flex:none; width:34px; height:34px; border-radius:50%; color:#fff; font-family:'Inter',sans-serif; font-size:0.72rem; font-weight:800; display:inline-flex; align-items:center; justify-content:center; letter-spacing:0.5px; }
 .cx-trilha { position:relative; }
+.ml-canais { margin-top:6px; }
+.ml-chip-canal.ativo { background:#0D1330; border-color:#0D1330; color:#fff; }
+.ml-cs { display:inline-flex; gap:2px; margin-left:6px; vertical-align:middle; }
+.ml-c { font-size:0.8rem; line-height:1; }
+.ml-c.off { opacity:0.15; filter:grayscale(1); }
+.ml-c.pode { opacity:0.45; filter:grayscale(0.6); position:relative; }
+.ml-c.pode::after { content:''; position:absolute; right:-1px; bottom:-1px; width:5px; height:5px; border-radius:50%; background:#FF6A00; }
 #cp-whats.cp-modo-trilha > *:not(.cp-subs):not(#wa-trilha) { display:none !important; }
 .cx-et { position:relative; margin-left:14px; padding-left:22px; border-left:2px solid #BFDBFE; }
 .cx-et.fim { border-left-color:transparent; }
@@ -4488,7 +4495,7 @@ async function fuAbrirCanal(filaId) {
         _filaFollowupsCache = _filaFollowupsCache.filter(i => i.id !== filaId);
         renderizarFilaFollowups(); atualizarBadgeRespostas();
     };
-    const contexto = 'Você já mandou uma mensagem no WhatsApp há alguns dias e não teve resposta. Pode citar isso de leve.';
+    const contexto = '';   // nunca cita o contato por outro canal: cada canal é um primeiro contato
     if (item.canal === 'instagram') igAbordar([lead], 0, { textoInicial: texto, aoRegistrar: concluir });
     else liAbordar([lead], { textoInicial: texto, aoRegistrar: concluir, contexto });
 }
@@ -12142,6 +12149,8 @@ function _mlSituacao(l) {
     if (l.humano) return { k: 'resp', txt: '💬 Respondeu', cls: 'resp' };
     if (l.robo) return { k: 'robo', txt: '🤖 Só resposta automática', cls: 'robo' };
     if (l.enviado) { const d = l.dias; return { k: 'semresp', txt: d === null ? '⏳ Sem resposta' : d < 1 ? '📤 Enviado hoje' : d === 1 ? '📤 Enviado ontem' : `⏳ Sem resposta há ${d} dias`, cls: d >= 3 ? 'espera' : 'novo' }; }
+    if (l.respAlgum && (l.igResp || l.liResp)) return { k: 'resp', txt: '💬 Respondeu no ' + (l.liResp ? 'LinkedIn' : 'Instagram'), cls: 'resp' };
+    if (l.canais && (l.canais.ig || l.canais.li)) return { k: 'canal', txt: [l.canais.ig && '📸 Abordado no Instagram', l.canais.li && '💼 Abordado no LinkedIn'].filter(Boolean).join(' · '), cls: 'novo' };
     return { k: 'nao', txt: '⏸ Não enviado', cls: 'novo' };
 }
 function _mlNoFiltro(l, f) {
@@ -12209,6 +12218,50 @@ async function carregarMeusLeads() {
         lista.innerHTML = ''; lista.appendChild(prEl('div', 'ph-mudo', '⚠️ Não deu pra carregar agora: ' + (e && e.message ? e.message : 'tente de novo em instantes') + '.'));
     }
 }
+var _mlCanalFiltro = 'todos';
+const ML_CANAIS = [['todos', 'Todos os canais'], ['so_wa', '💬 Só WhatsApp'], ['so_ig', '📸 Só Instagram'], ['so_li', '💼 Só LinkedIn'], ['dois', '✌️ 2 canais'], ['tres', '🏆 Os 3 canais'], ['falta', '➕ Dá para tentar outro canal']];
+function _mlNoCanal(l, f) {
+    const c = l.canais || { wa: !!l.enviado };
+    switch (f) {
+        case 'so_wa': return c.wa && !c.ig && !c.li;
+        case 'so_ig': return c.ig && !c.wa && !c.li;
+        case 'so_li': return c.li && !c.wa && !c.ig;
+        case 'dois': return l.nCanais === 2;
+        case 'tres': return l.nCanais === 3;
+        case 'falta': return !l.respAlgum && !l.bloq && !l.pipeCol && ((l.temIg && !c.ig) || (l.temLi && !c.li));
+        default: return true;
+    }
+}
+// Junta Instagram e LinkedIn em Meus Leads: cada empresa sabe por quais canais já foi abordada e quais ainda dá para tentar
+async function mlCruzarCanais() {
+    if (!currentUser || !Array.isArray(_meusLeadsCache)) return;
+    const uid = currentUser.id;
+    const [ig, li, buscas] = await Promise.all([
+        prBuscarTudo(() => supabaseClient.from('abordagens_instagram').select('chave,nome,telefone,instagram,criado_em,resultado,resposta').eq('user_id', uid).order('id')).catch(() => []),
+        prBuscarTudo(() => supabaseClient.from('abordagens_linkedin').select('chave,nome,pessoa,telefone,linkedin,criado_em,resultado,resposta').eq('user_id', uid).order('id')).catch(() => []),
+        canalBuscasSalvas().catch(() => []),
+    ]);
+    const nk = t => _normNicho(t || '');
+    const porTel = new Map(), porNome = new Map();
+    _meusLeadsCache = _meusLeadsCache.filter(l => !l._soCanal);
+    _meusLeadsCache.forEach(l => { l.canais = { wa: !!l.enviado, ig: false, li: false }; l.temIg = l.temLi = l.igResp = l.liResp = false; if (l.k) porTel.set(l.k, l); if (l.title) porNome.set(nk(l.title), l); });
+    const achar = (tel, nome) => (tel && pkTel(tel) && porTel.get(pkTel(tel))) || (nome && porNome.get(nk(nome))) || null;
+    const novo = (nome, tel, quando) => {
+        const l = { k: tel && pkTel(tel) ? pkTel(tel) : 'n:' + nk(nome), title: nome || '', phone: tel || '', tel: tel ? (formatPhoneBR(tel) || tel) : '', enviado: false, enviado_em: null, criado_em: quando, dias: null,
+            humano: false, robo: false, respondeu: false, pipeCol: null, bloq: bloqueadoLead({ phone: tel, title: nome }), campNome: '', nicho: '', local: '', canais: { wa: false, ig: false, li: false }, _soCanal: true };
+        _meusLeadsCache.push(l); if (tel && pkTel(tel)) porTel.set(pkTel(tel), l); if (nome) porNome.set(nk(nome), l); return l;
+    };
+    const resp = r => !!r.resposta || ['respondeu', 'depois', 'indicou', 'sem_interesse'].includes(r.resultado);
+    ig.forEach(r => { const l = achar(r.telefone, r.nome) || novo(r.nome || r.chave, r.telefone, r.criado_em); l.canais.ig = true; l.temIg = true; if (resp(r)) l.igResp = true; });
+    li.filter(r => r.resultado !== 'duplicado').forEach(r => { const l = achar(r.telefone, r.nome) || novo(r.nome || r.chave, r.telefone, r.criado_em); l.canais.li = true; l.temLi = true; if (resp(r)) l.liResp = true; if (r.pessoa) l.liPessoa = r.pessoa; });
+    (buscas || []).forEach(b => (b.leads || []).forEach(x => {
+        const l = achar(x.phone, x.title || x.name); if (!l) return;
+        if (igHandle(x.instagram)) l.temIg = true;
+        try { if (liTemAlvo(x) || liDecisoresDe(x).length) l.temLi = true; } catch (e) {}
+    }));
+    _meusLeadsCache.forEach(l => { const c = l.canais; l.nCanais = (c.wa ? 1 : 0) + (c.ig ? 1 : 0) + (c.li ? 1 : 0); l.respAlgum = !!(l.humano || l.igResp || l.liResp); });
+}
+(function () { const o = carregarMeusLeads; carregarMeusLeads = async function () { const r = await o.apply(this, arguments); try { await mlCruzarCanais(); mlPintarTopo(); filtrarMeusLeads(); } catch (e) { console.warn('[meus leads · canais]', e); } return r; }; })();
 function mlPintarTopo() {
     const cont = document.getElementById('ml-contagem');
     const tot = _meusLeadsCache.length, env = _meusLeadsCache.filter(l => l.enviado).length, hum = _meusLeadsCache.filter(l => l.humano).length;
@@ -12223,6 +12276,20 @@ function mlPintarTopo() {
             b.onclick = () => { _mlFiltro = k; _mlPagina = 1; mlPintarTopo(); filtrarMeusLeads(); };
             chips.appendChild(b);
         });
+        // 2ª linha: por quais canais a empresa já foi abordada
+        if (_meusLeadsCache.some(l => l.canais)) {
+            let lin = document.getElementById('ml-canais');
+            if (!lin) { lin = prEl('div', 'ml-filtros ml-canais'); lin.id = 'ml-canais'; chips.after(lin); }
+            lin.innerHTML = '';
+            const base = _meusLeadsCache.filter(l => _mlNoFiltro(l, _mlFiltro));
+            ML_CANAIS.forEach(([k, t]) => {
+                const n = base.filter(l => _mlNoCanal(l, k)).length;
+                if (k !== 'todos' && !n && _mlCanalFiltro !== k) return;
+                const b = prEl('button', 'ml-chip ml-chip-canal' + (_mlCanalFiltro === k ? ' ativo' : ''), `${t} ${n}`); b.type = 'button';
+                b.onclick = () => { _mlCanalFiltro = k; _mlPagina = 1; mlPintarTopo(); filtrarMeusLeads(); };
+                lin.appendChild(b);
+            });
+        }
     }
     const sel = document.getElementById('ml-camp');
     if (sel) {
@@ -12238,7 +12305,7 @@ function mlPintarTopo() {
 }
 function mlListaFiltrada() {
     const termo = _normNicho(document.getElementById('ml-search')?.value || ''), dig = (document.getElementById('ml-search')?.value || '').replace(/\D/g, '');
-    let ls = _meusLeadsCache.filter(l => _mlNoFiltro(l, _mlFiltro));
+    let ls = _meusLeadsCache.filter(l => _mlNoFiltro(l, _mlFiltro) && _mlNoCanal(l, _mlCanalFiltro));
     if (_mlCampFiltro === '_sem') ls = ls.filter(l => l.campanha_id == null);
     else if (_mlCampFiltro) ls = ls.filter(l => String(l.campanha_id) === _mlCampFiltro);
     if (termo || dig) ls = ls.filter(l => (termo && (_normNicho(l.title).includes(termo) || _normNicho(l.campNome).includes(termo) || _normNicho(l.resposta_texto).includes(termo))) || (dig.length >= 3 && String(l.tel).includes(dig)));
@@ -12281,6 +12348,11 @@ function mlLinha(l) {
     const l1 = prEl('div', 'ml-l1');
     l1.appendChild(prEl('b', '', l.title || _mlTelVer(l.tel)));
     l1.appendChild(prEl('span', 'ml-sit ' + s.cls, s.txt));
+    if (l.canais) {
+        const cs = prEl('span', 'ml-cs'); cs.title = 'Canais: aceso = já abordado · apagado com ponto = dá para tentar';
+        [['wa', '💬', !!l.phone], ['ig', '📸', l.temIg], ['li', '💼', l.temLi]].forEach(([k, ic, tem]) => cs.appendChild(prEl('span', 'ml-c' + (l.canais[k] ? ' on' : tem ? ' pode' : ' off'), ic)));
+        l1.appendChild(cs);
+    }
     info.appendChild(l1);
     const origem = [_mlTelVer(l.tel), l.campNome ? '📁 ' + l.campNome : '', [l.nicho, l.local].filter(Boolean).join(' · ')].filter(Boolean).join('  ·  ');
     info.appendChild(prEl('div', 'ml-l2', origem));
@@ -12367,6 +12439,11 @@ function mlPintarAcoesMassa(ls) {
     if (fora.length && (_mlFiltro === 'fora' || _mlFiltro === 'responderam')) {
         const b = prEl('button', 'hist-bt prim', fora.length === 1 ? '📋 Pôr no Pipeline' : `📋 Pôr os ${fora.length} no Pipeline`); b.type = 'button';
         b.title = 'Entram na etapa Respondeu, com a resposta da pessoa na nota'; b.onclick = () => mlPorNoPipeline(fora); box.appendChild(b);
+    }
+    if (_mlCanalFiltro === 'falta') {
+        const nLi = ls.filter(l => l.temLi && !l.canais.li).length, nIg = ls.filter(l => l.temIg && !l.canais.ig).length;
+        if (nLi) { const b = prEl('button', 'hist-bt prim', `💼 ${nLi} dá para tentar no LinkedIn`); b.type = 'button'; b.title = 'Quem ficou 5 dias sem responder no WhatsApp já entra na fila do LinkedIn, sem citar o WhatsApp'; b.onclick = () => { userSet('canal_sub_linkedin', 'fila'); trocarAba('linkedin', document.querySelector(`.nav-item[onclick*="'linkedin'"]`)); }; box.appendChild(b); }
+        if (nIg) { const b = prEl('button', 'hist-bt prim', `📸 ${nIg} dá para tentar no Instagram`); b.type = 'button'; b.title = 'Quem ficou 5 dias sem responder no WhatsApp já entra na fila do Instagram, sem citar o WhatsApp'; b.onclick = () => { userSet('canal_sub_insta', 'fila'); trocarAba('insta', document.querySelector(`.nav-item[onclick*="'insta'"]`)); }; box.appendChild(b); }
     }
     if (rep.length && (_mlFiltro === 'semresp' || _mlFiltro === 'robo')) {
         const b = prEl('button', 'hist-bt prim', `🔁 Repescagem: segunda mensagem para ${rep.length}`); b.type = 'button';
@@ -13343,10 +13420,16 @@ function igJaAbordado(l) { const h = igHandle(l && l.instagram); return !!h && !
 function igFila() {
     const base = (_leadsBase && _leadsBase.length) ? _leadsBase : todosLeads;
     return (base || [])
-        .filter(l => l && igHandle(l.instagram) && !igJaAbordado(l) && !bloqueadoLead(l) && !(l.phone && leadJaFoiEnviado(l.phone)) && !aqAquecendo('ig', l) && !liEmConversa(l))
+        .filter(l => l && igHandle(l.instagram) && !igJaAbordado(l) && !bloqueadoLead(l) && igDepoisDoWa(l) && !aqAquecendo('ig', l) && !liEmConversa(l))
         .map(l => ({ l, pronto: aqPronto('ig', l) ? 1 : 0, semZap: (!l.phone || l.is_whatsapp === false) ? 1 : 0, rec: canalDoLead(l) === 'instagram' ? 1 : 0, sc: calcScore(l) }))
         .sort((a, b) => (b.pronto - a.pronto) || (b.semZap - a.semZap) || (b.rec - a.rec) || (b.sc - a.sc))
         .map(x => x.l);
+}
+// Recebeu WhatsApp: só entra no Instagram depois de 5 dias sem resposta (o WhatsApp tem a vez dele)
+function igDepoisDoWa(l) {
+    if (!l || !l.phone) return true;
+    if (typeof _waEstado !== 'undefined' && _waEstado) { const w = liWa(l); return !w || (!w.respondeu && w.dias >= LI_WA_DIAS); }
+    return !leadJaFoiEnviado(l.phone);
 }
 function igBotaoHtml(onclick, titulo) {
     return `<button type="button" class="tag-rede tag-igdm" onclick="${onclick}" title="${titulo || 'Abordar pelo Instagram: a IA escreve a DM, você segue e envia'}" aria-label="Abordar pelo Instagram">${_IG_GLIFO}</button>`;
@@ -13359,14 +13442,14 @@ function igPrompt(l, prod, variante) {
         (l.instagramBio ? '\n- Bio do Instagram deles: "' + String(l.instagramBio).slice(0, 220) + '"' : '') +
         (pesqDe(l) && pesqDe(l).oque_faz ? '\n- O que fazem (pesquisa): ' + pesqDe(l).oque_faz : '') +
         (pesqDe(l) && pesqDe(l).gancho ? '\n- Gancho pesquisado (use a ideia, com as suas palavras): ' + pesqDe(l).gancho : '') +
-        (l.mencionarWa ? '\n- Você já mandou um WhatsApp há alguns dias e não teve resposta: pode citar de leve ("te chamei no WhatsApp também"), sem cobrar.' : '') +
+
         (l.igSeguidores != null ? '\n- Instagram deles: ' + igNumerosTxt(l) : '') +
         (variante && IG_AB_REGRA[variante] ? '\n\n' + IG_AB_REGRA[variante] : '') +
         '\n\nREGRAS: no máximo 300 caracteres; tom leve e próximo, como alguém escrevendo do celular; 1 cumprimento com o nome da empresa, ' +
         (l.instagramBio ? '1 frase mostrando que você viu o perfil, usando um detalhe real da BIO (o que fazem, para quem, onde), ' : '1 frase com um detalhe real dela (nota no Google, categoria ou cidade), ') +
         '1 frase com o benefício principal e termine com UMA pergunta simples. ' +
         'Sem link, sem telefone, sem hashtag, no máximo 1 emoji, um parágrafo só. Nunca cite avaliação negativa. ' +
-        'Retorne APENAS o texto da mensagem, sem aspas. Português do Brasil.';
+        'Retorne APENAS o texto da mensagem, sem aspas. Português do Brasil. ' + CANAL_SEM_CITAR;
 }
 async function igGerarDM(l) {
     const prod = typeof prodAtual === 'function' ? prodAtual() : null;
@@ -13685,7 +13768,7 @@ function liPrompt(l, prod, pessoa, contexto, variante) {
         (pesqDe(l) && pesqDe(l).oque_faz ? '\nO QUE A EMPRESA FAZ (pesquisa): ' + pesqDe(l).oque_faz + (pesqDe(l).gancho ? '\nGANCHO PESQUISADO: ' + pesqDe(l).gancho : '') : '') +
         '\n\nEscreva DUAS coisas, exatamente neste formato:\nCONVITE: <' + ((variante && LI_AB_CONVITE[variante]) || 'nota do convite de conexão, no máximo 190 caracteres, cordial, sem vender ainda, diz por que quer conectar (mesmo mercado/região ou algo da empresa)') + '>\n' +
         'MENSAGEM: <mensagem para mandar depois que a pessoa aceitar: 2 a 3 frases curtas, agradece a conexão, o benefício principal para a empresa dela e termina com UMA pergunta simples>\n' +
-        'Sem link, sem hashtag, sem emoji. Português do Brasil, tom profissional e próximo.';
+        'Sem link, sem hashtag, sem emoji. Português do Brasil, tom profissional e próximo. ' + CANAL_SEM_CITAR;
 }
 async function liGerar(l, pessoa, contexto, variante) {
     const prod = typeof prodAtual === 'function' ? prodAtual() : null;
@@ -13895,7 +13978,7 @@ const CANAIS = {
         limite: () => igLimite(), hoje: () => _igHoje, limiteChave: 'ig_limite', limiteMax: 200, recomendado: 'até 20',
         carregar: (f) => igCarregarFeitos(f), tem: l => !!igHandle(l.instagram), chave: l => igHandle(l.instagram), feito: l => igJaAbordado(l),
         // o WhatsApp vai primeiro: quem já recebeu WhatsApp não entra (igual à fila de dentro da Prospecção)
-        entra: l => !(l.phone && leadJaFoiEnviado(l.phone)) && !liEmConversa(l),
+        entra: l => igDepoisDoWa(l) && !liEmConversa(l),
         abrir: (fila, op) => igAbordar(fila, 0, op), verbo: 'DMs', unidade: 'abordagem',
         dicas: ['Seguir a empresa antes de mandar a DM aumenta a chance de ela ver a mensagem.', 'Até 20 por dia: mais que isso o Instagram pode limitar a conta.', 'Quem não tem WhatsApp aparece primeiro: para essas empresas o Instagram é o único caminho.', 'Respondeu? Mova o card no Pipeline: a cadência continua por lá.']
     },
@@ -14350,6 +14433,8 @@ function canalDesenhar(aba, buscas, feitos) {
 // a resposta que você cola vira Pipeline/lembrete/decisor/reunião, o WhatsApp e o LinkedIn sabem um do outro,
 // e o funil (com o teste A/B do convite) mostra o que funciona.
 var LI_DIA_MS = 86400000;
+// Todo lead pode ser tentado nos 3 canais, mas cada mensagem é um primeiro contato: nunca cita o outro canal
+var CANAL_SEM_CITAR = 'Nunca diga nem insinue que já tentou contato por WhatsApp, Instagram, LinkedIn, e-mail ou telefone: escreva como se fosse o primeiro contato.';
 var LI_CAD = [null,
     { dia: 0, nome: 'Mensagem depois do aceite', ic: '💬' },
     { dia: 4, nome: 'Follow-up', ic: '🔁' },
@@ -14593,7 +14678,9 @@ async function liMsgModal(r, aoFechar) {
         box.appendChild(prEl('span', '', `📲 ${primeiro || 'O dono'} tem celular na Receita (${telBonito(cel)}). Um WhatsApp curto junto com o LinkedIn aumenta a chance de resposta.`));
         const bw = prEl('button', 'rs-btn verde', 'Mandar WhatsApp também'); bw.type = 'button';
         bw.onclick = async () => {
-            const sug = `Oi${primeiro ? ' ' + primeiro : ''}, tudo bem? Acabei de me conectar com você no LinkedIn e resolvi mandar por aqui também, que é mais rápido. ` + ta.value.trim();
+            // sem citar o LinkedIn: tira as frases de "conexão/aceitar" e manda como primeiro contato
+            const corpo = ta.value.trim().split(/(?<=[.!?])\s+/).filter(f => !/conex|conect|linkedin|aceit/i.test(f)).join(' ');
+            const sug = `Oi${primeiro ? ' ' + primeiro : ''}, tudo bem? ` + corpo;
             const t = prompt('Mensagem do WhatsApp (pode editar antes de enviar):', sug);
             if (!t || !t.trim()) return;
             bw.disabled = true;
@@ -16075,7 +16162,7 @@ async function ccFazer(aba, item, aoTerminar) {
     if (tipo === 'primeira') {
         let fez = false;
         c.abrir([l], { aoRegistrar: async () => { fez = true; if (aba === 'linkedin') await ccEntregarLinkedin(r); else await ccAvancar(r, camp); },
-            contexto: l.mencionarWa ? 'Esta empresa já recebeu uma mensagem sua no WhatsApp há alguns dias e não respondeu: pode citar de leve, sem cobrar.' : '',
+            contexto: '',
             aoFechar: fim });
         return;
     }

@@ -2232,3 +2232,39 @@ test('Trilha do WhatsApp: cada empresa da campanha no ponto certo da cadência (
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('Meus Leads por canal (só WhatsApp, só Instagram, 2 canais, dá para tentar outro) e mensagens sem citar o outro canal', async () => {
+  const dias = d => new Date(Date.now() - d * 86400000).toISOString();
+  const a = await abrirApp({ largura: 1280, db: {
+    leads: [
+      { user_id: 'u1', phone: '5511999990001', title: 'Alfa', status_envio: 'enviado', enviado_em: dias(10), criado_em: dias(10), respondeu: false },
+      { user_id: 'u1', phone: '5511999990002', title: 'Beta', status_envio: 'enviado', enviado_em: dias(10), criado_em: dias(10), respondeu: false },
+      { user_id: 'u1', phone: '5511999990003', title: 'Gama', status_envio: 'enviado', enviado_em: dias(2), criado_em: dias(2), respondeu: false }],
+    abordagens_instagram: [{ user_id: 'u1', chave: 'sol', nome: 'Clínica Sol', telefone: '', instagram: 'https://www.instagram.com/sol/', criado_em: dias(1) }],
+    abordagens_linkedin: [{ user_id: 'u1', chave: 'k2', nome: 'Beta', pessoa: 'Bia', telefone: '11999990002', criado_em: dias(1), etapa: 0 }],
+    buscas: [{ id: 1, user_id: 'u1', nicho: 'x', local: 'y', criado_em: dias(10), leads: [
+      { title: 'Alfa', phone: '5511999990001', instagram: 'https://www.instagram.com/alfa/', linkedin: 'https://www.linkedin.com/company/alfa/' },
+      { title: 'Gama', phone: '5511999990003', instagram: 'https://www.instagram.com/gama/' }] }],
+  } });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      trocarAba('meusleads', document.querySelector(`.nav-item[onclick*="'meusleads'"]`));
+      await carregarMeusLeads();
+      const chips = [...document.querySelectorAll('#ml-canais .ml-chip')].map(b => b.textContent);
+      const filtrar = k => { _mlCanalFiltro = k; return mlListaFiltrada().map(l => l.title).sort(); };
+      const res = { chips, soWa: filtrar('so_wa'), soIg: filtrar('so_ig'), dois: filtrar('dois'), falta: filtrar('falta') };
+      _mlCanalFiltro = 'todos';
+      // Instagram: WhatsApp de 10 dias sem resposta entra; de 2 dias ainda não
+      await waEstadoCarregar(true);
+      res.igAlfa = igDepoisDoWa({ phone: '5511999990001' }); res.igGama = igDepoisDoWa({ phone: '5511999990003' });
+      res.promptIg = igPrompt({ title: 'X', mencionarWa: true }, null, ''); res.promptLi = liPrompt({ title: 'X' }, null, 'Ana', '');
+      return res;
+    });
+    assert.ok(r.chips.some(c => /Só WhatsApp 2/.test(c)), r.chips.join('|'));
+    assert.deepStrictEqual(r.soWa, ['Alfa', 'Gama']); assert.deepStrictEqual(r.soIg, ['Clínica Sol']); assert.deepStrictEqual(r.dois, ['Beta']);
+    assert.deepStrictEqual(r.falta, ['Alfa', 'Gama']);
+    assert.strictEqual(r.igAlfa, true); assert.strictEqual(r.igGama, false);
+    assert.ok(!/te chamei no WhatsApp/.test(r.promptIg)); assert.match(r.promptIg, /Nunca diga nem insinue que já tentou contato/); assert.match(r.promptLi, /Nunca diga nem insinue/);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
