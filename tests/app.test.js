@@ -2268,3 +2268,35 @@ test('Meus Leads por canal (só WhatsApp, só Instagram, 2 canais, dá para tent
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('Arquivar ciclo: buscas antigas saem do Histórico, das filas e de Meus Leads; quem respondeu e o "já enviado" continuam', async () => {
+  const dias = d => new Date(Date.now() - d * 86400000).toISOString();
+  const a = await abrirApp({ largura: 390, db: {
+    buscas: [{ id: 1, user_id: 'u1', nicho: 'Contabilidade', local: 'Guarulhos', criado_em: dias(10), leads: [{ title: 'Alfa', phone: '5511999990001', instagram: 'https://www.instagram.com/alfa/' }, { title: 'Delta', phone: '5511999990004' }] }],
+    leads: [
+      { user_id: 'u1', phone: '5511999990001', title: 'Alfa', status_envio: 'enviado', enviado_em: dias(9), criado_em: dias(9), respondeu: false },
+      { user_id: 'u1', phone: '5511999990002', title: 'Beta', status_envio: 'enviado', enviado_em: dias(9), criado_em: dias(9), respondeu: true, resposta_texto: 'Tenho interesse' }],
+  } });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      const espera = ms => new Promise(x => setTimeout(x, ms));
+      trocarAba('historico', document.querySelector(`.nav-item[onclick*="'historico'"]`));
+      await histCarregar();
+      const antes = { grupos: histGrupos().length, filas: (await canalBuscasSalvas(true)).length };
+      await cicloArquivarAbrir();
+      const aviso = document.querySelector('.ciclo-modal').textContent;
+      [...document.querySelectorAll('.ciclo-modal button')].find(b => /Arquivar/.test(b.textContent)).click(); await espera(300);
+      await histCarregar();
+      trocarAba('meusleads', document.querySelector(`.nav-item[onclick*="'meusleads'"]`)); await carregarMeusLeads();
+      return { antes, aviso, grupos: histGrupos().length, filas: (await canalBuscasSalvas(true)).length, meus: mlListaFiltrada().map(l => l.title),
+        jaEnviado: leadJaFoiEnviado('5511999990001'), ciclos: (userGet('ciclos', []) || []).length };
+    });
+    assert.deepStrictEqual(r.antes, { grupos: 1, filas: 1 });
+    assert.match(r.aviso, /Ainda faltam 1 empresas deste ciclo/);
+    assert.strictEqual(r.grupos, 0); assert.strictEqual(r.filas, 0);
+    assert.deepStrictEqual(r.meus, ['Beta'], 'quem respondeu continua; quem não respondeu do ciclo antigo sai da frente');
+    assert.strictEqual(r.jaEnviado, true, 'quem já recebeu continua marcado');
+    assert.strictEqual(r.ciclos, 1);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});

@@ -1496,6 +1496,8 @@
 .cx-hero .li-manha { color:#fff; opacity:0.9; }
 .cx-av { flex:none; width:34px; height:34px; border-radius:50%; color:#fff; font-family:'Inter',sans-serif; font-size:0.72rem; font-weight:800; display:inline-flex; align-items:center; justify-content:center; letter-spacing:0.5px; }
 .cx-trilha { position:relative; }
+.hist-ciclo { font-size:0.72rem; color:var(--muted); background:var(--surface2, #f1f5f9); border-radius:10px; padding:8px 12px; margin:0 0 12px; }
+.ciclo-lista { list-style:none; padding:0; margin:10px 0; display:flex; flex-direction:column; gap:6px; font-size:0.76rem; }
 .ml-canais { margin-top:6px; }
 .ml-chip-canal.ativo { background:#0D1330; border-color:#0D1330; color:#fff; }
 .ml-cs { display:inline-flex; gap:2px; margin-left:6px; vertical-align:middle; }
@@ -3663,7 +3665,7 @@ function decisorExtraSalvar(base, dec) {
     const lst = userGet('li_decisores_extra', []) || [];
     const k = pkTel(base.phone) || _normNicho(base.title);
     let l = lst.find(x => (pkTel(x.phone) || _normNicho(x.title)) === k);
-    if (!l) { l = { title: base.title, phone: base.phone || '', decisores: [], extra: true }; lst.unshift(l); }
+    if (!l) { l = { title: base.title, phone: base.phone || '', decisores: [], extra: true, em: Date.now() }; lst.unshift(l); }
     if (!l.decisores.some(d => _normNicho(d.nome) === _normNicho(dec.nome))) l.decisores.unshift(dec);
     userSet('li_decisores_extra', lst.slice(0, 200));
     return l;
@@ -6312,6 +6314,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                     <div class="hist-cab-bts">
                         <button type="button" class="hist-bt" onclick="histAtualizar()">🔄 Atualizar</button>
+                        <button type="button" class="hist-bt" onclick="cicloArquivarAbrir()">🗄️ Arquivar ciclo</button>
                         <button type="button" class="hist-bt perigo" onclick="limparHistorico()">🗑️ Limpar</button>
                     </div>
                 </div>
@@ -10966,7 +10969,8 @@ async function histCarregar() {
     try { pkLoad(); (pkLeads || []).forEach(l => { const k = pkTel(l.phone); if (k && !pk[k]) pk[k] = { col: l.col, valor: Number(l.valor) || 0 }; }); } catch (e) {}
     was.forEach(r => { const k = pkTel(r.phone); if (k) wa[k] = r.is_whatsapp; });
     _histRes = { ld, pk, wa };
-    _histBuscas = buscas || [];
+    _histBuscasTodas = buscas || [];
+    _histBuscas = userGet('hist_ver_ciclos', false) ? _histBuscasTodas : _histBuscasTodas.filter(b => !cicloArquivado(b.criado_em));
 }
 // Junta as buscas iguais (mesmo nicho e cidade) e calcula o funil de cada grupo
 function histGrupos() {
@@ -11026,6 +11030,7 @@ function histPintar() {
     lista.innerHTML = ''; if (rank) rank.innerHTML = '';
     let grupos = histGrupos();
     if (!grupos.length) {
+        histPintarCiclo(lista);
         const v = prEl('div', 'hist-vazio');
         v.appendChild(prEl('div', 'hist-vazio-ic', '🕓'));
         v.appendChild(prEl('p', '', 'Nenhuma busca ainda. Faça uma busca na aba Prospecção: aqui aparece o que cada uma virou (enviados, respostas, Pipeline).'));
@@ -11033,6 +11038,7 @@ function histPintar() {
         return;
     }
     if (rank) histPintarRanking(rank, grupos);
+    histPintarCiclo(lista);
     const q = _normNicho(_histFiltro);
     if (q) grupos = grupos.filter(g => _normNicho(g.titulo).includes(q));
     const ord = { recentes: (a, b) => b.ultima - a.ultima, esperando: (a, b) => b.faltam.length - a.faltam.length };
@@ -12220,6 +12226,8 @@ async function carregarMeusLeads() {
 }
 var _mlCanalFiltro = 'todos';
 const ML_CANAIS = [['todos', 'Todos os canais'], ['so_wa', '💬 Só WhatsApp'], ['so_ig', '📸 Só Instagram'], ['so_li', '💼 Só LinkedIn'], ['dois', '✌️ 2 canais'], ['tres', '🏆 Os 3 canais'], ['falta', '➕ Dá para tentar outro canal']];
+var _mlVerCiclos = false;
+function mlNoCiclo(l) { return _mlVerCiclos || !cicloInicio() || l.pipeCol || l.humano || l.respAlgum || !cicloArquivado(l.enviado_em || l.criado_em); }
 function _mlNoCanal(l, f) {
     const c = l.canais || { wa: !!l.enviado };
     switch (f) {
@@ -12281,7 +12289,7 @@ function mlPintarTopo() {
             let lin = document.getElementById('ml-canais');
             if (!lin) { lin = prEl('div', 'ml-filtros ml-canais'); lin.id = 'ml-canais'; chips.after(lin); }
             lin.innerHTML = '';
-            const base = _meusLeadsCache.filter(l => _mlNoFiltro(l, _mlFiltro));
+            const base = _meusLeadsCache.filter(l => _mlNoFiltro(l, _mlFiltro) && mlNoCiclo(l));
             ML_CANAIS.forEach(([k, t]) => {
                 const n = base.filter(l => _mlNoCanal(l, k)).length;
                 if (k !== 'todos' && !n && _mlCanalFiltro !== k) return;
@@ -12289,6 +12297,10 @@ function mlPintarTopo() {
                 b.onclick = () => { _mlCanalFiltro = k; _mlPagina = 1; mlPintarTopo(); filtrarMeusLeads(); };
                 lin.appendChild(b);
             });
+            if (cicloInicio()) {
+                const arq = _meusLeadsCache.filter(l => !(l.pipeCol || l.humano || l.respAlgum) && cicloArquivado(l.enviado_em || l.criado_em)).length;
+                if (arq) { const b = prEl('button', 'ml-chip' + (_mlVerCiclos ? ' ativo' : ''), `🗄️ Ciclos anteriores ${arq}`); b.type = 'button'; b.onclick = () => { _mlVerCiclos = !_mlVerCiclos; _mlPagina = 1; mlPintarTopo(); filtrarMeusLeads(); }; lin.appendChild(b); }
+            }
         }
     }
     const sel = document.getElementById('ml-camp');
@@ -12305,7 +12317,7 @@ function mlPintarTopo() {
 }
 function mlListaFiltrada() {
     const termo = _normNicho(document.getElementById('ml-search')?.value || ''), dig = (document.getElementById('ml-search')?.value || '').replace(/\D/g, '');
-    let ls = _meusLeadsCache.filter(l => _mlNoFiltro(l, _mlFiltro) && _mlNoCanal(l, _mlCanalFiltro));
+    let ls = _meusLeadsCache.filter(l => _mlNoFiltro(l, _mlFiltro) && _mlNoCanal(l, _mlCanalFiltro) && mlNoCiclo(l));
     if (_mlCampFiltro === '_sem') ls = ls.filter(l => l.campanha_id == null);
     else if (_mlCampFiltro) ls = ls.filter(l => String(l.campanha_id) === _mlCampFiltro);
     if (termo || dig) ls = ls.filter(l => (termo && (_normNicho(l.title).includes(termo) || _normNicho(l.campNome).includes(termo) || _normNicho(l.resposta_texto).includes(termo))) || (dig.length >= 3 && String(l.tel).includes(dig)));
@@ -14127,7 +14139,7 @@ async function canalBuscasSalvas(forcar) {
     if (!currentUser) return _canalBuscas;
     try {
         const { data } = await supabaseClient.from('buscas').select('id,nicho,local,criado_em,leads').eq('user_id', currentUser.id).order('criado_em', { ascending: false }).limit(300);
-        _canalBuscas = (data || []).map(b => ({ id: String(b.id), nome: [b.nicho, b.local].filter(Boolean).join(' · ') || 'Busca', leads: Array.isArray(b.leads) ? b.leads : [] }));
+        _canalBuscas = (data || []).filter(b => !cicloArquivado(b.criado_em)).map(b => ({ id: String(b.id), nome: [b.nicho, b.local].filter(Boolean).join(' · ') || 'Busca', leads: Array.isArray(b.leads) ? b.leads : [] }));
     } catch (e) {}
     return _canalBuscas;
 }
@@ -14493,7 +14505,7 @@ function liPerfilDoRow(r) { const c = liCardDe(r); return (c && c.liPerfil) || l
 // O lead completo (busca, decisores, pesquisa) de uma abordagem registrada
 function liLeadsConhecidos() {
     const out = [];
-    [(_leadsBase && _leadsBase.length) ? _leadsBase : (todosLeads || [])].concat((_canalBuscas || []).map(b => b.leads || [])).concat([userGet('li_decisores_extra', []) || []])
+    [(_leadsBase && _leadsBase.length) ? _leadsBase : (todosLeads || [])].concat((_canalBuscas || []).map(b => b.leads || [])).concat([(userGet('li_decisores_extra', []) || []).filter(l => !(l && l.em && cicloArquivado(l.em)))])
         .forEach(ls => (ls || []).forEach(l => { if (l) out.push(l); }));
     return out;
 }
@@ -14881,6 +14893,57 @@ function canalBadges(aba, buscas) {
         if (aba === 'insta') return { hoje: canalParaRetomar(_igRows || []).length };
     } catch (e) {}
     return {};
+}
+// ---- Ciclos: arquivar o que já foi trabalhado e começar nichos do zero ----
+// Nada é apagado: quem já recebeu mensagem continua marcado (não recebe de novo), o Não contatar continua valendo,
+// o Pipeline e as cadências em andamento continuam. Só sai da frente: Histórico, filas do Instagram/LinkedIn e Meus Leads.
+var _histBuscasTodas = [];
+function cicloInicio() { return Number(userGet('ciclo_inicio', 0)) || 0; }
+function cicloArquivado(quando) { const c = cicloInicio(); if (!c || !quando) return false; const t = typeof quando === 'number' ? quando : new Date(quando).getTime(); return !isNaN(t) && t < c; }
+function histPintarCiclo(lista) {
+    if (!cicloInicio() || !lista) return;
+    const ant = (_histBuscasTodas || []).filter(b => cicloArquivado(b.criado_em)).length;
+    if (!ant) return;
+    const ver = !!userGet('hist_ver_ciclos', false);
+    const d = prEl('div', 'hist-ciclo', `${ver ? '👀 Mostrando também o ciclo anterior' : '🗄️ Ciclo anterior arquivado em ' + new Date(cicloInicio()).toLocaleDateString('pt-BR')} · ${ant} busca${ant === 1 ? '' : 's'}. `);
+    const b = prEl('button', 'ig-link', ver ? 'esconder' : 'ver'); b.type = 'button';
+    b.onclick = () => { userSet('hist_ver_ciclos', !ver); _histBuscas = !ver ? _histBuscasTodas : _histBuscasTodas.filter(x => !cicloArquivado(x.criado_em)); histPintar(); };
+    d.appendChild(b); lista.appendChild(d);
+}
+async function cicloArquivarAbrir() {
+    if (!currentUser) return;
+    if (!_histRes) { try { await histCarregar(); } catch (e) {} }
+    const grupos = histGrupos();
+    const empresas = grupos.reduce((a, g) => a + g.encontrados, 0), faltam = grupos.reduce((a, g) => a + g.faltam.length, 0), resp = grupos.reduce((a, g) => a + g.responderam, 0);
+    const fundo = prEl('div', 'modal-backdrop active'), m = prEl('div', 'modal ig-modal ciclo-modal');
+    fundo.appendChild(m); document.body.appendChild(fundo);
+    const fechar = () => fundo.remove();
+    fundo.onclick = ev => { if (ev.target === fundo) fechar(); };
+    m.appendChild(prEl('div', 'modal-title', '🗄️ Arquivar este ciclo e começar do zero'));
+    m.appendChild(prEl('div', 'modal-sub', `${grupos.length} nicho${grupos.length === 1 ? '' : 's'}/cidade${grupos.length === 1 ? '' : 's'} · ${empresas} empresas · ${resp} responderam`));
+    const ul = prEl('ul', 'ciclo-lista');
+    [['✅', 'Fica: quem já recebeu mensagem continua marcado e não recebe de novo nas buscas novas'],
+     ['✅', 'Fica: Não contatar, Pipeline, Respostas e o que o app aprendeu (score, teste A/B)'],
+     ['✅', 'Fica: as cadências em andamento (follow-ups, quem aceitou no LinkedIn) terminam normalmente'],
+     ['🗄️', 'Sai da frente: as buscas do Histórico, as filas do Instagram e do LinkedIn e Meus Leads (dá para ver de novo quando quiser)']]
+        .forEach(([ic, t]) => ul.appendChild(prEl('li', '', ic + ' ' + t)));
+    m.appendChild(ul);
+    if (faltam) m.appendChild(prEl('div', 'ig-aviso', `⚠️ Ainda faltam ${faltam} empresas deste ciclo que nunca receberam nada. Se arquivar agora, elas saem das filas. O ideal é arquivar quando zerar.`));
+    const acoes = prEl('div', 'modal-actions');
+    const canc = prEl('button', 'modal-btn', 'Agora não'); canc.type = 'button'; canc.onclick = fechar;
+    const ok = prEl('button', 'modal-btn primary', faltam ? 'Arquivar mesmo assim' : 'Arquivar ciclo'); ok.type = 'button';
+    ok.onclick = () => {
+        const agora = Date.now();
+        const ciclos = userGet('ciclos', []) || [];
+        ciclos.push({ inicio: Number(userGet('ciclo_atual_inicio', 0)) || null, fim: agora, nichos: grupos.map(g => g.titulo).slice(0, 50), empresas, responderam: resp, faltavam: faltam });
+        userSet('ciclos', ciclos.slice(-20));
+        userSet('ciclo_inicio', agora); userSet('ciclo_atual_inicio', agora); userSet('hist_ver_ciclos', false);
+        _canalBuscas = null; _mlVerCiclos = false;
+        fechar();
+        showToast('🗄️ Ciclo arquivado. Faça as buscas dos nichos novos: quem já recebeu mensagem aparece marcado e não recebe de novo.', 'ok');
+        try { histCarregar().then(histPintar); } catch (e) {}
+    };
+    acoes.append(canc, ok); m.appendChild(acoes);
 }
 // ---- Aceitou? Procura pelo nome e marca na hora (sem esperar os 2 dias do lote) ----
 function liAceitouBusca(aoFechar) {
