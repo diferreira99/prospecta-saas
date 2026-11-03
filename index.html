@@ -14252,6 +14252,11 @@ function canalDesenhar(aba, buscas, feitos) {
             else if (r.resultado === 'sem_interesse') li.appendChild(prEl('span', 'cl-selo', 'sem interesse'));
             else {
                 if (aba === 'linkedin' && liEstado(r).aceito) li.appendChild(prEl('span', 'cl-selo ok', 'aceitou'));
+                else if (aba === 'linkedin') {
+                    const ac = prEl('button', 'cl-res sim', 'Aceitou'); ac.type = 'button'; ac.title = 'Aceitou o convite: abre a mensagem pronta';
+                    ac.onclick = async () => { ac.disabled = true; const row = (_liRows || []).find(x => x.chave === r.chave) || r; await liAceitou(row); liMsgModal(row, () => canalAbrir(aba, true)); };
+                    li.appendChild(ac);
+                }
                 const sim = prEl('button', 'cl-res sim', 'Respondeu'); sim.type = 'button'; sim.title = aba === 'linkedin' ? 'Cole a resposta: a IA entende e move o Pipeline' : 'Marcar que respondeu (o card vai para Respondeu no Pipeline)';
                 sim.onclick = async () => { if (aba === 'linkedin') { liRespostaModal(r, () => canalAbrir(aba, true)); return; } if (aba === 'insta') { r._tab = 'abordagens_instagram'; liRespostaModal(r, () => canalAbrir(aba, true), 'instagram'); return; } if (await canalResultado(aba, r, 'respondeu')) canalAbrir(aba); };
                 const nao = prEl('button', 'cl-res nao', 'Sem interesse'); nao.type = 'button'; nao.title = 'Respondeu que não tem interesse (o card vai para Perdido)';
@@ -14558,6 +14563,31 @@ async function liMsgModal(r, aoFechar) {
     f('💬 Respondeu: colar a resposta', () => { fechou = true; fundo.remove(); liRespostaModal(r, aoFechar); });
     f('Daqui a 2 dias', async () => { const d = new Date(Date.now() + 2 * LI_DIA_MS); d.setHours(8, 0, 0, 0); try { await liAtualizarRow(r, { proxima_em: d.toISOString() }); } catch (er) {} fechar(); });
     m.appendChild(fim);
+}
+// ---- Aceitou? Procura pelo nome e marca na hora (sem esperar os 2 dias do lote) ----
+function liAceitouBusca(aoFechar) {
+    const s = prEl('section', 'ph-card li-aceitou-busca');
+    s.appendChild(prEl('h3', '', '🤝 Alguém aceitou?'));
+    const inp = document.createElement('input'); inp.type = 'search'; inp.className = 'ig-texto li-aceitou-q'; inp.placeholder = 'Digite o nome da pessoa ou da empresa'; inp.setAttribute('aria-label', 'Procurar quem aceitou');
+    const ul = prEl('ul', 'canal-lista li-aceitou-res');
+    s.append(inp, ul);
+    const norm = t => _normNicho(String(t || ''));
+    const pintar = () => {
+        ul.replaceChildren();
+        const q = norm(inp.value.trim()); if (q.length < 2) return;
+        const achados = (_liRows || []).filter(r => !r.resultado && !liEstado(r).aceito && (norm(r.pessoa).includes(q) || norm(r.nome).includes(q))).slice(0, 8);
+        if (!achados.length) { ul.appendChild(prEl('li', 'ph-mudo', 'Ninguém com convite pendente com esse nome.')); return; }
+        achados.forEach(r => {
+            const li = prEl('li'), meio = prEl('div', 'cl-meio');
+            const d = Math.floor((Date.now() - new Date(r.criado_em).getTime()) / LI_DIA_MS);
+            meio.append(prEl('div', 'cl-nome', r.pessoa || r.nome || r.chave), prEl('div', 'cl-sub', (r.pessoa ? (r.nome || '') + ' · ' : '') + 'convite ' + (d ? `há ${d} dia${d === 1 ? '' : 's'}` : 'hoje')));
+            const b = prEl('button', 'ps-acao principal', 'Aceitou ✓'); b.type = 'button';
+            b.onclick = async () => { b.disabled = true; await liAceitou(r); showToast('🤝 ' + (r.pessoa || r.nome) + ' aceitou: a mensagem já está pronta', 'ok'); liMsgModal(r, aoFechar); };
+            li.append(meio, b); ul.appendChild(li);
+        });
+    };
+    inp.addEventListener('input', pintar);
+    return s;
 }
 // ---- Aquecidos hoje que na verdade receberam convite ----
 function liAquecidosHoje() {
@@ -14984,6 +15014,7 @@ function liPainelTopo(box, buscas) {
         sa.appendChild(bl); box.appendChild(sa);
     }
     if (hoje.length) box.appendChild(liListaCadencia(hoje, () => canalAbrir('linkedin', true)));
+    if (rows.some(r => !r.resultado && !liEstado(r).aceito)) box.appendChild(liAceitouBusca(() => canalAbrir('linkedin', true)));
     const aqh = liAquecidosHoje();
     if (aqh.length && userGet('li_aq_revisto', '') !== new Date().toLocaleDateString('pt-BR')) {
         const sq = prEl('section', 'ph-card li-aceites li-aq-hoje');

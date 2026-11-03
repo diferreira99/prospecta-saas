@@ -1924,7 +1924,7 @@ test('LinkedIn: "Quem aceitou?" em lote, cadência depois do aceite e rotina na 
     assert.deepStrictEqual(r.hoje, ['k1']);
     assert.match(r.m1, /Faz sentido conversarmos/);
     assert.strictEqual(r.aberto, 'https://www.linkedin.com/in/anaalfa/');
-    assert.strictEqual(r.etapa, 2); assert.ok(r.prox > 3 && r.prox < 4.2, 'follow-up no dia 4: ' + r.prox); assert.strictEqual(r.retomado, true);
+    assert.strictEqual(r.etapa, 2); assert.ok(r.prox > 3 && r.prox < 5, 'follow-up no dia 4 (às 8h): ' + r.prox); assert.strictEqual(r.retomado, true);
     assert.match(r.rotina, /Rotina do LinkedIn de hoje/);
     assert.match(r.funil, /3\s*convites/); assert.match(r.funil, /1\s*aceitaram50% de aceite/);
     assert.deepStrictEqual(a.errosReais(), []);
@@ -2245,6 +2245,31 @@ test('LinkedIn: "Já mandei o convite" no aquecer, revisar aquecidos de hoje que
     assert.strictEqual(r.homo[0], null); assert.match(r.homo[1], /CNPJ de outra cidade \(JOINVILLE\)/);
     assert.strictEqual(r.certo, true);
     assert.deepStrictEqual(r.extra, [['M & A', '', null]]);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('LinkedIn: procurar pelo nome quem aceitou e marcar na hora (convite de hoje)', async () => {
+  const a = await abrirApp({ largura: 390, db: { abordagens_linkedin: [
+    { user_id: 'u1', chave: 'k1', nome: 'Contábil Alfa', pessoa: 'Ana Souza', criado_em: new Date().toISOString(), etapa: 0 },
+    { user_id: 'u1', chave: 'k2', nome: 'Beta', pessoa: 'Bruno Lima', criado_em: new Date().toISOString(), etapa: 0 }] } });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      const espera = ms => new Promise(x => setTimeout(x, ms));
+      iaServidor = async () => 'CONVITE: Olá\nMENSAGEM: Obrigado por aceitar, Ana!'; window.open = () => null;
+      trocarAba('linkedin', document.querySelector(`.nav-item[onclick*="'linkedin'"]`)); await canalAbrir('linkedin', true);
+      canalIrSub('linkedin', 'hoje');
+      const inp = document.querySelector('#canal-linkedin .li-aceitou-q');
+      inp.value = 'ana'; inp.dispatchEvent(new Event('input'));
+      const nomes = [...document.querySelectorAll('#canal-linkedin .li-aceitou-res .cl-nome')].map(x => x.textContent);
+      document.querySelector('#canal-linkedin .li-aceitou-res button').click(); await espera(300);
+      const msg = document.querySelector('.li-msg-modal .li-msg-texto').value;
+      const k1 = _db.abordagens_linkedin.find(x => x.chave === 'k1');
+      return { nomes, msg, etapa: k1.etapa, aceito: !!k1.aceito_em };
+    });
+    assert.deepStrictEqual(r.nomes, ['Ana Souza']);
+    assert.match(r.msg, /Obrigado por aceitar/);
+    assert.strictEqual(r.etapa, 1); assert.strictEqual(r.aceito, true);
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
