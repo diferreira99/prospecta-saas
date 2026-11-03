@@ -1925,7 +1925,7 @@ test('LinkedIn: "Quem aceitou?" em lote, cadência depois do aceite e rotina na 
     assert.match(r.m1, /Faz sentido conversarmos/);
     assert.strictEqual(r.aberto, 'https://www.linkedin.com/in/anaalfa/');
     assert.strictEqual(r.etapa, 2); assert.ok(r.prox > 3 && r.prox < 5, 'follow-up no dia 4 (às 8h): ' + r.prox); assert.strictEqual(r.retomado, true);
-    assert.match(r.rotina, /Rotina do LinkedIn de hoje/);
+    assert.match(r.rotina, /Hoje no LinkedIn/);
     assert.match(r.funil, /3\s*convites/); assert.match(r.funil, /1\s*aceitaram50% de aceite/);
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
