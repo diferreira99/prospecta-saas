@@ -2273,3 +2273,17 @@ test('LinkedIn: procurar pelo nome quem aceitou e marcar na hora (convite de hoj
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('LinkedIn: não registra a mesma empresa e pessoa duas vezes (chave diferente)', async () => {
+  const a = await abrirApp({ largura: 390, db: { abordagens_linkedin: [
+    { user_id: 'u1', chave: 'nome:versátil|60293443', nome: 'Versátil Assessoria', pessoa: 'Michelle Silva', criado_em: new Date().toISOString(), etapa: 0 }] } });
+  try {
+    const n = await a.pagina.evaluate(async () => {
+      await liRowsCarregar(true); _liFeitos = new Set();
+      await liRegistrar({ title: 'Versátil Assessoria', phone: '11960293443', linkedin: 'https://www.linkedin.com/company/versatil/' }, 'Michelle Silva', '', '', null);
+      return _db.abordagens_linkedin.length;
+    });
+    assert.strictEqual(n, 1);
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});

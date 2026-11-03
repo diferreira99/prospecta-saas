@@ -13649,6 +13649,9 @@ async function liGerar(l, pessoa, contexto, variante) {
 function liPerfilOk(u) { const m = String(u || '').trim().match(/^https?:\/\/([a-z]{2,3}\.)?(www\.)?linkedin\.com\/in\/([^/?#\s]+)/i); return m ? 'https://www.linkedin.com/in/' + m[3] + '/' : ''; }
 async function liRegistrar(l, pessoa, mensagem, perfil, variante) {
     const k = liChave(l);
+    // mesma empresa e mesma pessoa já registradas com outra chave (ex.: o LinkedIn da empresa apareceu depois): não duplica
+    const nm = _normNicho(l.title || l.name || ''), ps = _normNicho(pessoa || '');
+    if (ps && (_liRows || []).some(r => r.chave !== k && !r.resultado && _normNicho(r.nome || '') === nm && _normNicho(r.pessoa || '') === ps)) { if (_liFeitos) _liFeitos.add(k); return; }
     const prod = typeof prodAtual === 'function' ? prodAtual() : null;
     const { error } = await supabaseClient.from('abordagens_linkedin').insert({
         user_id: currentUser.id, chave: k, nome: (l.title || l.name || '').slice(0, 200), telefone: String(l.phone || '').replace(/\D/g, '') || null,
@@ -14618,6 +14621,7 @@ function liAquecidosRevisar(lista, aoFechar) {
     lista.forEach(l => {
         const k = liChave(l), d = liDecisoresDe(l)[0];
         const li = prEl('li'), lb = document.createElement('label'); lb.className = 'li-lote-item';
+        if (lista.some(o => o !== l && liChave(o) !== k && lista.indexOf(o) < lista.indexOf(l) && _normNicho(o.title || o.name || '') === _normNicho(l.title || l.name || ''))) return;   // mesma empresa duas vezes
         const cb = document.createElement('input'); cb.type = 'checkbox'; cb.dataset.chave = k;
         cb.onchange = () => { if (cb.checked) marcados.add(k); else marcados.delete(k); contar(); };
         const meio = prEl('div', 'cl-meio'); meio.append(prEl('div', 'cl-nome', (d && d.nome) || l.title || l.name || ''), prEl('div', 'cl-sub', d ? (l.title || l.name || '') : 'empresa'));
@@ -14900,7 +14904,7 @@ function liAbEscolher() {
 // ---- Funil: convites → aceites → respostas → reuniões (e o mesmo período no WhatsApp) ----
 function liFunilDados(rows, dias) {
     const desde = Date.now() - (dias || 30) * LI_DIA_MS;
-    const rs = (rows || []).filter(r => r.criado_em && new Date(r.criado_em).getTime() >= desde);
+    const rs = (rows || []).filter(r => r.criado_em && r.resultado !== 'duplicado' && new Date(r.criado_em).getTime() >= desde);
     const maduros = rs.filter(r => Date.now() - new Date(r.criado_em).getTime() >= 3 * LI_DIA_MS);
     const aceitou = r => liEstado(r).aceito || !!r.resposta || r.resultado === 'respondeu';
     const respondeu = r => !!r.resposta || ['respondeu', 'depois', 'sem_interesse', 'indicou'].includes(r.resultado);
