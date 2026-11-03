@@ -1497,6 +1497,7 @@
 .cx-av { flex:none; width:34px; height:34px; border-radius:50%; color:#fff; font-family:'Inter',sans-serif; font-size:0.72rem; font-weight:800; display:inline-flex; align-items:center; justify-content:center; letter-spacing:0.5px; }
 .cx-trilha { position:relative; }
 .hist-ciclo { font-size:0.72rem; color:var(--muted); background:var(--surface2, #f1f5f9); border-radius:10px; padding:8px 12px; margin:0 0 12px; }
+.ciclo-faixa { position:sticky; top:0; z-index:2000; background:#FEF3C7; color:#92400E; font-size:0.74rem; font-weight:700; padding:8px 14px; text-align:center; }
 .ciclo-lista { list-style:none; padding:0; margin:10px 0; display:flex; flex-direction:column; gap:6px; font-size:0.76rem; }
 .ml-canais { margin-top:6px; }
 .ml-chip-canal.ativo { background:#0D1330; border-color:#0D1330; color:#fff; }
@@ -1943,6 +1944,24 @@ const SUPABASE_URL = 'https://wktvwbmjubiqtbrvnapj.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndrdHZ3Ym1qdWJpcXRicnZuYXBqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3OTMzNDksImV4cCI6MjA4MjM2OTM0OX0.OUqrIyO7VD1wSUTQdFYpEfDV4JxUW8PcFqpkBPbeNCA';
 
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Ciclo novo = "login novo": depois de arquivar, toda leitura de tela só vê o que aconteceu a partir do ciclo.
+// O que protege (quem já recebeu mensagem, convites feitos, Não contatar, sincronização do Pipeline) lê tudo via _sbTodos.
+var CICLO_TABELAS = { leads: 'criado_em', campanhas: 'criada_em', respostas_historico: 'criado_em', fila_followups: 'criado_em', fila_sugestoes: 'criado_em',
+    followups_enviados: 'enviado_em', v_inbox_conversas: 'ultima_em', status_campanha: 'created_at', entregas: 'enviado_em',
+    abordagens_linkedin: 'criado_em', abordagens_instagram: 'criado_em', buscas: 'criado_em', pipeline_leads: 'moved_at' };
+function _cicloFiltroAtivo() { try { return !!cicloInicio() && !userGet('ver_ciclos', false); } catch (e) { return false; } }
+(function () {
+    const orig = supabaseClient.from.bind(supabaseClient);
+    supabaseClient._fromTodos = orig;
+    supabaseClient.from = function (t) {
+        const q = orig(t), col = CICLO_TABELAS[t];
+        if (!col || !q || typeof q.select !== 'function') return q;
+        const sel = q.select.bind(q);
+        q.select = function () { const r = sel.apply(q, arguments); try { if (_cicloFiltroAtivo() && r && typeof r.gte === 'function') return r.gte(col, new Date(cicloInicio()).toISOString()); } catch (e) {} return r; };
+        return q;
+    };
+})();
+function _sbTodos(t) { return supabaseClient._fromTodos ? supabaseClient._fromTodos(t) : supabaseClient.from(t); }
 
 // Envia o login (token do Supabase) nas chamadas ao n8n e à API oficial de leads, para que só quem
 // está logado consiga usá-las (e só com os próprios dados). Um ponto só, para nenhuma chamada ficar
@@ -2115,6 +2134,7 @@ async function aoLogar(user) {
     loginSetMsg('⏳ Carregando seus dados...', 'ok');
     await carregarDoSupabase(user.id);
     campanhas = userGet('campanhas', []); // recarrega em memória o que acabou de vir do blob
+    try { cicloLimparLocal(); } catch (e) {}  // ciclo novo: as listas e a última busca do ciclo anterior saem da frente
     await recuperarCampanhasDaNuvem();     // se o blob veio vazio, tenta recuperar das tabelas reais
     await carregarLeadsEnviadosDaNuvem(); // traz do Supabase quem já foi confirmado como enviado (100% pela conta do usuário)
 
@@ -3273,7 +3293,10 @@ function pkSave() {
     userSet('pk_leads', pkLeads); pkSincronizarParaNuvem();
 }
 // Pipeline separado por produto: cada produto tem o seu funil; "Todos" mostra tudo com a etiqueta
-function pkNaVisao(l) { return typeof prodNaVisao !== 'function' || prodNaVisao(l.produtoId); }
+function pkNaVisao(l) {
+    if (_cicloFiltroAtivo() && (l.movedAt || 0) < cicloInicio() && !['respondeu', 'negociando'].includes(l.col)) return false;
+    return typeof prodNaVisao !== 'function' || prodNaVisao(l.produtoId);
+}
 function pkVisiveis() { return pkLeads.filter(pkNaVisao); }
 
 // Espelha o Pipeline/CRM no Supabase (tabela pipeline_leads), pra não depender só do
@@ -3311,7 +3334,7 @@ async function pkSincronizarParaNuvem() {
         }
 
         // Remove da nuvem os cards que não existem mais localmente (evita "zumbis" após remoção)
-        const { data: existentes } = await supabaseClient.from('pipeline_leads').select('id').eq('user_id', currentUser.id);
+        const { data: existentes } = await _sbTodos('pipeline_leads').select('id').eq('user_id', currentUser.id);
         const idsParaApagar = (existentes || []).map(r => r.id).filter(id => !idsAtuais.includes(id));
         if (idsParaApagar.length) {
             await supabaseClient.from('pipeline_leads').delete().eq('user_id', currentUser.id).in('id', idsParaApagar);
@@ -3335,7 +3358,7 @@ async function pkSincronizarDaNuvem() {
     if (_pkSyncEmAndamento || _pkSyncPendente) return;
     const inicio = Date.now();
     try {
-        const { data, error } = await supabaseClient.from('pipeline_leads').select('*').eq('user_id', currentUser.id);
+        const { data, error } = await _sbTodos('pipeline_leads').select('*').eq('user_id', currentUser.id);
         if (error) throw error;
         if (_pkMudouEm >= inicio || _pkSyncEmAndamento || _pkSyncPendente) return;
         if (Array.isArray(data) && data.length) {
@@ -10947,7 +10970,7 @@ async function histAtualizarRedes(leadsTela) {
 async function _histTodos(tabela, campos) {
     let out = [];
     for (let de = 0; de < 20000; de += 1000) {
-        const { data, error } = await supabaseClient.from(tabela).select(campos).eq('user_id', currentUser.id).range(de, de + 999);
+        const { data, error } = await _sbTodos(tabela).select(campos).eq('user_id', currentUser.id).range(de, de + 999);
         if (error || !data) break;
         out = out.concat(data);
         if (data.length < 1000) break;
@@ -10971,7 +10994,7 @@ async function histCarregar() {
     was.forEach(r => { const k = pkTel(r.phone); if (k) wa[k] = r.is_whatsapp; });
     _histRes = { ld, pk, wa };
     _histBuscasTodas = buscas || [];
-    _histBuscas = userGet('hist_ver_ciclos', false) ? _histBuscasTodas : _histBuscasTodas.filter(b => !cicloArquivado(b.criado_em));
+    _histBuscas = (userGet('ver_ciclos', false) || userGet('hist_ver_ciclos', false)) ? _histBuscasTodas : _histBuscasTodas.filter(b => !cicloArquivado(b.criado_em));
 }
 // Junta as buscas iguais (mesmo nicho e cidade) e calcula o funil de cada grupo
 function histGrupos() {
@@ -12028,8 +12051,7 @@ function _enviadosRecalcular() {
 async function carregarLeadsEnviadosDaNuvem() {
     if (!currentUser) { _telefonesEnviadosCache = new Set(); _telefonesEnviadosCarregado = true; return; }
     try {
-        const data = await prBuscarTudo(() => supabaseClient
-            .from('leads')
+        const data = await prBuscarTudo(() => _sbTodos('leads')
             .select('phone,campanha_id,enviado_em')
             .eq('user_id', currentUser.id)
             .eq('status_envio', 'enviado')
@@ -12228,7 +12250,7 @@ async function carregarMeusLeads() {
 var _mlCanalFiltro = 'todos';
 const ML_CANAIS = [['todos', 'Todos os canais'], ['so_wa', '💬 Só WhatsApp'], ['so_ig', '📸 Só Instagram'], ['so_li', '💼 Só LinkedIn'], ['dois', '✌️ 2 canais'], ['tres', '🏆 Os 3 canais'], ['falta', '➕ Dá para tentar outro canal']];
 var _mlVerCiclos = false;
-function mlNoCiclo(l) { return _mlVerCiclos || !cicloInicio() || l.pipeCol || l.humano || l.respAlgum || !cicloArquivado(l.enviado_em || l.criado_em); }
+function mlNoCiclo(l) { return _mlVerCiclos || !_cicloFiltroAtivo() || !cicloArquivado(l.enviado_em || l.criado_em); }
 function _mlNoCanal(l, f) {
     const c = l.canais || { wa: !!l.enviado };
     switch (f) {
@@ -12298,10 +12320,7 @@ function mlPintarTopo() {
                 b.onclick = () => { _mlCanalFiltro = k; _mlPagina = 1; mlPintarTopo(); filtrarMeusLeads(); };
                 lin.appendChild(b);
             });
-            if (cicloInicio()) {
-                const arq = _meusLeadsCache.filter(l => !(l.pipeCol || l.humano || l.respAlgum) && cicloArquivado(l.enviado_em || l.criado_em)).length;
-                if (arq) { const b = prEl('button', 'ml-chip' + (_mlVerCiclos ? ' ativo' : ''), `🗄️ Ciclos anteriores ${arq}`); b.type = 'button'; b.onclick = () => { _mlVerCiclos = !_mlVerCiclos; _mlPagina = 1; mlPintarTopo(); filtrarMeusLeads(); }; lin.appendChild(b); }
-            }
+            if (cicloInicio()) { const b = prEl('button', 'ml-chip' + (userGet('ver_ciclos', false) ? ' ativo' : ''), '🗄️ Ciclos anteriores'); b.type = 'button'; b.onclick = () => cicloVerAnteriores(!userGet('ver_ciclos', false)); lin.appendChild(b); }
         }
     }
     const sel = document.getElementById('ml-camp');
@@ -13421,7 +13440,7 @@ async function igCarregarFeitos(forcar) {
     _igFeitos = new Set(); _igHoje = 0;
     if (!currentUser) return _igFeitos;
     try {
-        const { data } = await supabaseClient.from('abordagens_instagram').select('chave,criado_em').eq('user_id', currentUser.id).order('criado_em', { ascending: false }).limit(5000);
+        const { data } = await _sbTodos('abordagens_instagram').select('chave,criado_em').eq('user_id', currentUser.id).order('criado_em', { ascending: false }).limit(5000);
         const ini = new Date(); ini.setHours(0, 0, 0, 0);
         (data || []).forEach(r => { _igFeitos.add(r.chave); if (new Date(r.criado_em) >= ini) _igHoje++; });
     } catch (e) {}
@@ -13752,7 +13771,7 @@ async function liCarregarFeitos(forcar) {
     _liFeitos = new Set(); _liHoje = 0; _liSemana = 0;
     if (!currentUser) return _liFeitos;
     try {
-        const { data } = await supabaseClient.from('abordagens_linkedin').select('chave,criado_em').eq('user_id', currentUser.id).order('criado_em', { ascending: false }).limit(5000);
+        const { data } = await _sbTodos('abordagens_linkedin').select('chave,criado_em').eq('user_id', currentUser.id).order('criado_em', { ascending: false }).limit(5000);
         const ini = new Date(); ini.setHours(0, 0, 0, 0);
         const sem = Date.now() - 7 * 86400000;
         (data || []).forEach(r => { _liFeitos.add(r.chave); const t = new Date(r.criado_em); if (t >= ini) _liHoje++; if (t.getTime() >= sem) _liSemana++; });
@@ -14533,7 +14552,7 @@ async function waEstadoCarregar(forcar) {
     const m = { _em: Date.now() };
     if (currentUser) {
         try {
-            const rows = await prBuscarTudo(() => supabaseClient.from('leads').select('phone,enviado_em,respondeu').eq('user_id', currentUser.id).not('enviado_em', 'is', null).order('id'));
+            const rows = await prBuscarTudo(() => _sbTodos('leads').select('phone,enviado_em,respondeu').eq('user_id', currentUser.id).not('enviado_em', 'is', null).order('id'));
             rows.forEach(r => {
                 const k = pkTel(r.phone); if (!k) return;
                 const e = m[k] || (m[k] = { enviado: 0, respondeu: false });
@@ -14901,15 +14920,27 @@ function canalBadges(aba, buscas) {
 // o Pipeline e as cadências em andamento continuam. Só sai da frente: Histórico, filas do Instagram/LinkedIn e Meus Leads.
 var _histBuscasTodas = [];
 function cicloInicio() { return Number(userGet('ciclo_inicio', 0)) || 0; }
+// O que fica guardado no aparelho (listas de campanha, última busca, buscas recentes) também vira "login novo".
+// Nada é apagado: vai para chaves *_arquivadas.
+function cicloLimparLocal() {
+    const c = cicloInicio(); if (!c || userGet('ciclo_local_feito', 0) === c) return;
+    const velha = x => { const n = Number(x && x.id); return !(n > 1e12 && n >= c); };
+    const camps = userGet('campanhas', []) || [];
+    const arq = camps.filter(velha), fica = camps.filter(x => !velha(x));
+    if (arq.length) { userSet('campanhas_arquivadas', (userGet('campanhas_arquivadas', []) || []).concat(arq).slice(-300)); userSet('campanhas', fica); campanhas = fica; }
+    const u = userGet('ultimosLeads', null); if (u) { userSet('ultimosLeads_arquivado', u); userSet('ultimosLeads', null); }
+    const sh = userGet('searchHistory', []) || []; if (sh.length) { userSet('searchHistory_arquivado', sh); userSet('searchHistory', sh.filter(x => Number(x.id) >= c)); }
+    userSet('campanhaAtiva', null);
+    userSet('ciclo_local_feito', c);
+}
+function cicloVerAnteriores(ver) { userSet('ver_ciclos', !!ver); userSet('hist_ver_ciclos', !!ver); showToast(ver ? '👀 Mostrando os ciclos anteriores' : '🆕 De volta ao ciclo atual', 'ok'); setTimeout(() => location.reload(), 400); }
 function cicloArquivado(quando) { const c = cicloInicio(); if (!c || !quando) return false; const t = typeof quando === 'number' ? quando : new Date(quando).getTime(); return !isNaN(t) && t < c; }
 function histPintarCiclo(lista) {
     if (!cicloInicio() || !lista) return;
-    const ant = (_histBuscasTodas || []).filter(b => cicloArquivado(b.criado_em)).length;
-    if (!ant) return;
-    const ver = !!userGet('hist_ver_ciclos', false);
-    const d = prEl('div', 'hist-ciclo', `${ver ? '👀 Mostrando também o ciclo anterior' : '🗄️ Ciclo anterior arquivado em ' + new Date(cicloInicio()).toLocaleDateString('pt-BR')} · ${ant} busca${ant === 1 ? '' : 's'}. `);
-    const b = prEl('button', 'ig-link', ver ? 'esconder' : 'ver'); b.type = 'button';
-    b.onclick = () => { userSet('hist_ver_ciclos', !ver); _histBuscas = !ver ? _histBuscasTodas : _histBuscasTodas.filter(x => !cicloArquivado(x.criado_em)); histPintar(); };
+    const ver = !!userGet('ver_ciclos', false);
+    const d = prEl('div', 'hist-ciclo', ver ? '👀 Mostrando também os ciclos anteriores. ' : '🆕 Ciclo novo desde ' + new Date(cicloInicio()).toLocaleDateString('pt-BR') + '. ');
+    const b = prEl('button', 'ig-link', ver ? 'voltar ao ciclo atual' : 'ver ciclos anteriores'); b.type = 'button';
+    b.onclick = () => cicloVerAnteriores(!ver);
     d.appendChild(b); lista.appendChild(d);
 }
 // "Tela limpa": pula follow-ups pendentes, encerra cadências do Instagram/LinkedIn e tira do Pipeline o que não anda
@@ -14957,7 +14988,7 @@ async function cicloArquivarAbrir() {
     [['✅', 'Fica: quem já recebeu mensagem continua marcado e não recebe de novo nas buscas novas'],
      ['✅', 'Fica: Não contatar, Pipeline, Respostas e o que o app aprendeu (score, teste A/B)'],
      ['✅', 'Fica: as cadências em andamento (follow-ups, quem aceitou no LinkedIn) terminam normalmente'],
-     ['🗄️', 'Sai da frente: as buscas do Histórico, as filas do Instagram e do LinkedIn e Meus Leads (dá para ver de novo quando quiser)']]
+     ['🆕', 'Como um login novo: Painel, Campanhas, Respostas, Inbox, Pipeline, Meus Leads, Histórico e as abas do Instagram e do LinkedIn começam zerados (dá para ver os ciclos anteriores quando quiser)']]
         .forEach(([ic, t]) => ul.appendChild(prEl('li', '', ic + ' ' + t)));
     m.appendChild(ul);
     if (faltam) m.appendChild(prEl('div', 'ig-aviso', `⚠️ Ainda faltam ${faltam} empresas deste ciclo que nunca receberam nada. Se arquivar agora, elas saem das filas. O ideal é arquivar quando zerar.`));
@@ -14976,7 +15007,8 @@ async function cicloArquivarAbrir() {
         const ciclos = userGet('ciclos', []) || [];
         ciclos.push({ inicio: Number(userGet('ciclo_atual_inicio', 0)) || null, fim: agora, nichos: grupos.map(g => g.titulo).slice(0, 50), empresas, responderam: resp, faltavam: faltam });
         userSet('ciclos', ciclos.slice(-20));
-        userSet('ciclo_inicio', agora); userSet('ciclo_atual_inicio', agora); userSet('hist_ver_ciclos', false);
+        userSet('ciclo_inicio', agora); userSet('ciclo_atual_inicio', agora); userSet('hist_ver_ciclos', false); userSet('ver_ciclos', false);
+        try { cicloLimparLocal(); todosLeads = []; _leadsBase = []; } catch (e) {}
         _canalBuscas = null; _mlVerCiclos = false;
         fechar();
         showToast('🗄️ Ciclo arquivado' + (zerado ? ` e zerado (${zerado.fu} follow-ups, ${zerado.cad} cadências, ${zerado.pk} cards)` : '') + '. Faça as buscas dos nichos novos: quem já recebeu mensagem aparece marcado e não recebe de novo.', 'ok');
@@ -14984,6 +15016,13 @@ async function cicloArquivarAbrir() {
     };
     acoes.append(canc, ok); m.appendChild(acoes);
 }
+function cicloFaixa() {
+    if (!cicloInicio() || !userGet('ver_ciclos', false) || document.getElementById('ciclo-faixa')) return;
+    const f = prEl('div', 'ciclo-faixa', '👀 Você está vendo os ciclos anteriores. '); f.id = 'ciclo-faixa';
+    const b = prEl('button', 'ig-link', 'Voltar ao ciclo atual'); b.type = 'button'; b.onclick = () => cicloVerAnteriores(false);
+    f.appendChild(b); document.body.prepend(f);
+}
+setInterval(() => { try { if (typeof currentUser !== 'undefined' && currentUser) cicloFaixa(); } catch (e) {} }, 3000);
 // ---- Aceitou? Procura pelo nome e marca na hora (sem esperar os 2 dias do lote) ----
 function liAceitouBusca(aoFechar) {
     const s = prEl('section', 'ph-card li-aceitou-busca');

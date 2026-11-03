@@ -2269,7 +2269,7 @@ test('Meus Leads por canal (só WhatsApp, só Instagram, 2 canais, dá para tent
   } finally { await a.fechar(); }
 });
 
-test('Arquivar ciclo: buscas antigas saem do Histórico, das filas e de Meus Leads; quem respondeu e o "já enviado" continuam', async () => {
+test('Arquivar ciclo: buscas antigas saem do Histórico, das filas e de Meus Leads; o "já enviado" continua', async () => {
   const dias = d => new Date(Date.now() - d * 86400000).toISOString();
   const a = await abrirApp({ largura: 390, db: {
     buscas: [{ id: 1, user_id: 'u1', nicho: 'Contabilidade', local: 'Guarulhos', criado_em: dias(10), leads: [{ title: 'Alfa', phone: '5511999990001', instagram: 'https://www.instagram.com/alfa/' }, { title: 'Delta', phone: '5511999990004' }] }],
@@ -2294,7 +2294,7 @@ test('Arquivar ciclo: buscas antigas saem do Histórico, das filas e de Meus Lea
     assert.deepStrictEqual(r.antes, { grupos: 1, filas: 1 });
     assert.match(r.aviso, /Ainda faltam 1 empresas deste ciclo/);
     assert.strictEqual(r.grupos, 0); assert.strictEqual(r.filas, 0);
-    assert.deepStrictEqual(r.meus, ['Beta'], 'quem respondeu continua; quem não respondeu do ciclo antigo sai da frente');
+    assert.deepStrictEqual(r.meus, [], 'ciclo novo é como login novo: Meus Leads começa vazio (dá para ver os anteriores)');
     assert.strictEqual(r.jaEnviado, true, 'quem já recebeu continua marcado');
     assert.strictEqual(r.ciclos, 1);
     assert.deepStrictEqual(a.errosReais(), []);
@@ -2333,6 +2333,53 @@ test('Arquivar ciclo com "zerar o que está em andamento": pula follow-ups, ence
     assert.deepStrictEqual(r.li, ['k1:-', 'k2:respondeu'], 'arquivado e depois aceitou: volta; quem respondeu fica como está');
     assert.strictEqual(r.ig, 'arquivado');
     assert.strictEqual(pedidos.length, 1); assert.strictEqual(pedidos[0].acao, 'pular');
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('Ciclo novo é como um login novo: as telas só leem o que veio depois do arquivamento, mas quem já recebeu mensagem continua protegido', async () => {
+  const dias = d => new Date(Date.now() - d * 86400000).toISOString();
+  const a = await abrirApp({ largura: 390, db: {
+    leads: [
+      { user_id: 'u1', phone: '5511999990001', title: 'Antiga', status_envio: 'enviado', enviado_em: dias(10), criado_em: dias(10), respondeu: true },
+      { user_id: 'u1', phone: '5511999990002', title: 'Nova', status_envio: 'enviado', enviado_em: dias(0), criado_em: new Date().toISOString(), respondeu: false }],
+    respostas_historico: [{ user_id: 'u1', phone: '5511999990001', mensagem: 'velha', criado_em: dias(10) }],
+  } });
+  try {
+    const r = await a.pagina.evaluate(async () => {
+      window._fakeGte = true;
+      userSet('ciclo_inicio', Date.now() - 3600000);
+      const tela = (await supabaseClient.from('leads').select('title').eq('user_id', 'u1')).data.map(x => x.title);
+      const hist = (await supabaseClient.from('respostas_historico').select('mensagem').eq('user_id', 'u1')).data.length;
+      await carregarLeadsEnviadosDaNuvem();
+      const protegido = leadJaFoiEnviado('5511999990001');
+      pkLeads = [{ id: 1, name: 'Ganho antigo', col: 'fechado', movedAt: Date.now() - 20 * 86400000 }, { id: 2, name: 'Conversa ativa', col: 'respondeu', movedAt: Date.now() - 5 * 86400000 }, { id: 3, name: 'Novo card', col: 'contatado', movedAt: Date.now() }];
+      const pipe = pkVisiveis().map(k => k.name);
+      userSet('ver_ciclos', true);
+      const tudo = (await supabaseClient.from('leads').select('title').eq('user_id', 'u1')).data.length;
+      return { tela, hist, protegido, pipe, tudo };
+    });
+    assert.deepStrictEqual(r.tela, ['Nova']); assert.strictEqual(r.hist, 0);
+    assert.strictEqual(r.protegido, true, 'quem recebeu no ciclo antigo continua marcado');
+    assert.deepStrictEqual(r.pipe, ['Conversa ativa', 'Novo card']);
+    assert.strictEqual(r.tudo, 2, '"ver ciclos anteriores" mostra tudo de novo');
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
+
+test('Ciclo novo também limpa o que fica no aparelho: listas de campanha e a última busca (guardadas como arquivadas)', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(() => {
+      const c = Date.now() - 1000;
+      userSet('campanhas', [{ id: c - 5 * 86400000, nome: 'Velha' }, { id: c + 500, nome: 'Nova' }]);
+      userSet('ultimosLeads', { nicho: 'x', leads: [{ title: 'A' }] });
+      userSet('ciclo_inicio', c);
+      cicloLimparLocal();
+      return { camps: (userGet('campanhas', []) || []).map(x => x.nome), arq: (userGet('campanhas_arquivadas', []) || []).map(x => x.nome), ult: userGet('ultimosLeads', null), ultArq: !!userGet('ultimosLeads_arquivado', null) };
+    });
+    assert.deepStrictEqual(r.camps, ['Nova']); assert.deepStrictEqual(r.arq, ['Velha']);
+    assert.strictEqual(r.ult, null); assert.strictEqual(r.ultArq, true);
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });

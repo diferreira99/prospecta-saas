@@ -11,7 +11,7 @@ function supabaseFalso(db, rpcs) {
 window.supabase = { createClient: () => {
   function Q(t) { const st = { t, f: [], op: 'select', vals: null, head: false };
     const q = {
-      select(_c, o){ if (o && o.head) st.head = true; return q }, order(){ return q }, limit(){ return q }, range(){ return q }, gte(){ return q }, lte(){ return q }, neq(){ return q }, ilike(){ return q },
+      select(_c, o){ if (o && o.head) st.head = true; return q }, order(){ return q }, limit(){ return q }, range(){ return q }, gte(k, v){ if (window._fakeGte) st.f.push(r => r[k] == null || String(r[k]) >= String(v)); return q }, lte(){ return q }, neq(){ return q }, ilike(){ return q },
       not(k, op, v){ if (op === 'is' && v === null) st.f.push(r => r[k] !== null && r[k] !== undefined); return q },
       eq(k, v){ st.f.push(r => r[k] === v); return q }, in(k, vs){ st.f.push(r => vs.includes(r[k])); return q },
       insert(v){ st.op = 'insert'; st.vals = Array.isArray(v) ? v : [v]; return q }, update(v){ st.op = 'update'; st.vals = v; return q },
