@@ -2383,3 +2383,59 @@ test('Ciclo novo também limpa o que fica no aparelho: listas de campanha e a ú
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('Ciclo novo: nenhuma das 12 abas mostra nada do ciclo arquivado (auditoria aba por aba)', async () => {
+  const D = d => new Date(Date.now() - d * 86400000).toISOString();
+  const br = d => { const x = new Date(Date.now() - d * 86400000); const p = n => String(n).padStart(2, '0'); return `${p(x.getDate())}/${p(x.getMonth() + 1)}/${x.getFullYear()}, ${p(x.getHours())}:${p(x.getMinutes())}:00`; };
+  const ciclo = Date.now() - 3600000;
+  const db = {
+    leads: Array.from({ length: 6 }, (_, i) => ({ user_id: 'u1', phone: '551199999000' + i, title: 'ANTIGA Lead ' + i, campanha_id: 'c1', status_envio: 'enviado', enviado_em: D(10), criado_em: D(10), respondeu: i < 3, resposta_texto: 'ANTIGA resposta', respondido_em: D(9) })),
+    campanhas: [{ id: 'c1', user_id: 'u1', nome: 'ANTIGA Campanha', nicho: 'Contabilidade', local: 'Guarulhos', criada_em: D(10) }],
+    respostas_historico: [{ user_id: 'u1', phone: '5511999990000', lead_nome: 'ANTIGA Lead 0', direcao: 'recebida', mensagem: 'ANTIGA msg', criado_em: D(9) }],
+    fila_sugestoes: [{ id: 's1', user_id: 'u1', phone: '5511999990000', lead_nome: 'ANTIGA Lead 0', mensagem_recebida: 'ANTIGA pergunta', sugestao_ia: 'x', status: 'pendente', classificacao: 'quente', criado_em: D(9) },
+                     { id: 's2', user_id: 'u1', phone: '5511999990001', lead_nome: 'ANTIGA Lead 1', mensagem_recebida: 'ANTIGA ok', status: 'enviado', classificacao: 'duvida', criado_em: D(9), respondido_em: D(9) }],
+    fila_followups: [{ id: 'f1', user_id: 'u1', phone: '5511999990003', lead_nome: 'ANTIGA Lead 3', status: 'pendente', dia_etapa: 3, mensagem: 'ANTIGA fu', criado_em: D(7) }],
+    followups_enviados: [{ user_id: 'u1', phone: '5511999990004', dia_etapa: 3, enviado_em: D(7) }],
+    pipeline_leads: [{ id: 'p1', user_id: 'u1', name: 'ANTIGA Card', phone: '5511999990000', col: 'fechado', valor: 1000, fechado_em: D(9), moved_at: D(9) }],
+    abordagens_linkedin: [{ user_id: 'u1', chave: 'k1', nome: 'ANTIGA LI', pessoa: 'ANTIGA Pessoa', criado_em: D(5), etapa: 0, resultado: 'arquivado' }],
+    abordagens_instagram: [{ user_id: 'u1', chave: 'ig1', nome: 'ANTIGA IG', instagram: 'https://www.instagram.com/antiga/', criado_em: D(5), resultado: 'arquivado' }],
+    buscas: [{ id: 1, user_id: 'u1', nicho: 'ANTIGA Busca', local: 'Guarulhos', criado_em: D(10), leads: [{ title: 'ANTIGA Empresa', phone: '5511999990009', instagram: 'https://www.instagram.com/antigaemp/', decisores: [{ nome: 'ANTIGA Dono' }] }] }],
+    v_inbox_conversas: [{ user_id: 'u1', phone: '5511999990000', nome: 'ANTIGA Lead 0', ultima_mensagem: 'ANTIGA oi', ultima_em: D(9) }],
+    nao_contatar: [],
+  };
+  const local = {
+    ciclo_inicio: ciclo,
+    pk_leads: [{ id: 1, name: 'ANTIGA Pipeline', col: 'descartado', motivoPerda: 'arquivado', movedAt: ciclo - 60000 }, { id: 2, name: 'ANTIGA Ganho', col: 'fechado', movedAt: ciclo - 9 * 86400000, valor: 500 }],
+    campanhas: [{ id: ciclo - 9 * 86400000, nome: 'ANTIGA Lista', leads: [{ title: 'ANTIGA x', phone: '5511999990008' }] }],
+    ultimosLeads: { nicho: 'ANTIGA', local: 'X', leads: [{ title: 'ANTIGA Ultima', phone: '5511999990007' }] },
+    searchHistory: [{ id: ciclo - 9 * 86400000, nicho: 'ANTIGA Hist', local: 'X', total: 5 }],
+    li_decisores_extra: [{ title: 'ANTIGA Extra', origem: 'busca LinkedIn', em: ciclo - 86400000, decisores: [{ nome: 'ANTIGA Decisor' }], linkedin: 'https://www.linkedin.com/in/antiga/' }],
+    pendencias: [],
+  };
+  const a = await abrirApp({ largura: 390, db,
+    rotas: [[/status-campanha/, () => ({ rows: [{ campanhaId: 'c1', status: 'enviado', lead: 'ANTIGA Lead 0', data: br(10) }, { campanhaId: 'c1', status: 'enviado', lead: 'ANTIGA Lead 1', data: br(10) }] })]],
+    antes: `window._fakeGte = true; const L = ${JSON.stringify(local)}; Object.keys(L).forEach(k => { try { localStorage.setItem('teste@x.com__' + k, JSON.stringify(L[k])); } catch (e) {} });` });
+  await a.pagina.evaluate(() => { try { cicloLimparLocal(); todosLeads = []; _leadsBase = []; pkLoad(); campanhas = userGet('campanhas', []); } catch (e) { console.log(e); } });
+  const abas = ['metricas', 'plano', 'prospeccao', 'ia', 'insta', 'linkedin', 'campanhas', 'respostas', 'inbox', 'pipeline', 'historico', 'meusleads'];
+  const vazou = {};
+  try {
+  for (const aba of abas) {
+    await a.pagina.evaluate(async (aba) => {
+      const b = document.querySelector(`.nav-item[onclick*="'${aba}'"]`);
+      try { trocarAba(aba, b); } catch (e) {}
+      try { if (aba === 'metricas') await carregarMetricas(); } catch (e) {}
+      try { if (aba === 'meusleads') await carregarMeusLeads(); } catch (e) {}
+      try { if (aba === 'historico') { await histCarregar(); histPintar(); } } catch (e) {}
+    }, aba);
+    await a.pagina.waitForTimeout(1800);
+    if (aba === 'insta' || aba === 'linkedin') {
+      // abre todas as abinhas
+      await a.pagina.evaluate(aba => document.querySelectorAll(`#canal-${aba} .canal-sub-painel`).forEach(p => p.hidden = false), aba);
+    }
+    const r = await a.pagina.evaluate(aba => { const t = document.getElementById('tab-' + aba); const txt = t ? t.innerText : ''; const linhas = txt.split('\n').filter(l => /ANTIGA/.test(l)); return { linhas: [...new Set(linhas)].slice(0, 12), nums: (txt.match(/\b[1-9]\d*\b/g) || []).length }; }, aba);
+    vazou[aba] = r.linhas;
+  }
+    for (const [aba, linhas] of Object.entries(vazou)) assert.deepStrictEqual(linhas, [], 'a aba ' + aba + ' ainda mostra coisa do ciclo anterior');
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});

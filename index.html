@@ -14204,7 +14204,7 @@ function liPlacar(box, feitos) {
     const maduros = (feitos || []).filter(r => new Date(r.criado_em).getTime() <= tres);
     const ac = liAceitos();
     const aceitaram = maduros.filter(r => ac[r.chave] || r.resultado === 'respondeu').length;
-    let reunioes = 0; try { reunioes = (pkLeads || []).filter(k => k.canal === 'linkedin' && (k.reuniaoEm || ['negociando', 'fechado'].includes(k.col))).length; } catch (e) {}
+    let reunioes = 0; try { reunioes = pkVisiveis().filter(k => k.canal === 'linkedin' && (k.reuniaoEm || ['negociando', 'fechado'].includes(k.col))).length; } catch (e) {}
     const lim = liLimiteSemana();
     const p = prEl('div', 'li-placar');
     const n = (v, rot, cls) => { const d = prEl('div', 'canal-num' + (cls ? ' ' + cls : '')); d.append(prEl('b', '', v), prEl('span', '', rot)); p.appendChild(d); };
@@ -14217,7 +14217,7 @@ function liPlacar(box, feitos) {
 function liDecisoresDia(buscas, feitos) {
     const porChave = {}; (feitos || []).forEach(r => { if (!porChave[r.chave]) porChave[r.chave] = r; });
     const ac = liAceitos(), adiar = userGet('li_aceito_adiar', {}) || {}, segundo = userGet('li_segundo', {}) || {};
-    const fontes = [(_leadsBase && _leadsBase.length) ? _leadsBase : (todosLeads || [])].concat((buscas || []).map(b => b.leads || [])).concat([userGet('li_decisores_extra', []) || []]);
+    const fontes = [(_leadsBase && _leadsBase.length) ? _leadsBase : (todosLeads || [])].concat((buscas || []).map(b => b.leads || [])).concat([(userGet('li_decisores_extra', []) || []).filter(l => !(l && l.em && _cicloFiltroAtivo() && cicloArquivado(l.em)))]);
     const vistos = new Set(), out = [];
     fontes.forEach(ls => (ls || []).forEach(l => {
         if (!l) return;
@@ -14300,7 +14300,7 @@ function canalDesenhar(aba, buscas, feitos) {
     const lim = c.limite(), hoje = c.hoje();
     // respostas: cards do Pipeline que vieram por este canal e andaram
     try { if (typeof pkLoad === 'function' && !pkLeads.length) pkLoad(); } catch (e) {}
-    const doCanal = (pkLeads || []).filter(k => k.canal === c.canal);
+    const doCanal = pkVisiveis().filter(k => k.canal === c.canal);
     const marcados = feitos.filter(r => r.resultado === 'respondeu').length;
     const responderam = Math.max(marcados, doCanal.filter(k => ['respondeu', 'negociando', 'fechado'].includes(k.col)).length);
     const retomar = aba === 'linkedin' ? [] : canalParaRetomar(feitos).filter(r => !emCampanha.has(r.chave));   // LinkedIn: "Quem aceitou?" em lote
@@ -15367,7 +15367,7 @@ function liFunilDados(rows, dias) {
     const respondeu = r => !!r.resposta || ['respondeu', 'depois', 'sem_interesse', 'indicou'].includes(r.resultado);
     const nomes = new Set(rs.map(r => String(r.nome || '').toLowerCase().trim()).filter(Boolean));
     let reunioes = 0;
-    try { reunioes = (pkLeads || []).filter(k => nomes.has(String(k.name || '').toLowerCase().trim()) && (k.reuniaoEm || ['negociando', 'fechado'].includes(k.col))).length; } catch (e) {}
+    try { reunioes = pkVisiveis().filter(k => nomes.has(String(k.name || '').toLowerCase().trim()) && (k.reuniaoEm || ['negociando', 'fechado'].includes(k.col))).length; } catch (e) {}
     return { dias: dias || 30, convites: rs.length, maduros: maduros.length, aceitosMaduros: maduros.filter(aceitou).length, aceitos: rs.filter(aceitou).length, respostas: rs.filter(respondeu).length, reunioes, ab: liAbStats(rows) };
 }
 function liFunilEl(rows, wa) {
@@ -15826,7 +15826,7 @@ function pkBlocoIndicacao(lead) {
 }
 function pkIndicacaoPendentes() {
     try { pkLoad(); } catch (e) {}
-    return (pkLeads || []).filter(k => k.col === 'fechado' && !k.indicacaoPedidaEm && (k.fechadoEm || k.movedAt || 0) && Date.now() - (k.fechadoEm || k.movedAt) >= 7 * LI_DIA_MS);
+    return pkVisiveis().filter(k => k.col === 'fechado' && !k.indicacaoPedidaEm && (k.fechadoEm || k.movedAt || 0) && Date.now() - (k.fechadoEm || k.movedAt) >= 7 * LI_DIA_MS);
 }
 async function pkIndicacao(id) {
     pkLoad();
@@ -15913,7 +15913,7 @@ function igFunilEl(rows) {
     const rs = (rows || []).filter(r => r.criado_em && new Date(r.criado_em).getTime() >= desde);
     const resp = rs.filter(igRespondeu).length;
     const nomes = new Set(rs.map(r => String(r.nome || '').toLowerCase().trim()).filter(Boolean));
-    let reun = 0; try { reun = (pkLeads || []).filter(k => nomes.has(String(k.name || '').toLowerCase().trim()) && (k.reuniaoEm || ['negociando', 'fechado'].includes(k.col))).length; } catch (e) {}
+    let reun = 0; try { reun = pkVisiveis().filter(k => nomes.has(String(k.name || '').toLowerCase().trim()) && (k.reuniaoEm || ['negociando', 'fechado'].includes(k.col))).length; } catch (e) {}
     const s = prEl('div', 'li-funil');
     const passos = prEl('div', 'li-funil-passos ig-funil-passos');
     const passo = (v, rot, pct) => { const x = prEl('div', 'li-funil-p'); x.append(prEl('b', '', String(v)), prEl('span', '', rot)); if (pct) x.appendChild(prEl('em', '', pct)); passos.appendChild(x); };
@@ -20261,8 +20261,19 @@ async function prCarregar() {
             };
         } catch (e) { console.warn('Consultor (canais):', e && e.message); }
         _prDados = { leads, campanhas, interesses, pipeline, followups, canais };
+        // A inteligência (onde prospectar e teste A/B) aprende com todos os ciclos, mesmo depois de arquivar
+        let dadosIntel = _prDados;
+        if (_cicloFiltroAtivo()) {
+            try {
+                const [lt, ct] = await Promise.all([
+                    prBuscarTudo(() => _sbTodos('leads').select('campanha_id,phone,enviado_em,respondeu,resposta_suspeita_bot,opt_out,variante_ab,gatilho_cta').eq('user_id', uid).not('enviado_em', 'is', null).order('id')).then(r => prodFiltrar(r)),
+                    prBuscarTudo(() => _sbTodos('campanhas').select('id,nome,nicho,local,sequencia').eq('user_id', uid).order('id')),
+                ]);
+                dadosIntel = Object.assign({}, _prDados, { leads: lt, campanhas: ct });
+            } catch (e) {}
+        }
         const partes = [consDesenhar, prDesenharFunil, prDesenharQuentes, prDesenharNichos, prDesenharAB, prDesenharParado];
-        partes.forEach(f => { try { f(_prDados); } catch (e) { console.warn('Painel (' + f.name + '):', e && e.message); } });
+        partes.forEach(f => { try { f(f === prDesenharNichos || f === prDesenharAB ? dadosIntel : _prDados); } catch (e) { console.warn('Painel (' + f.name + '):', e && e.message); } });
         if (_prRankingArgs) _renderRankingCampanhas(_prRankingArgs[0], _prRankingArgs[1]);
     } catch (e) {
         console.warn('Painel: não consegui carregar os resultados:', e && e.message);
@@ -22733,7 +22744,9 @@ async function carregarMetricas() {
         if (!resp.ok) throw new Error('Erro ao buscar métricas: ' + resp.status);
         const data = await resp.json();
 
-        const rows = Array.isArray(data.rows) ? data.rows : (Array.isArray(data) ? data : []);
+        let rows = Array.isArray(data.rows) ? data.rows : (Array.isArray(data) ? data : []);
+        // ciclo novo: os envios de antes do arquivamento não entram nos números da tela
+        if (_cicloFiltroAtivo()) rows = rows.filter(r => { const d = phDataSP(r.data) || (r.created_at ? new Date(r.created_at) : null); return !d || d.getTime() >= cicloInicio(); });
         _mcTodasLinhas = rows;
 
         // Monta porCampanha com todas as linhas
