@@ -2134,7 +2134,7 @@ async function aoLogar(user) {
     loginSetMsg('⏳ Carregando seus dados...', 'ok');
     await carregarDoSupabase(user.id);
     campanhas = userGet('campanhas', []); // recarrega em memória o que acabou de vir do blob
-    try { cicloLimparLocal(); } catch (e) {}  // ciclo novo: as listas e a última busca do ciclo anterior saem da frente
+    try { await cicloCarregarServidor(); cicloLimparLocal(); } catch (e) {}  // ciclo novo: as listas e a última busca do ciclo anterior saem da frente
     await recuperarCampanhasDaNuvem();     // se o blob veio vazio, tenta recuperar das tabelas reais
     await carregarLeadsEnviadosDaNuvem(); // traz do Supabase quem já foi confirmado como enviado (100% pela conta do usuário)
 
@@ -7152,6 +7152,7 @@ function userSet(key, val) {
 }
 
 // Salva todos os dados do usuário no Supabase (protegido por RLS — só o próprio usuário acessa)
+var _dadosVersao = null;   // updated_at do pacote na nuvem quando este aparelho leu/salvou por último
 async function sincronizarParaServidor() {
     const email = localStorage.getItem('prospectaEmail');
     if (!email || !currentUser) return;
@@ -7168,6 +7169,19 @@ async function sincronizarParaServidor() {
         }
     }
 
+    // Outro aparelho salvou depois da última vez que este leu? Junta o que só existe lá, em vez de apagar
+    // (antes, um aparelho com dados velhos sobrescrevia o pacote inteiro e sumia com o que o outro tinha feito).
+    try {
+        const { data: v } = await supabaseClient.from('user_data').select('updated_at').eq('user_id', currentUser.id).maybeSingle();
+        if (v && v.updated_at && (!_dadosVersao || new Date(v.updated_at) > new Date(_dadosVersao))) {
+            const { data: nuv } = await supabaseClient.from('user_data').select('dados,updated_at').eq('user_id', currentUser.id).maybeSingle();
+            Object.entries((nuv && nuv.dados) || {}).forEach(([k, val]) => {
+                if (k === 'prospectaConfig' || k in dados) return;
+                dados[k] = val;
+                try { localStorage.setItem(prefixo + k, JSON.stringify(val)); } catch (e) {}
+            });
+        }
+    } catch (e) {}
     // Chaves e token ficam só em user_config (protegido); não vão no pacote geral
     if (dados.prospectaConfig && typeof dados.prospectaConfig === 'object') {
         const c = JSON.parse(JSON.stringify(dados.prospectaConfig));
@@ -7177,11 +7191,13 @@ async function sincronizarParaServidor() {
         dados.prospectaConfig = c;
     }
     try {
+        const agoraIso = new Date().toISOString();
         await supabaseClient.from('user_data').upsert({
             user_id: currentUser.id,
             dados,
-            updated_at: new Date().toISOString()
+            updated_at: agoraIso
         });
+        _dadosVersao = agoraIso;
     } catch(e) {
         // Silencioso — dados já estão no localStorage local, tenta de novo no próximo save
     }
@@ -7192,9 +7208,10 @@ async function carregarDoSupabase(userId) {
     try {
         const { data, error } = await supabaseClient
             .from('user_data')
-            .select('dados')
+            .select('dados,updated_at')
             .eq('user_id', userId)
             .maybeSingle();
+        if (!error && data && data.updated_at) _dadosVersao = data.updated_at;
 
         if (!error && data && data.dados) {
             const email = localStorage.getItem('prospectaEmail');
@@ -14919,7 +14936,23 @@ function canalBadges(aba, buscas) {
 // Nada é apagado: quem já recebeu mensagem continua marcado (não recebe de novo), o Não contatar continua valendo,
 // o Pipeline e as cadências em andamento continuam. Só sai da frente: Histórico, filas do Instagram/LinkedIn e Meus Leads.
 var _histBuscasTodas = [];
-function cicloInicio() { return Number(userGet('ciclo_inicio', 0)) || 0; }
+// O início do ciclo fica numa tabela própria (ciclos_usuario): o pacote de dados do aparelho é "último que salva ganha",
+// e um aparelho com dados velhos apagava o arquivamento. A tabela é a fonte da verdade; o aparelho só guarda cópia.
+var _cicloSrv = 0;
+function cicloInicio() { return Math.max(Number(userGet('ciclo_inicio', 0)) || 0, _cicloSrv || 0); }
+async function cicloCarregarServidor() {
+    if (!currentUser) return 0;
+    try {
+        const { data } = await _sbTodos('ciclos_usuario').select('inicio').eq('user_id', currentUser.id).maybeSingle();
+        const v = Number(data && data.inicio) || 0;
+        if (v) { _cicloSrv = v; if ((Number(userGet('ciclo_inicio', 0)) || 0) < v) { try { localStorage.setItem(userKey('ciclo_inicio'), JSON.stringify(v)); } catch (e) {} } }
+    } catch (e) {}
+    return _cicloSrv;
+}
+async function cicloSalvarServidor(v) {
+    _cicloSrv = v;
+    try { await _sbTodos('ciclos_usuario').upsert({ user_id: currentUser.id, inicio: v, atualizado_em: new Date().toISOString() }, { onConflict: 'user_id' }); } catch (e) {}
+}
 // O que fica guardado no aparelho (listas de campanha, última busca, buscas recentes) também vira "login novo".
 // Nada é apagado: vai para chaves *_arquivadas.
 function cicloLimparLocal() {
@@ -15008,6 +15041,7 @@ async function cicloArquivarAbrir() {
         ciclos.push({ inicio: Number(userGet('ciclo_atual_inicio', 0)) || null, fim: agora, nichos: grupos.map(g => g.titulo).slice(0, 50), empresas, responderam: resp, faltavam: faltam });
         userSet('ciclos', ciclos.slice(-20));
         userSet('ciclo_inicio', agora); userSet('ciclo_atual_inicio', agora); userSet('hist_ver_ciclos', false); userSet('ver_ciclos', false);
+        cicloSalvarServidor(agora);
         try { cicloLimparLocal(); todosLeads = []; _leadsBase = []; } catch (e) {}
         _canalBuscas = null; _mlVerCiclos = false;
         fechar();
@@ -15023,6 +15057,7 @@ function cicloFaixa() {
     f.appendChild(b); document.body.prepend(f);
 }
 setInterval(() => { try { if (typeof currentUser !== 'undefined' && currentUser) cicloFaixa(); } catch (e) {} }, 3000);
+setInterval(() => { try { if (typeof currentUser !== 'undefined' && currentUser) { const antes = cicloInicio(); cicloCarregarServidor().then(v => { if (v && v > antes) { cicloLimparLocal(); location.reload(); } }); } } catch (e) {} }, 60000);
 // ---- Aceitou? Procura pelo nome e marca na hora (sem esperar os 2 dias do lote) ----
 function liAceitouBusca(aoFechar) {
     const s = prEl('section', 'ph-card li-aceitou-busca');

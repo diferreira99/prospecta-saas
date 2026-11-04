@@ -2439,3 +2439,17 @@ test('Ciclo novo: nenhuma das 12 abas mostra nada do ciclo arquivado (auditoria 
     assert.deepStrictEqual(a.errosReais(), []);
   } finally { await a.fechar(); }
 });
+
+test('Ciclo guardado no servidor (ciclos_usuario) vale mesmo se a marcação do aparelho sumiu', async () => {
+  const a = await abrirApp({ largura: 390 });
+  try {
+    const r = await a.pagina.evaluate(() => {
+      const semNada = cicloInicio();
+      _cicloSrv = Date.now() - 3600000;           // o que veio da tabela ciclos_usuario
+      localStorage.removeItem(userKey('ciclo_inicio'));   // outro aparelho apagou a cópia local
+      return { semNada, comServidor: cicloInicio() === _cicloSrv, filtra: _cicloFiltroAtivo() };
+    });
+    assert.deepStrictEqual(r, { semNada: 0, comServidor: true, filtra: true });
+    assert.deepStrictEqual(a.errosReais(), []);
+  } finally { await a.fechar(); }
+});
