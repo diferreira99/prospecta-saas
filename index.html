@@ -2221,7 +2221,7 @@ function aplicarDadosUsuario(nome, email) {
     // Atalho do app instalado ou notificação (?tab=respostas) tem prioridade sobre a última aba aberta
     const abaDoLink = new URLSearchParams(location.search).get('tab');
     const abaRestaurada = abaDoLink || userGet('abaAtual', 'metricas');
-    const abasValidas = ['prospeccao','plano','pipeline','campanhas','ia','respostas','inbox','historico','meusleads','integracoes','metricas','revendedor'];
+    const abasValidas = ['prospeccao','plano','pipeline','campanhas','ia','respostas','inbox','historico','meusleads','integracoes','metricas','revendedor','eng'];
     const abaFinal = abasValidas.includes(abaRestaurada) ? abaRestaurada : 'metricas';
     const btnAba = document.querySelector(`.nav-item[onclick*="'${abaFinal}'"]`) || document.querySelector('.nav-item[onclick*="metricas"]');
     if (btnAba) trocarAba(abaFinal, btnAba);
@@ -2237,6 +2237,7 @@ function aplicarDadosUsuario(nome, email) {
             if (promptSalvo) el.value = promptSalvo;
         }
         prodCarregar();
+        try { engMostrarNav(); } catch (e) {}
         try { numCarregar(); } catch (e) {}
         if (typeof igCarregarFeitos === "function") igCarregarFeitos(true);
         if (typeof liCarregarFeitos === "function") liCarregarFeitos(true);
@@ -2365,6 +2366,7 @@ function iniciarAppPosLogin() {
         <button class="nav-item" onclick="trocarAba('ia', this)"><span class="nav-canal tag-zap"><svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path fill="#fff" d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.17.2-.35.22-.64.08-.3-.15-1.26-.46-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.18.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.07c.15.2 2.1 3.2 5.08 4.49.71.3 1.26.49 1.7.62.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2-1.41.25-.7.25-1.29.18-1.41-.08-.13-.28-.2-.57-.35M12.05 21.78h-.01a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.88 9.89-9.88 2.64 0 5.12 1.03 6.99 2.9a9.82 9.82 0 0 1 2.89 6.99c0 5.45-4.44 9.88-9.88 9.88m8.41-18.3A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.68 1.45h.01c6.55 0 11.89-5.34 11.89-11.89a11.82 11.82 0 0 0-3.48-8.41"/></svg></span> Prospecção WhatsApp</button>
         <button class="nav-item" onclick="trocarAba('insta', this)"><span class="nav-canal tag-ig"><svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5.2" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="12" cy="12" r="4.1" fill="none" stroke="#fff" stroke-width="2.4"/><circle cx="17.3" cy="6.7" r="1.4" fill="#fff"/></svg></span> Prospecção Instagram</button>
         <button class="nav-item" onclick="trocarAba('linkedin', this)"><span class="nav-canal tag-in"><svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><circle cx="6.6" cy="6.4" r="1.9" fill="#fff"/><rect x="4.9" y="9.4" width="3.4" height="10.4" rx=".4" fill="#fff"/><path fill="#fff" d="M10.6 9.4h3.2v1.5c.5-.9 1.6-1.8 3.4-1.8 3.2 0 3.8 2.1 3.8 4.8v5.9h-3.3v-5.2c0-1.3-.1-2.8-1.8-2.8s-2 1.3-2 2.7v5.3h-3.3z"/></svg></span> Prospecção LinkedIn</button>
+        <button class="nav-item" id="nav-eng" style="display:none" onclick="trocarAba('eng', this)"><span class="nav-canal nc-laranja" style="font-size:.8rem;line-height:1">⚡</span> Engenharia</button>
         <button class="nav-item" onclick="trocarAba('campanhas', this)"><span class="nav-canal nc-rosa"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg></span> Campanhas</button>
         </div>
         <button type="button" class="nav-section nav-trilha nt-3" aria-expanded="false" aria-controls="ng-3" onclick="navGrupo(3)"><span class="nt-dot" aria-hidden="true"></span>Converta<small>até a venda</small><span class="nt-badge" id="nt-respostas-badge" hidden>0</span><span class="nt-seta" aria-hidden="true"></span></button>
@@ -2452,6 +2454,46 @@ function iniciarAppPosLogin() {
         <!-- PROSPECÇÃO INSTAGRAM e LINKEDIN (montadas pelo JS: canalAbrir) -->
         <div class="tab-content" id="tab-insta"><div class="canal" id="canal-insta"></div></div>
         <div class="tab-content" id="tab-linkedin"><div class="canal" id="canal-linkedin"></div></div>
+        <div class="tab-content" id="tab-eng"><style>
+            .eng{font-family:'Inter',sans-serif;color:var(--text);max-width:1000px}
+            .eng h3{font-size:.95rem;font-weight:800;margin:0 0 8px}
+            .eng .eng-h{margin:18px 0 10px}
+            .eng-abas{display:flex;gap:6px;overflow-x:auto;margin-bottom:14px;padding-bottom:2px}
+            .eng-abas button{flex:0 0 auto;border:1.5px solid var(--border);background:var(--surface);color:var(--text);border-radius:999px;padding:8px 14px;font:600 .82rem 'Inter',sans-serif;cursor:pointer}
+            .eng-abas button.ativo{background:var(--accent);border-color:var(--accent);color:#fff}
+            .eng-card{background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 4px 14px var(--shadow)}
+            .eng-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:12px}
+            .eng-kpi{background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:12px}
+            .eng-kpi b{display:block;font-size:1.4rem}.eng-kpi span{font-size:.75rem;color:var(--muted)}
+            .eng-barra{height:7px;border-radius:7px;background:var(--surface2);overflow:hidden;margin-top:6px}.eng-barra i{display:block;height:100%;background:var(--accent)}.eng-barra.cheia i{background:var(--success)}
+            .eng-passos{padding-left:20px;display:grid;gap:5px;font-size:.84rem;margin:0 0 8px}
+            .eng-mudo{font-size:.78rem;color:var(--muted);overflow-wrap:anywhere}
+            .eng-atraso{color:var(--danger)}
+            .eng-vazio{padding:20px;text-align:center;color:var(--muted);border:1.5px dashed var(--border);border-radius:14px;font-size:.88rem}
+            .eng-contato{background:var(--surface);border:1.5px solid var(--border);border-radius:14px;padding:12px 14px;display:grid;gap:8px;margin-bottom:10px}
+            .eng-topo{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.eng-dir{text-align:right;flex:0 0 auto}
+            .eng-nome{font-weight:700}.eng-sub{font-size:.84rem;color:var(--muted)}
+            .eng-msg{background:var(--surface2);border-radius:10px;padding:9px 11px;font-size:.86rem;white-space:pre-wrap}
+            .eng-acoes{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+            .eng-acoes select,.eng select,.eng input,.eng textarea{font:inherit;font-size:.85rem;color:var(--text);background:var(--surface2);border:1.5px solid var(--border);border-radius:10px;padding:7px 10px;max-width:100%}
+            .eng textarea{width:100%;min-height:80px;resize:vertical}
+            .eng-bt{font:600 .8rem 'Inter',sans-serif;border:1.5px solid var(--border);background:var(--surface);color:var(--text);border-radius:10px;padding:7px 12px;cursor:pointer}
+            .eng-bt.pri{background:var(--accent);border-color:var(--accent);color:#fff}.eng-bt.sec{background:var(--accent-light);border-color:transparent;color:var(--accent)}
+            .eng-tag{display:inline-block;border-radius:6px;padding:1px 7px;font-size:.7rem;font-weight:700;background:var(--surface2);color:var(--muted)}
+            .eng-tag.li{background:#0A66C2;color:#fff}.eng-tag.ig{background:#C13584;color:#fff}.eng-tag.ok{background:rgba(34,197,94,.14);color:#15803d}.eng-tag.warn{background:rgba(217,119,6,.14);color:#b45309}
+            .eng-linha{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px}
+            .eng-linha label,.eng-bloco{display:grid;gap:4px;font-size:.78rem;font-weight:600;color:var(--muted);flex:1 1 180px}
+            .eng-linha .eng-curto{flex:0 0 80px}.eng-entre{justify-content:space-between;align-items:center}
+            .eng-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px}
+            .eng-chip{border:1.5px solid var(--border);background:var(--surface);color:var(--text);border-radius:999px;padding:5px 11px;font:600 .78rem 'Inter',sans-serif;cursor:pointer}
+            .eng-chip.ativo{background:var(--accent);border-color:var(--accent);color:#fff}
+            .eng-res{grid-template-columns:auto 1fr;align-items:start;cursor:pointer}.eng-res input{width:18px;height:18px;margin-top:3px;accent-color:var(--accent)}
+            .eng-link{font-size:.8rem;color:var(--accent)}
+            .eng-contador{font-size:.74rem;color:var(--muted);text-align:right;margin-top:3px}.eng-contador.passou{color:var(--danger);font-weight:700}
+            .eng-previa{background:var(--surface2);border-radius:10px;padding:8px 10px;font-size:.82rem;white-space:pre-wrap;color:var(--muted);margin-bottom:14px}
+            .eng-ideia{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);font-size:.86rem}.eng-ideia:last-child{border-bottom:none}
+            @media (max-width:760px){.eng-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.eng-topo{flex-direction:column}.eng-dir{text-align:left}}
+        </style><div class="eng" id="eng-box"></div></div>
 
         <!-- PLANO DE PROSPECÇÃO -->
         <div class="tab-content" id="tab-plano">
@@ -6598,6 +6640,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="integ-status-msg" id="horario-msg"></div>
             </div>
 
+            <div class="integ-card" id="integ-card-modulos">
+                <div class="integ-header"><span class="integ-icon">🧩</span><div class="integ-title">Módulos</div></div>
+                <div class="integ-desc">Liga telas extras no menu. <b>⚡ Engenharia</b>: prospecção de serviços de engenharia elétrica (projeto e homologação solar; laudo de para-raios e elétrico) pelo LinkedIn e pelo Instagram, com fila do dia, follow-ups e mensagens prontas.</div>
+                <label style="display:flex;gap:10px;align-items:center;font-family:'Inter',sans-serif;font-size:.85rem;font-weight:600;cursor:pointer"><input type="checkbox" id="mod-eng-toggle" onchange="engModuloLigar(this.checked)" style="width:18px;height:18px;accent-color:var(--accent)"> ⚡ Engenharia</label>
+            </div>
             <!-- SIMULAÇÃO HUMANIZADA + LIMITE DIÁRIO (movido de dentro da Prospecção IA pra cá, junto do resto da config do WhatsApp) -->
             <div class="integ-card" id="integ-card-humano">
                 <div class="integ-header">
@@ -7300,6 +7347,7 @@ const titulos = {
     metricas:    ['Painel',        'Visão geral da sua performance'],
     revendedor:  ['Seja Revendedor', 'Programa de parceiros em breve'],
     manual:      ['Manual do Cliente', 'Como usar cada parte do Prospecta+'],
+    eng:         ['⚡ Engenharia', 'Serviços de engenharia elétrica pelo LinkedIn e pelo Instagram'],
 };
 
 function abrirInbox(el) {
@@ -7372,6 +7420,7 @@ function trocarAba(aba, el) {
     if (aba === 'integracoes') setTimeout(() => { try { const v = document.getElementById('voz-audio-select'); if (v) v.value = audioVoz(); } catch (e) {} try { integAbrir(); } catch (e) {} try { painelHojeCarregar(); } catch (e) {} try { numCarregar(); } catch (e) {} }, 50);
     if (aba === 'manual') setTimeout(() => { try { manualAbrir(); } catch (e) { console.warn('[manual]', e); } }, 30);
     if (aba === 'insta' || aba === 'linkedin') setTimeout(() => { try { canalAbrir(aba); } catch (e) { console.warn('[canal]', e); } }, 50);
+    if (aba === 'eng') setTimeout(() => { try { engAbrir(); } catch (e) { console.warn('[eng]', e); } }, 30);
     // Renderizar histórico ao entrar na aba
     if (aba === 'historico') {
         setTimeout(() => histAtualizar(), 50);
@@ -25372,4 +25421,440 @@ async function gerarRelatorioPDF(btn, opcoes) {
         btn.disabled = false;
     }
 }
+</script>
+<script>
+// ── ⚡ MÓDULO ENGENHARIA: serviços de engenharia elétrica pelo LinkedIn e pelo Instagram ──
+// Acha decisores (integradoras solares no Brasil todo; síndicos e administradoras em SP), mostra a mensagem
+// certa de cada etapa e lembra o próximo toque. Nada é enviado sozinho: copia, abre o perfil e você manda.
+// Dados na conta (userGet/userSet, sincronizados); quem responde vai para o Pipeline.
+(function () {
+  'use strict';
+  const PRODUTOS = [
+    {
+      id: 'solar',
+      nome: 'Projeto e homologação solar',
+      emoji: '☀️',
+      modo: 'remoto',
+      area: 'Brasil todo',
+      publico: 'Integradoras de energia solar (sócios, diretores, comercial)',
+      oferta: 'Projeto fotovoltaico e homologação na distribuidora, com ART, para integradoras que não têm engenheiro próprio.',
+      preco: '',
+      cidadesSugeridas: ['Belo Horizonte', 'Uberlândia', 'Goiânia', 'Cuiabá', 'Campo Grande', 'Ribeirão Preto', 'Campinas', 'Londrina', 'Curitiba', 'Fortaleza', 'Recife', 'Salvador', 'Brasília', 'Porto Alegre', 'Florianópolis', 'Teresina', 'Natal', 'São José do Rio Preto'],
+      buscas: [
+        { id: 'li-socios', canal: 'linkedin', tipo: 'pessoa', nome: 'LinkedIn · sócios e diretores de integradoras', q: 'site:br.linkedin.com/in ("energia solar" OR fotovoltaica OR "integradora solar") (sócio OR fundador OR diretor OR CEO OR proprietário) "{cidade}"' },
+        { id: 'li-comercial', canal: 'linkedin', tipo: 'pessoa', nome: 'LinkedIn · comercial e projetos de energia solar', q: 'site:br.linkedin.com/in ("energia solar" OR fotovoltaica) (comercial OR "gerente de projetos" OR "consultor") "{cidade}"' },
+        { id: 'li-empresas', canal: 'linkedin', tipo: 'empresa', nome: 'LinkedIn · páginas de integradoras', q: 'site:br.linkedin.com/company ("energia solar" OR fotovoltaica OR "integradora solar") "{cidade}"' },
+        { id: 'ig-integradoras', canal: 'instagram', tipo: 'empresa', nome: 'Instagram · integradoras de energia solar', q: 'site:instagram.com ("energia solar" OR "integradora solar" OR fotovoltaica OR "placas solares") "{cidade}"' },
+      ],
+      mensagens: {
+        linkedin: {
+          convite: 'Oi {primeiroNome}! Sou engenheiro eletricista e faço projeto e homologação de sistemas fotovoltaicos para integradoras de todo o Brasil, com ART. Vi seu trabalho com energia solar e queria me conectar.',
+          abertura: 'Obrigado por aceitar, {primeiroNome}! Uma pergunta rápida: na {empresa} vocês fazem o projeto e a homologação aí dentro ou terceirizam? Atendo integradoras de todo o Brasil: projeto, memorial, diagrama e acompanhamento na distribuidora, com ART. Se fizer sentido, te mando como funciona e o prazo.',
+          followup1: '{primeiroNome}, passando para ver se faz sentido. Muita integradora me procura quando o volume aperta ou a homologação trava na distribuidora. Quer que eu te mande um exemplo de projeto e o prazo médio?',
+          followup2: 'Última mensagem por aqui, {primeiroNome}, para não incomodar. Se em algum momento precisar de engenheiro para projeto ou homologação, é só me chamar. Abraço!',
+        },
+        instagram: {
+          convite: 'Oi! Tudo bem? Sou engenheiro eletricista e faço projeto e homologação solar para integradoras de todo o Brasil, com ART. Vocês fazem a parte de engenharia aí dentro ou terceirizam?',
+          abertura: 'Oi! Vi os projetos de vocês por aqui, muito bons. Sou engenheiro eletricista e atendo integradoras do Brasil todo: projeto, homologação na distribuidora e ART. Se fizer sentido, te mando como funciona e o prazo.',
+          followup1: 'Oi! Passando para ver se faz sentido terceirizar o projeto e a homologação. Posso te mandar um exemplo de projeto?',
+          followup2: 'Última mensagem para não incomodar: se precisar de engenheiro para projeto ou homologação, é só chamar por aqui. Sucesso!',
+        },
+      },
+      conteudo: [
+        'Os 5 motivos mais comuns de homologação reprovada na distribuidora (e como evitar)',
+        'Bastidores: do levantamento à homologação de um sistema fotovoltaico, em 4 passos',
+        'Quando o padrão de entrada precisa ser trocado antes do solar (e quanto isso atrasa a obra)',
+        'Checklist do que a integradora precisa me mandar para o projeto sair rápido',
+        'Antes e depois: um projeto que destravou na distribuidora',
+        'Integradora: fazer a engenharia dentro de casa ou terceirizar? Os números',
+      ],
+    },
+    {
+      id: 'condominio',
+      nome: 'Laudo de para-raios (SPDA) e elétrico',
+      emoji: '⚡',
+      modo: 'presencial',
+      area: 'São Paulo (SP)',
+      publico: 'Síndicos profissionais, administradoras de condomínio e gestores prediais',
+      oferta: 'Inspeção do para-raios (SPDA) e das instalações elétricas, com medições, relatório para o síndico e ART.',
+      preco: '',
+      cidadesSugeridas: ['São Paulo', 'Santo André', 'São Bernardo do Campo', 'São Caetano do Sul', 'Osasco', 'Guarulhos', 'Barueri', 'Diadema', 'Mauá', 'Taboão da Serra'],
+      buscas: [
+        { id: 'li-sindicos', canal: 'linkedin', tipo: 'pessoa', nome: 'LinkedIn · síndicos profissionais', q: 'site:br.linkedin.com/in ("síndico profissional" OR "síndica profissional" OR "gestão condominial") "{cidade}"' },
+        { id: 'li-administradoras', canal: 'linkedin', tipo: 'pessoa', nome: 'LinkedIn · gestores de administradoras', q: 'site:br.linkedin.com/in "administradora de condomínios" (gerente OR diretor OR sócio OR coordenador) "{cidade}"' },
+        { id: 'li-facilities', canal: 'linkedin', tipo: 'pessoa', nome: 'LinkedIn · facilities e manutenção predial', q: 'site:br.linkedin.com/in ("facilities" OR "manutenção predial") (gerente OR coordenador OR supervisor) "{cidade}"' },
+        { id: 'ig-sindicos', canal: 'instagram', tipo: 'pessoa', nome: 'Instagram · síndicos profissionais', q: 'site:instagram.com ("síndico profissional" OR "síndica profissional") "{cidade}"' },
+        { id: 'ig-administradoras', canal: 'instagram', tipo: 'empresa', nome: 'Instagram · administradoras de condomínio', q: 'site:instagram.com ("administradora de condomínios" OR "administração condominial") "{cidade}"' },
+      ],
+      mensagens: {
+        linkedin: {
+          convite: 'Oi {primeiroNome}! Sou engenheiro eletricista em SP e faço laudo de para-raios (SPDA) e das instalações elétricas para condomínios, com ART. Vi que você atua com gestão condominial e queria me conectar.',
+          abertura: 'Obrigado por aceitar, {primeiroNome}! Uma pergunta: os condomínios que você atende estão com o laudo do para-raios e o elétrico em dia? Faço a inspeção com medições, relatório pronto para apresentar em assembleia e ART. Se quiser, te mando como funciona.',
+          followup1: '{primeiroNome}, passando por aqui: quando o laudo do para-raios vence, o síndico responde em caso de sinistro e o seguro pode questionar. Quer que eu te mande um modelo do relatório que entrego?',
+          followup2: 'Última mensagem para não incomodar, {primeiroNome}. Se algum condomínio precisar de laudo de para-raios ou elétrico em SP, é só me chamar. Abraço!',
+        },
+        instagram: {
+          convite: 'Oi! Tudo bem? Sou engenheiro eletricista em SP e faço laudo de para-raios (SPDA) e elétrico para condomínios, com ART e relatório pronto para o síndico. Os condomínios que vocês atendem estão com os laudos em dia?',
+          abertura: 'Oi! Acompanho o trabalho de vocês por aqui. Sou engenheiro eletricista em SP e faço os laudos de para-raios e das instalações elétricas dos condomínios, com ART. Se fizer sentido, te mando como funciona.',
+          followup1: 'Oi! Passando para ver se algum condomínio de vocês está com o laudo do para-raios vencido. Posso mandar um modelo do relatório?',
+          followup2: 'Última mensagem para não incomodar: precisando de laudo de para-raios ou elétrico em SP, é só chamar. Sucesso!',
+        },
+      },
+      conteudo: [
+        'Para-raios do condomínio: de quanto em quanto tempo precisa de inspeção? (o que diz a norma)',
+        '3 sinais de que a instalação elétrica do prédio precisa de atenção',
+        'O que o síndico precisa ter em mãos se acontecer um sinistro elétrico',
+        'Bastidores de uma inspeção de SPDA: medição de aterramento, por dentro',
+        'Laudo elétrico x manutenção: qual a diferença e por que o condomínio precisa dos dois',
+        'Checklist para a assembleia: laudos que o condomínio deve ter em dia',
+      ],
+    },
+  ];
+
+  // Etapas do funil (iguais nos dois canais)
+  const ETAPAS = [
+    ['novo', 'A abordar'], ['abordado', 'Convite / DM enviado'], ['conectou', 'Conectou'], ['conversando', 'Conversando'],
+    ['reuniao', 'Visita / reunião'], ['proposta', 'Proposta'], ['fechado', 'Fechado'], ['perdido', 'Perdido'],
+  ];
+  // Mensagem certa para cada etapa e quando é o próximo toque (dias)
+  const PROXIMO = {
+    novo: { msg: 'convite', dias: 0 }, abordado: { msg: 'followup1', dias: 4 }, conectou: { msg: 'abertura', dias: 0 },
+    conversando: { msg: null, dias: 2 }, reuniao: { msg: null, dias: 1 }, proposta: { msg: null, dias: 3 },
+  };
+  // Limites seguros por dia (abordagem manual, sem robô)
+  const LIMITES = { linkedin: 20, instagram: 15 };
+
+  const TIPOS = ['convite', 'abertura', 'followup1', 'followup2'];
+  const TIPO_NOME = { convite: 'Convite / 1ª mensagem', abertura: 'Depois que aceitou', followup1: 'Follow-up 1', followup2: 'Follow-up 2 (último)' };
+  const CANAL = { linkedin: 'LinkedIn', instagram: 'Instagram' };
+  const ATIVAS = ['novo', 'abordado', 'conectou', 'conversando', 'reuniao', 'proposta'];
+  const MAX = 1500;
+  const EXEMPLO = { solar: { nome: 'Carlos Souza', empresa: 'Sol Forte Energia', cidade: 'Goiânia', tipo: 'pessoa' }, condominio: { nome: 'Fernanda Lima', empresa: 'FL Gestão Condominial', cidade: 'Santo André', tipo: 'pessoa' } };
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const est = { sub: 'hoje', achados: [], buscando: false, buscou: false, filtro: { produto: '', canal: '', etapa: 'ativos', texto: '' }, msgProduto: 'solar', msgCanal: 'linkedin', conteudoProduto: 'solar' };
+  const box = () => document.getElementById('eng-box');
+  const toast = (t, tipo) => { try { showToast(t, tipo || ''); } catch (e) { /* sem toast */ } };
+
+  // ---------- dados da conta ----------
+  const contatos = () => { const l = userGet('eng_contatos', []); return Array.isArray(l) ? l : []; };
+  const salvarContatos = l => userSet('eng_contatos', l.slice(-MAX));
+  const ajustes = () => userGet('eng_ajustes', {}) || {};
+  function produtos() {
+    const aj = ajustes().produtos || {};
+    return PRODUTOS.map(p => {
+      const a = aj[p.id] || {}, mensagens = {};
+      ['linkedin', 'instagram'].forEach(c => { mensagens[c] = {}; TIPOS.forEach(t => { mensagens[c][t] = (a.mensagens && a.mensagens[c] && a.mensagens[c][t]) || p.mensagens[c][t]; }); });
+      return { ...p, preco: a.preco != null ? a.preco : p.preco, oferta: a.oferta || p.oferta, mensagens };
+    });
+  }
+  const produto = id => produtos().find(p => p.id === id) || produtos()[0];
+  function mudarAjuste(id, fn) { const a = ajustes(); a.produtos = a.produtos || {}; a.produtos[id] = fn(a.produtos[id] || {}); if (!Object.keys(a.produtos[id]).length) delete a.produtos[id]; userSet('eng_ajustes', a); }
+
+  // mesma pessoa com links diferentes vira a mesma chave
+  function chave(link) {
+    try {
+      const u = new URL(link), h = u.hostname.replace(/^(www|br|pt|m)\./, ''), p = u.pathname.split('/').filter(Boolean);
+      if (/linkedin\.com$/.test(h)) return ('li:' + p.slice(0, 2).join('/')).toLowerCase();
+      if (/instagram\.com$/.test(h)) return ('ig:' + (p[0] || '')).toLowerCase();
+    } catch (e) { /* link quebrado */ }
+    return '';
+  }
+  function preencher(texto, c, assinatura) {
+    const ehPessoa = !c || c.tipo !== 'empresa';
+    const primeiro = ehPessoa ? (String((c && c.nome) || '').trim().split(/\s+/)[0] || '') : '';
+    let t = String(texto || '');
+    if (!primeiro) t = t.replace(/Oi \{primeiroNome\}!/g, 'Oi, tudo bem?').replace(/, \{primeiroNome\}([!.?])/g, '$1').replace(/\{primeiroNome\}, (\S)/g, (m, l) => l.toUpperCase()).replace(/\{primeiroNome\}/g, '');
+    return t.replace(/\{primeiroNome\}/g, primeiro).replace(/\{empresa\}/g, (c && c.empresa) || 'sua empresa').replace(/\{cidade\}/g, (c && c.cidade) || 'sua cidade')
+      .replace(/\{assinatura\}/g, assinatura || '').replace(/\s{2,}/g, ' ').trim();
+  }
+  const etapaNome = id => (ETAPAS.find(e => e[0] === id) || [id, id])[1];
+  function tipoMsg(c) {
+    if (c.etapa === 'novo') return 'convite';
+    if (c.etapa === 'conectou') return 'abertura';
+    if (c.etapa === 'abordado') return (c.followups || 0) >= 2 ? null : (c.followups || 0) === 1 ? 'followup2' : 'followup1';
+    return null;
+  }
+  const mensagem = (c, tipo) => { tipo = tipo || tipoMsg(c); return tipo ? preencher(produto(c.produto).mensagens[c.canal][tipo], c, ajustes().assinatura) : ''; };
+  const venceu = c => ATIVAS.includes(c.etapa) && c.etapa !== 'novo' && c.proximoEm && new Date(c.proximoEm) <= new Date();
+  const diasDepois = d => new Date(Date.now() + d * 864e5).toISOString();
+  function feitosHoje(canal) {
+    const d = new Date().toDateString();
+    return contatos().filter(c => c.canal === canal).reduce((n, c) => n + (c.historico || []).filter(h => (h.etapa === 'abordado' || h.etapa === 'followup') && new Date(h.em).toDateString() === d).length, 0);
+  }
+  function quando(iso) {
+    const dias = Math.round((new Date(iso).setHours(0, 0, 0, 0) - new Date().setHours(0, 0, 0, 0)) / 864e5);
+    return dias < 0 ? `atrasado ${-dias}d` : dias === 0 ? 'hoje' : dias === 1 ? 'amanhã' : `em ${dias} dias`;
+  }
+  function mudarContato(id, fn) {
+    const l = contatos(); const i = l.findIndex(c => c.id === id); if (i < 0) return null;
+    const novo = fn(l[i]); if (novo) l[i] = novo; else l.splice(i, 1);
+    salvarContatos(l); return novo;
+  }
+  function mudarEtapa(c, etapa, motivo) {
+    const prox = PROXIMO[etapa];
+    return { ...c, etapa, motivo: etapa === 'perdido' ? String(motivo || '').slice(0, 120) : '', proximoEm: prox ? diasDepois(prox.dias) : null,
+      historico: (c.historico || []).concat([{ etapa, em: new Date().toISOString() }]).slice(-30) };
+  }
+  function novoContato(c, produtoId) {
+    const k = chave(c.link); if (!k) return null;
+    const link = k.startsWith('li:') ? 'https://www.linkedin.com/' + k.slice(3) + '/' : 'https://www.instagram.com/' + k.slice(3) + '/';
+    const t = (v, n) => String(v || '').replace(/\s+/g, ' ').trim().slice(0, n);
+    return { id: k, produto: produtoId, canal: k.startsWith('li:') ? 'linkedin' : 'instagram', tipo: c.tipo === 'empresa' || /^li:company\//.test(k) ? 'empresa' : 'pessoa',
+      nome: t(c.nome, 100), cargo: t(c.cargo, 160), empresa: t(c.empresa, 100), cidade: t(c.cidade, 80), link, handle: k.startsWith('ig:') ? '@' + k.slice(3) : '', trecho: t(c.trecho, 300),
+      etapa: 'novo', criadoEm: new Date().toISOString(), proximoEm: new Date().toISOString(), historico: [], nota: '', followups: 0 };
+  }
+
+  // ---------- cartão ----------
+  function cartao(c, completo) {
+    const p = produto(c.produto), tipo = tipoMsg(c), msg = tipo ? mensagem(c, tipo) : '';
+    const sub = [c.cargo, c.empresa && c.tipo === 'pessoa' && !String(c.cargo).includes(c.empresa) ? c.empresa : '', c.cidade].filter(Boolean).join(' · ');
+    const prox = venceu(c) ? ` · <b class="eng-atraso">toque ${esc(quando(c.proximoEm))}</b>` : c.proximoEm && c.etapa !== 'novo' && ATIVAS.includes(c.etapa) ? ' · próximo ' + esc(quando(c.proximoEm)) : '';
+    const resp = c.canal === 'linkedin' ? ['conectou', '🤝 Aceitou'] : ['conversando', '💬 Respondeu'];
+    return `<div class="eng-contato" data-eng-id="${esc(c.id)}">
+      <div class="eng-topo"><div><div class="eng-nome">${esc(c.nome || c.handle || 'Sem nome')} ${c.handle ? `<span class="eng-mudo">${esc(c.handle)}</span>` : ''}</div><div class="eng-sub">${esc(sub)}</div></div>
+        <div class="eng-dir"><span class="eng-tag ${c.canal === 'linkedin' ? 'li' : 'ig'}">${CANAL[c.canal]}</span> <span class="eng-tag">${esc(p.emoji)} ${p.id === 'solar' ? 'Solar' : 'Condomínio'}</span><div class="eng-mudo">${esc(etapaNome(c.etapa))}${prox}</div></div></div>
+      ${msg ? `<div class="eng-msg" data-eng-msg>${esc(msg)}</div><div class="eng-mudo">${esc(TIPO_NOME[tipo])}${c.canal === 'linkedin' && tipo === 'convite' ? ` · ${msg.length}/200 · no LinkedIn: Conectar → Adicionar nota → colar` : c.canal === 'instagram' ? ' · no perfil: Enviar mensagem → colar' : ''}</div>` : ''}
+      ${c.etapa === 'abordado' && !tipo ? '<div class="eng-mudo">Sem resposta depois de 2 follow-ups: mova para Perdido ou deixe esfriar.</div>' : ''}
+      <div class="eng-acoes">
+        ${msg ? '<button class="eng-bt pri" data-eng="abrir-copiar">Copiar e abrir perfil</button>' : '<button class="eng-bt sec" data-eng="abrir">Abrir perfil</button>'}
+        ${c.etapa === 'novo' ? '<button class="eng-bt" data-eng="etapa" data-etapa="abordado">✔ Enviei</button>' : ''}
+        ${c.etapa === 'abordado' && tipo ? `<button class="eng-bt" data-eng="toque">✔ Enviei o follow-up</button>` : ''}
+        ${c.etapa === 'abordado' ? `<button class="eng-bt" data-eng="etapa" data-etapa="${resp[0]}">${resp[1]}</button>` : ''}
+        ${c.etapa === 'conectou' ? '<button class="eng-bt" data-eng="etapa" data-etapa="conversando">💬 Respondeu</button>' : ''}
+        ${['conversando', 'reuniao', 'proposta'].includes(c.etapa) && !c.noPipeline ? '<button class="eng-bt sec" data-eng="pipeline">📊 Levar para o Pipeline</button>' : ''}
+        ${c.noPipeline ? '<span class="eng-tag ok">no Pipeline</span>' : ''}
+        ${completo ? `<select data-eng="mudar-etapa" aria-label="Etapa">${ETAPAS.map(e => `<option value="${e[0]}" ${e[0] === c.etapa ? 'selected' : ''}>${esc(e[1])}</option>`).join('')}</select>
+          <button class="eng-bt" data-eng="nota">📝 Nota</button><button class="eng-bt" data-eng="remover" title="Tirar da lista">🗑</button>` : ''}
+      </div>
+      ${c.nota ? `<div class="eng-mudo"><b>Nota:</b> ${esc(c.nota)}</div>` : ''}${c.motivo ? `<div class="eng-mudo">Motivo: ${esc(c.motivo)}</div>` : ''}
+    </div>`;
+  }
+  async function copiar(t) {
+    try { await navigator.clipboard.writeText(t); return true; } catch (e) {
+      const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select();
+      let ok = false; try { ok = document.execCommand('copy'); } catch (x) { ok = false; } ta.remove(); return ok;
+    }
+  }
+  function levarPipeline(c) {
+    if (typeof pkLoad !== 'function') return false;
+    pkLoad();
+    const p = produto(c.produto);
+    pkLeads.push({ id: Date.now() + Math.random(), name: c.empresa && c.tipo === 'pessoa' ? `${c.nome} (${c.empresa})` : (c.nome || c.handle), cat: p.emoji + ' ' + p.nome,
+      phone: '', website: c.link, rating: 0, reviews: 0, col: c.etapa === 'conversando' ? 'respondeu' : 'negociando', dias: 0, movedAt: Date.now(), canal: c.canal,
+      nota: `${CANAL[c.canal]}: ${c.link}${c.cargo ? '\n' + c.cargo : ''}${c.nota ? '\n' + c.nota : ''}` });
+    pkSave(); return true;
+  }
+  async function acaoContato(ev) {
+    const b = ev.target.closest('[data-eng]'); const card = b && b.closest('.eng-contato'); if (!card) return;
+    const acao = b.dataset.eng;
+    if ((acao === 'mudar-etapa') !== (ev.type === 'change')) return;
+    const id = card.dataset.engId, c = contatos().find(x => x.id === id); if (!c) return;
+    if (acao === 'abrir') { window.open(c.link, '_blank', 'noopener'); return; }
+    if (acao === 'abrir-copiar') {
+      const ok = await copiar(card.querySelector('[data-eng-msg]').textContent);
+      toast(ok ? 'Mensagem copiada: cole no perfil' : 'Não consegui copiar: selecione o texto', ok ? 'ok' : '');
+      window.open(c.link, '_blank', 'noopener'); return;
+    }
+    if (acao === 'etapa') mudarContato(id, x => mudarEtapa(x, b.dataset.etapa));
+    else if (acao === 'mudar-etapa') {
+      let motivo = '';
+      if (b.value === 'perdido') { motivo = prompt('Por que perdeu? (opcional)', ''); if (motivo === null) { b.value = c.etapa; return; } }
+      mudarContato(id, x => mudarEtapa(x, b.value, motivo));
+    } else if (acao === 'toque') mudarContato(id, x => ({ ...x, followups: (x.followups || 0) + 1, proximoEm: diasDepois(4), historico: (x.historico || []).concat([{ etapa: 'followup', em: new Date().toISOString() }]).slice(-30) }));
+    else if (acao === 'nota') { const n = prompt('Nota sobre ' + (c.nome || 'o contato'), c.nota || ''); if (n === null) return; mudarContato(id, x => ({ ...x, nota: n.slice(0, 1000) })); }
+    else if (acao === 'remover') { if (!confirm('Tirar ' + (c.nome || 'este contato') + ' da lista?')) return; mudarContato(id, () => null); }
+    else if (acao === 'pipeline') { if (!levarPipeline(c)) return toast('Pipeline indisponível'); mudarContato(id, x => ({ ...x, noPipeline: true })); toast('No Pipeline ✔ (coluna ' + (c.etapa === 'conversando' ? 'Respondeu' : 'Negociando') + ')', 'ok'); }
+    else return;
+    if (acao !== 'pipeline') toast(acao === 'remover' ? 'Removido' : acao === 'nota' ? 'Nota salva' : 'Feito ✔', 'ok');
+    desenhar();
+  }
+
+  // ---------- telas ----------
+  function telaHoje() {
+    const L = LIMITES, li = feitosHoje('linkedin'), ig = feitosHoje('instagram'), todos = contatos();
+    const vencidos = todos.filter(venceu).sort((a, b) => new Date(a.proximoEm) - new Date(b.proximoEm));
+    const novos = canal => todos.filter(c => c.etapa === 'novo' && c.canal === canal);
+    const restaLi = Math.max(0, L.linkedin - li), restaIg = Math.max(0, L.instagram - ig);
+    const fila = novos('linkedin').slice(0, Math.min(restaLi, 8)).concat(novos('instagram').slice(0, Math.min(restaIg, 6)));
+    const conversa = todos.filter(c => ['conversando', 'reuniao', 'proposta'].includes(c.etapa)).length;
+    const barra = (n, m) => `<div class="eng-barra ${n >= m ? 'cheia' : ''}"><i style="width:${Math.min(100, Math.round(n / m * 100))}%"></i></div>`;
+    return `<div class="eng-kpis">
+        <div class="eng-kpi"><b>${li}/${L.linkedin}</b><span>LinkedIn hoje</span>${barra(li, L.linkedin)}</div>
+        <div class="eng-kpi"><b>${ig}/${L.instagram}</b><span>Instagram hoje</span>${barra(ig, L.instagram)}</div>
+        <div class="eng-kpi"><b>${vencidos.length}</b><span>toques vencidos</span></div>
+        <div class="eng-kpi"><b>${conversa}</b><span>em conversa / proposta</span></div></div>
+      <div class="eng-card"><h3>Rotina do dia (≈30 min)</h3><ol class="eng-passos">
+        <li>Primeiro quem já está conversando (em “Toques vencidos”).</li>
+        <li>Fila: <b>Copiar e abrir perfil</b> → cole → <b>✔ Enviei</b>.</li>
+        <li>1 post da aba <b>Conteúdo</b> (3 por semana; no Instagram, o mesmo em carrossel).</li>
+        <li>Fila vazia? <b>Encontrar</b> traz mais 20 perfis.</li></ol>
+        <p class="eng-mudo">Limite seguro: ${L.linkedin}/dia no LinkedIn e ${L.instagram}/dia no Instagram, sempre à mão.</p></div>
+      <h3 class="eng-h">Toques vencidos ${vencidos.length ? '(' + vencidos.length + ')' : ''}</h3>
+      ${vencidos.length ? vencidos.map(c => cartao(c)).join('') : '<div class="eng-vazio">Nenhum toque vencido 👌</div>'}
+      <h3 class="eng-h">Fila de hoje</h3>
+      ${fila.length ? fila.map(c => cartao(c)).join('') : `<div class="eng-vazio">${restaLi + restaIg === 0 ? 'Limite do dia batido. Amanhã tem mais 💪' : 'Fila vazia. <button class="eng-bt sec" data-eng-sub="encontrar">🔎 Encontrar contatos</button>'}</div>`}`;
+  }
+  function telaEncontrar() {
+    const ps = produtos(), pid = est.buscaProduto || ps[0].id, p = produto(pid);
+    const bid = p.buscas.some(b => b.id === est.buscaId) ? est.buscaId : p.buscas[0].id;
+    return `<div class="eng-card">
+      <div class="eng-linha"><label>Serviço<select id="eng-b-produto">${ps.map(x => `<option value="${x.id}" ${x.id === pid ? 'selected' : ''}>${esc(x.emoji + ' ' + x.nome)}</option>`).join('')}</select></label>
+        <label>Onde e quem<select id="eng-b-busca">${p.buscas.map(x => `<option value="${x.id}" ${x.id === bid ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}</select></label></div>
+      <div class="eng-linha"><label>Cidade<input id="eng-b-cidade" list="eng-b-cidades" value="${esc(est.buscaCidade || p.cidadesSugeridas[0])}"><datalist id="eng-b-cidades">${p.cidadesSugeridas.map(c => `<option value="${esc(c)}">`).join('')}</datalist></label>
+        <label class="eng-curto">Página<input id="eng-b-pagina" type="number" min="1" max="10" value="${est.buscaPagina || 1}"></label>
+        <button class="eng-bt pri" id="eng-b-ir">🔎 Buscar</button><button class="eng-bt" id="eng-b-google" title="Abre a mesma busca no Google, de graça">Abrir no Google ↗</button></div>
+      <p class="eng-mudo">${p.modo === 'remoto' ? '☀️ À distância: busque em qualquer cidade do Brasil.' : '⚡ Presencial: São Paulo e região.'} Só lê o que é público no Google. Nada é enviado.</p></div>
+    <div class="eng-card"><div class="eng-linha"><label>Achou alguém por fora? Cole o link do perfil (LinkedIn ou Instagram)<input id="eng-colar" placeholder="https://www.linkedin.com/in/… ou https://instagram.com/…"></label><button class="eng-bt" id="eng-colar-ir">➕ Adicionar</button></div></div>
+    <div id="eng-resultado">${achados()}</div>`;
+  }
+  function achados() {
+    if (est.buscando) return '<div class="eng-vazio">Buscando…</div>';
+    if (!est.achados.length) return est.buscou ? '<div class="eng-vazio">Nada nessa busca. Troque a cidade ou a página.</div>' : '';
+    const ja = new Set(contatos().map(c => c.id));
+    est.achados.forEach(c => { c.jaNaLista = ja.has(chave(c.link)); if (c.jaNaLista) c._marcado = false; });
+    const novos = est.achados.filter(c => !c.jaNaLista).length;
+    return `<div class="eng-linha eng-entre"><b>${est.achados.length} perfis · ${novos} novos</b><span><button class="eng-bt" id="eng-todos">Marcar todos</button> <button class="eng-bt pri" id="eng-add">➕ Adicionar marcados</button></span></div>
+      ${est.achados.map((c, i) => `<label class="eng-contato eng-res"><input type="checkbox" data-eng-achado="${i}" ${c.jaNaLista ? 'disabled' : ''} ${c._marcado ? 'checked' : ''}>
+        <div><div class="eng-nome">${esc(c.nome || c.handle)} <span class="eng-tag ${c.canal === 'linkedin' ? 'li' : 'ig'}">${CANAL[c.canal]}</span> ${c.tipo === 'empresa' ? '<span class="eng-tag">empresa</span>' : ''} ${c.jaNaLista ? '<span class="eng-tag ok">já na lista</span>' : ''}</div>
+        <div class="eng-sub">${esc([c.cargo, c.empresa && c.empresa !== c.nome && !String(c.cargo).includes(c.empresa) ? c.empresa : '', c.cidade].filter(Boolean).join(' · '))}</div>
+        <div class="eng-mudo">${esc(c.trecho)}</div><a class="eng-link" href="${esc(c.link)}" target="_blank" rel="noopener">ver perfil ↗</a></div></label>`).join('')}`;
+  }
+  function lerBusca() {
+    est.buscaProduto = document.getElementById('eng-b-produto').value; est.buscaId = document.getElementById('eng-b-busca').value;
+    est.buscaCidade = document.getElementById('eng-b-cidade').value.trim(); est.buscaPagina = Number(document.getElementById('eng-b-pagina').value) || 1;
+    const b = produto(est.buscaProduto).buscas.find(x => x.id === est.buscaId);
+    return b.q.replace(/\{cidade\}/g, est.buscaCidade.replace(/"/g, '')).replace(/""/g, '').replace(/\s+/g, ' ').trim();
+  }
+  const ERROS = { sem_chave: 'a busca automática ainda não foi ligada (falta a chave do Serper na Vercel). Use “Abrir no Google” e cole os links.', muitos_pedidos: 'muitas buscas seguidas: espere 1 minuto', login_invalido: 'entre de novo no Prospecta+', busca_falhou: 'o Google não respondeu, tente de novo' };
+  async function buscar() {
+    const q = lerBusca();
+    est.buscando = true; est.achados = []; document.getElementById('eng-resultado').innerHTML = achados();
+    try {
+      const { data } = await supabaseClient.auth.getSession();
+      const token = data && data.session && data.session.access_token;
+      if (!token) throw new Error('entre de novo no Prospecta+');
+      const r = await fetch('/api/perfis', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, body: JSON.stringify({ q, cidade: est.buscaCidade, pagina: est.buscaPagina }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(ERROS[j.erro] || ('erro ' + r.status));
+      est.achados = (j.itens || []).map(c => ({ ...c, _marcado: c.tipo === 'pessoa' || c.canal === 'instagram' }));
+    } catch (e) { toast('Busca: ' + e.message); }
+    est.buscando = false; est.buscou = true;
+    const el = document.getElementById('eng-resultado'); if (el) el.innerHTML = achados();
+  }
+  function adicionar(lista) {
+    const l = contatos(), ids = new Set(l.map(c => c.id)); let n = 0;
+    lista.forEach(c => { const nc = novoContato(c, est.buscaProduto || produtos()[0].id); if (nc && !ids.has(nc.id)) { ids.add(nc.id); l.push(nc); n++; } });
+    salvarContatos(l); return n;
+  }
+  function telaContatos() {
+    const f = est.filtro, t = f.texto.toLowerCase(), todos = contatos();
+    const base = todos.filter(c => (!f.produto || c.produto === f.produto) && (!f.canal || c.canal === f.canal));
+    const lista = base.filter(c => f.etapa === 'ativos' ? ATIVAS.includes(c.etapa) : f.etapa === 'todos' || c.etapa === f.etapa)
+      .filter(c => !t || [c.nome, c.cargo, c.empresa, c.cidade, c.handle, c.nota].join(' ').toLowerCase().includes(t))
+      .sort((a, b) => (venceu(b) - venceu(a)) || (ATIVAS.indexOf(b.etapa) - ATIVAS.indexOf(a.etapa)) || String(b.criadoEm).localeCompare(String(a.criadoEm)));
+    const chip = (v, nome, n) => `<button class="eng-chip ${f.etapa === v ? 'ativo' : ''}" data-eng-filtro="${v}">${esc(nome)} <b>${n}</b></button>`;
+    return `<div class="eng-linha"><label>Serviço<select id="eng-f-produto"><option value="">Todos</option>${produtos().map(p => `<option value="${p.id}" ${f.produto === p.id ? 'selected' : ''}>${esc(p.emoji + ' ' + p.nome)}</option>`).join('')}</select></label>
+        <label>Canal<select id="eng-f-canal"><option value="">Os dois</option><option value="linkedin" ${f.canal === 'linkedin' ? 'selected' : ''}>LinkedIn</option><option value="instagram" ${f.canal === 'instagram' ? 'selected' : ''}>Instagram</option></select></label>
+        <label>Procurar<input id="eng-f-texto" value="${esc(f.texto)}" placeholder="nome, empresa, cidade…"></label></div>
+      <div class="eng-chips">${chip('ativos', 'Ativos', base.filter(c => ATIVAS.includes(c.etapa)).length)}${ETAPAS.map(e => chip(e[0], e[1], base.filter(c => c.etapa === e[0]).length)).join('')}${chip('todos', 'Todos', base.length)}</div>
+      ${lista.length ? lista.slice(0, 200).map(c => cartao(c, true)).join('') : `<div class="eng-vazio">${todos.length ? 'Ninguém com esses filtros.' : 'Lista vazia. <button class="eng-bt sec" data-eng-sub="encontrar">🔎 Encontrar contatos</button>'}</div>`}
+      ${lista.length > 200 ? `<p class="eng-mudo">Mostrando 200 de ${lista.length}. Use os filtros.</p>` : ''}`;
+  }
+  function telaMensagens() {
+    const p = produto(est.msgProduto), canal = est.msgCanal, ex = EXEMPLO[p.id] || EXEMPLO.solar;
+    return `<div class="eng-linha"><label>Serviço<select id="eng-m-produto">${produtos().map(x => `<option value="${x.id}" ${x.id === p.id ? 'selected' : ''}>${esc(x.emoji + ' ' + x.nome)}</option>`).join('')}</select></label>
+        <label>Canal<select id="eng-m-canal"><option value="linkedin" ${canal === 'linkedin' ? 'selected' : ''}>LinkedIn</option><option value="instagram" ${canal === 'instagram' ? 'selected' : ''}>Instagram</option></select></label></div>
+      <div class="eng-card"><p class="eng-mudo">Use <b>{primeiroNome}</b>, <b>{empresa}</b>, <b>{cidade}</b> e <b>{assinatura}</b>. Em perfil de empresa o nome sai sozinho. Prévia com ${esc(ex.nome)} (${esc(ex.empresa)}).</p>
+      ${TIPOS.map(t => { const v = p.mensagens[canal][t], lim = canal === 'linkedin' && t === 'convite' ? 200 : 1000, prev = preencher(v, ex, ajustes().assinatura);
+        return `<label class="eng-bloco">${esc(TIPO_NOME[t])}${lim === 200 ? ' · nota do convite (máx. 200 no LinkedIn grátis)' : ''}<textarea data-eng-tipo="${t}" data-lim="${lim}">${esc(v)}</textarea></label>
+          <div class="eng-contador ${prev.length > lim ? 'passou' : ''}" data-eng-contador="${t}">${prev.length}${lim === 200 ? '/200' : ''} caracteres</div><div class="eng-previa" data-eng-previa="${t}">${esc(prev)}</div>`; }).join('')}
+      <div class="eng-linha"><button class="eng-bt pri" id="eng-m-salvar">Salvar mensagens</button><button class="eng-bt" id="eng-m-padrao">Voltar ao padrão</button></div></div>
+      <div class="eng-card"><label>Assinatura (entra no lugar de {assinatura})<input id="eng-m-assinatura" value="${esc(ajustes().assinatura || '')}" placeholder="Ex.: Diego · Engenheiro eletricista · CREA-SP"></label>
+        <div class="eng-linha"><button class="eng-bt sec" id="eng-m-assinar">Salvar assinatura</button></div></div>`;
+  }
+  function previa(ta) {
+    const p = produto(est.msgProduto), t = ta.dataset.engTipo, lim = Number(ta.dataset.lim), prev = preencher(ta.value, EXEMPLO[p.id] || EXEMPLO.solar, ajustes().assinatura);
+    document.querySelector(`[data-eng-previa="${t}"]`).textContent = prev;
+    const ct = document.querySelector(`[data-eng-contador="${t}"]`); ct.textContent = `${prev.length}${lim === 200 ? '/200' : ''} caracteres`; ct.classList.toggle('passou', prev.length > lim);
+  }
+  function telaConteudo() {
+    const p = produto(est.conteudoProduto);
+    return `<div class="eng-linha"><label>Serviço<select id="eng-c-produto">${produtos().map(x => `<option value="${x.id}" ${x.id === p.id ? 'selected' : ''}>${esc(x.emoji + ' ' + x.nome)}</option>`).join('')}</select></label></div>
+      <div class="eng-card"><h3>Ideias de post</h3><p class="eng-mudo">Quem recebe o convite olha o seu perfil antes de aceitar: 3 posts por semana mostram que você faz isso de verdade.</p>
+      ${p.conteudo.map((t, i) => `<div class="eng-ideia"><span>${i + 1}. ${esc(t)}</span><button class="eng-bt" data-eng-ideia="${i}">Copiar</button></div>`).join('')}</div>
+      <div class="eng-card"><h3>Perfil que converte</h3><ul class="eng-passos">
+        <li><b>Título do LinkedIn:</b> ${p.id === 'solar' ? 'Engenheiro eletricista · Projeto e homologação solar para integradoras de todo o Brasil' : 'Engenheiro eletricista · Laudo de para-raios (SPDA) e elétrico para condomínios em SP'}</li>
+        <li><b>Bio do Instagram:</b> ${p.id === 'solar' ? '⚡ Engenheiro eletricista | ☀️ Projeto + homologação para integradoras | 🇧🇷 Atendo o Brasil todo' : '⚡ Engenheiro eletricista | 🏢 Laudo de para-raios e elétrico | 📍 São Paulo'}</li>
+        <li>CREA e “com ART” no perfil: é o que o cliente procura.</li><li>Destaques do Instagram: Projetos · Como funciona · Contato.</li></ul></div>`;
+  }
+  function telaServicos() {
+    return produtos().map(p => `<div class="eng-card" data-eng-servico="${p.id}"><h3>${esc(p.emoji + ' ' + p.nome)} <span class="eng-tag ${p.modo === 'remoto' ? 'ok' : 'warn'}">${p.modo === 'remoto' ? 'à distância' : 'presencial'} · ${esc(p.area)}</span></h3>
+      <p class="eng-sub"><b>Para quem:</b> ${esc(p.publico)}</p>
+      <label class="eng-bloco">O que você entrega<textarea data-eng-campo="oferta">${esc(p.oferta)}</textarea></label>
+      <div class="eng-linha"><label>Preço (opcional, fica fora das mensagens)<input data-eng-campo="preco" value="${esc(p.preco)}" placeholder="Sem valor: a combinar"></label><button class="eng-bt pri" data-eng-salvar-servico="${p.id}">Salvar</button></div>
+      <p class="eng-mudo">Buscas prontas: ${p.buscas.map(b => esc(b.nome)).join(' · ')}</p></div>`).join('');
+  }
+
+  const SUBS = [['hoje', '☀️ Hoje', telaHoje], ['encontrar', '🔎 Encontrar', telaEncontrar], ['contatos', '👥 Contatos', telaContatos], ['mensagens', '💬 Mensagens', telaMensagens], ['conteudo', '📝 Conteúdo', telaConteudo], ['servicos', '🛠️ Serviços', telaServicos]];
+  function desenhar() {
+    const el = box(); if (!el) return;
+    const s = SUBS.find(x => x[0] === est.sub) || SUBS[0];
+    el.innerHTML = `<div class="eng-abas" role="tablist">${SUBS.map(x => `<button role="tab" class="${x[0] === s[0] ? 'ativo' : ''}" data-eng-sub="${x[0]}">${x[1]}</button>`).join('')}</div><div class="eng-tela">${s[2]()}</div>`;
+  }
+  function irSub(sub) { est.sub = sub; try { userSet('eng_sub', sub); } catch (e) { /* ok */ } desenhar(); }
+
+  function ligar() {
+    const el = box(); if (!el || el._engLigado) return; el._engLigado = true;
+    el.addEventListener('click', e => {
+      const t = e.target;
+      const sb = t.closest('[data-eng-sub]'); if (sb) return irSub(sb.dataset.engSub);
+      if (t.closest('.eng-contato [data-eng]') && !t.closest('select')) return acaoContato(e);
+      if (t.id === 'eng-b-ir') return buscar();
+      if (t.id === 'eng-b-google') return window.open('https://www.google.com/search?q=' + encodeURIComponent(lerBusca()), '_blank', 'noopener');
+      if (t.id === 'eng-colar-ir') {
+        const v = document.getElementById('eng-colar').value.trim();
+        if (!chave(v)) return toast('Cole um link de perfil do LinkedIn ou do Instagram');
+        est.buscaProduto = est.buscaProduto || (document.getElementById('eng-b-produto') || {}).value;
+        const n = adicionar([{ link: v }]); toast(n ? 'Na fila “A abordar” ✔ (abra o card em Contatos para pôr o nome)' : 'Esse perfil já está na lista', n ? 'ok' : ''); document.getElementById('eng-colar').value = ''; return;
+      }
+      if (t.id === 'eng-todos') { const todos = est.achados.filter(c => !c.jaNaLista).every(c => c._marcado); est.achados.forEach(c => { if (!c.jaNaLista) c._marcado = !todos; }); document.getElementById('eng-resultado').innerHTML = achados(); return; }
+      if (t.id === 'eng-add') { const sel = est.achados.filter(c => c._marcado && !c.jaNaLista); if (!sel.length) return toast('Marque pelo menos um perfil'); const n = adicionar(sel); toast(n + ' na fila “A abordar” ✔', 'ok'); document.getElementById('eng-resultado').innerHTML = achados(); return; }
+      const fl = t.closest('[data-eng-filtro]'); if (fl) { est.filtro.etapa = fl.dataset.engFiltro; return desenhar(); }
+      if (t.id === 'eng-m-salvar') { const msgs = {}; document.querySelectorAll('[data-eng-tipo]').forEach(ta => { msgs[ta.dataset.engTipo] = ta.value.trim(); }); mudarAjuste(est.msgProduto, a => ({ ...a, mensagens: { ...(a.mensagens || {}), [est.msgCanal]: msgs } })); toast('Mensagens salvas ✔', 'ok'); return desenhar(); }
+      if (t.id === 'eng-m-padrao') { if (!confirm('Voltar as mensagens do ' + CANAL[est.msgCanal] + ' ao padrão?')) return; mudarAjuste(est.msgProduto, a => { const m = { ...(a.mensagens || {}) }; delete m[est.msgCanal]; const n = { ...a, mensagens: m }; if (!Object.keys(m).length) delete n.mensagens; return n; }); return desenhar(); }
+      if (t.id === 'eng-m-assinar') { const a = ajustes(); a.assinatura = document.getElementById('eng-m-assinatura').value.trim().slice(0, 200); userSet('eng_ajustes', a); toast('Assinatura salva ✔', 'ok'); return desenhar(); }
+      const id = t.closest('[data-eng-ideia]'); if (id) return copiar(produto(est.conteudoProduto).conteudo[Number(id.dataset.engIdeia)]).then(ok => toast(ok ? 'Ideia copiada' : 'Não consegui copiar', ok ? 'ok' : ''));
+      const ss = t.closest('[data-eng-salvar-servico]'); if (ss) { const card = ss.closest('[data-eng-servico]'), pid = ss.dataset.engSalvarServico, of = card.querySelector('[data-eng-campo="oferta"]').value.trim();
+        mudarAjuste(pid, a => { const n = { ...a, preco: card.querySelector('[data-eng-campo="preco"]').value.trim().slice(0, 60) }; if (of && of !== PRODUTOS.find(p => p.id === pid).oferta) n.oferta = of.slice(0, 400); else delete n.oferta; if (!n.preco) delete n.preco; return n; });
+        toast('Serviço salvo ✔', 'ok'); return desenhar(); }
+    });
+    el.addEventListener('change', e => {
+      const t = e.target;
+      if (t.matches('.eng-contato select[data-eng]')) return acaoContato(e);
+      if (t.dataset.engAchado != null) { const c = est.achados[Number(t.dataset.engAchado)]; if (c) c._marcado = t.checked; return; }
+      const mapa = { 'eng-b-produto': () => { est.buscaProduto = t.value; est.buscaId = ''; est.buscaCidade = ''; est.achados = []; est.buscou = false; }, 'eng-f-produto': () => { est.filtro.produto = t.value; }, 'eng-f-canal': () => { est.filtro.canal = t.value; },
+        'eng-m-produto': () => { est.msgProduto = t.value; }, 'eng-m-canal': () => { est.msgCanal = t.value; }, 'eng-c-produto': () => { est.conteudoProduto = t.value; } };
+      if (mapa[t.id]) { mapa[t.id](); desenhar(); }
+    });
+    el.addEventListener('input', e => {
+      const t = e.target;
+      if (t.dataset.engTipo) return previa(t);
+      if (t.id === 'eng-f-texto') { est.filtro.texto = t.value; clearTimeout(ligar._t); ligar._t = setTimeout(() => { desenhar(); const f = document.getElementById('eng-f-texto'); if (f) { f.focus(); f.setSelectionRange(f.value.length, f.value.length); } }, 250); }
+    });
+    el.addEventListener('keydown', e => { if (e.key === 'Enter' && /^eng-b-(cidade|pagina)$/.test(e.target.id)) { e.preventDefault(); buscar(); } });
+  }
+
+  // aba visível: dono da conta (agenda) ou quem ligou o módulo em Integrações
+  async function engMostrarNav() {
+    let on = false;
+    try { on = !!userGet('mod_eng', false) || (typeof agendaSouDono === 'function' && await agendaSouDono()); } catch (e) { on = false; }
+    const nav = document.getElementById('nav-eng'); if (nav) nav.style.display = on ? '' : 'none';
+    const ck = document.getElementById('mod-eng-toggle'); if (ck) ck.checked = !!userGet('mod_eng', false);
+    return on;
+  }
+  window.engAbrir = function () { ligar(); est.sub = userGet('eng_sub', 'hoje') || 'hoje'; desenhar(); };
+  window.engMostrarNav = engMostrarNav;
+  window.engModuloLigar = function (on) { userSet('mod_eng', !!on); engMostrarNav(); };
+  window._eng = { preencher, chave, novoContato, mudarEtapa, tipoMsg, PRODUTOS, contatos };
+})();
 </script>
